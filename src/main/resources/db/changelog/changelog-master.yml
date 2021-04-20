@@ -1,0 +1,129 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: Pawel
+      runInTransaction: true
+      changes:
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: email_hash
+                  type: varchar
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: nick_name
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: language
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+        - sql:
+            dbms: postgresql
+            sql: "ALTER TABLE users ADD CONSTRAINT language_check CHECK (language IN ('En', 'Pl'))"
+
+        - createIndex:
+            tableName: users
+            columns:
+              - column:
+                  name: email_hash
+
+        - createTable:
+            tableName: user_auth
+            columns:
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    foreignKeyName: fk_auth_user_id
+                    deleteCascade: true
+                    references: users(id)
+              - column:
+                  name: password_hash
+                  type: varchar
+              - column:
+                  name: confirmed
+                  type: boolean
+                  constraints:
+                    nullable: false
+              - column:
+                  name: enabled
+                  type: boolean
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+        - createTable:
+            tableName: temporary_user_tokens
+            columns:
+              - column:
+                  name: token
+                  type: varchar
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_token_user_id
+                    deleteCascade: true
+                    references: users(id)
+                    nullable: false
+              - column:
+                  name: token_type
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+        - sql:
+            dbms: postgresql
+            sql: "ALTER TABLE temporary_user_tokens ADD CONSTRAINT token_type_check CHECK (token_type IN ('Registration', 'PasswordReset'))"
+
+        - createIndex:
+            tableName: temporary_user_tokens
+            columns:
+              - column:
+                  name: user_id
+
+        - createIndex:
+            tableName: temporary_user_tokens
+            columns:
+              - column:
+                  name: token_type
+
+        - createIndex:
+            tableName: temporary_user_tokens
+            columns:
+              - column:
+                  name: created_at
