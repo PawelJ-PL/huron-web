@@ -50,6 +50,23 @@ object UsersRepository {
 
     def deleteTokensByTypeAndUserId(tokenType: TokenType, userId: FUUID): ZIO[Connection, DbException, Long]
 
+    def createApiKey(apiKey: ApiKey): ZIO[Connection, DbException, ApiKey]
+
+    def listUsersApiKeyWithType(userId: FUUID, apiKeyType: ApiKeyType): ZIO[Connection, DbException, List[ApiKey]]
+
+    def getApiKey(keyId: FUUID): ZIO[Connection, DbException, Option[ApiKey]]
+
+    def getAuthWithApiKeyByKeyValue(value: String): ZIO[Connection, DbException, Option[(UserAuth, ApiKey)]]
+
+    def deleteApiKey(keyId: FUUID): ZIO[Connection, DbException, Boolean]
+
+    def updateApiKey(
+      keyId: FUUID,
+      description: Option[String],
+      enabled: Option[Boolean],
+      validTo: Option[Option[Instant]]
+    ): ZIO[Connection, DbException, Boolean]
+
   }
 
   val postgres: ZLayer[Clock, Nothing, UsersRepository] =
@@ -207,6 +224,82 @@ object UsersRepository {
             )
           )
 
+        override def createApiKey(apiKey: ApiKey): ZIO[Has[transactor.Transactor[Task]], DbException, ApiKey] =
+          for {
+            now <- clock.instant
+            genericKeyEntity = apiKey.into[ApiKeyEntity].withFieldConst(_.createdAt, now).withFieldConst(_.updatedAt, now).transform
+            _   <- tzio(run(quote(apiKeys.insert(lift(genericKeyEntity)))))
+          } yield genericKeyEntity.transformInto[ApiKey]
+
+        override def listUsersApiKeyWithType(
+          userId: FUUID,
+          apiKeyType: ApiKeyType
+        ): ZIO[Has[transactor.Transactor[Task]], DbException, List[ApiKey]] =
+          tzio(
+            run(
+              quote(
+                apiKeys.filter(k => k.userId == lift(userId) && k.keyType == lift(apiKeyType))
+              )
+            )
+          ).map(_.transformInto[List[ApiKey]])
+
+        override def getApiKey(keyId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Option[ApiKey]] =
+          tzio(
+            run(
+              quote(
+                apiKeys.filter(_.id == lift(keyId))
+              )
+            )
+          ).map(_.headOption.transformInto[Option[ApiKey]])
+
+        override def getAuthWithApiKeyByKeyValue(
+          value: String
+        ): ZIO[Has[transactor.Transactor[Task]], DbException, Option[(UserAuth, ApiKey)]] =
+          tzio(
+            run(
+              quote(
+                for {
+                  apiKey <- apiKeys.filter(_.key == lift(value))
+                  auth   <- authData.join(_.userId == apiKey.userId)
+                } yield (auth, apiKey)
+              )
+            )
+          ).map(_.headOption.map {
+            case (authEntity, apiKeyEntity) => (authEntity.transformInto[UserAuth], apiKeyEntity.transformInto[ApiKey])
+          })
+
+        override def deleteApiKey(keyId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
+          tzio(
+            run(
+              quote(
+                apiKeys.filter(_.id == lift(keyId)).delete
+              )
+            )
+          ).map(_ < 0)
+
+        override def updateApiKey(
+          keyId: FUUID,
+          description: Option[String],
+          enabled: Option[Boolean],
+          validTo: Option[Option[Instant]]
+        ): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
+          for {
+            now    <- clock.instant
+            result <- tzio(
+                        run(
+                          apiKeys
+                            .dynamic
+                            .filter(_.id == lift(keyId))
+                            .update(
+                              setOpt(_.description, description),
+                              setOpt(_.enabled, enabled),
+                              setOpt(_.validTo, validTo),
+                              setValue(_.updatedAt, now)
+                            )
+                        )
+                      )
+          } yield result > 0
+
         private val users = quote {
           querySchema[UserEntity]("users")
         }
@@ -217,6 +310,10 @@ object UsersRepository {
 
         private val temporaryTokens = quote {
           querySchema[TokenEntity]("temporary_user_tokens")
+        }
+
+        private val apiKeys = quote {
+          querySchema[ApiKeyEntity]("api_keys")
         }
       }
     }
@@ -234,3 +331,14 @@ private final case class UserEntity(
 private final case class AuthEntity(userId: FUUID, passwordHash: Option[String], confirmed: Boolean, enabled: Boolean, updatedAt: Instant)
 
 private final case class TokenEntity(token: String, userId: FUUID, tokenType: TokenType, createdAt: Instant)
+
+private final case class ApiKeyEntity(
+  id: FUUID,
+  key: String,
+  userId: FUUID,
+  keyType: ApiKeyType,
+  description: String,
+  enabled: Boolean,
+  validTo: Option[Instant],
+  createdAt: Instant,
+  updatedAt: Instant)

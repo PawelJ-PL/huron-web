@@ -3,7 +3,14 @@ package com.github.huronapp.api.domain.users
 import cats.syntax.eq._
 import cats.syntax.show._
 import com.github.huronapp.api.config.SecurityConfig
-import com.github.huronapp.api.domain.users.dto.{NewUserReq, PasswordResetReq, PatchUserDataReq, UpdatePasswordReq}
+import com.github.huronapp.api.domain.users.dto.{
+  NewPersonalApiKeyReq,
+  NewUserReq,
+  PasswordResetReq,
+  PatchUserDataReq,
+  UpdateApiKeyDataReq,
+  UpdatePasswordReq
+}
 import com.github.huronapp.api.messagebus.InternalMessage
 import com.github.huronapp.api.messagebus.InternalMessage.{PasswordResetRequested, UserRegistered}
 import com.github.huronapp.api.utils.RandomUtils
@@ -16,6 +23,8 @@ import io.github.gaelrenoux.tranzactio.doobie.{Connection, Database}
 import zio.{Has, Hub, ZIO, ZLayer}
 import zio.logging.Logger
 import zio.macros.accessible
+
+import java.time.Instant
 
 @accessible
 object UsersService {
@@ -39,6 +48,14 @@ object UsersService {
     def requestPasswordResetForUser(email: Email): ZIO[Any, RequestPasswordResetError, TemporaryToken]
 
     def passwordResetUsingToken(tokenValue: String, dto: PasswordResetReq): ZIO[Any, PasswordResetError, Unit]
+
+    def createApiKeyForUser(userId: FUUID, dto: NewPersonalApiKeyReq): ZIO[Any, Nothing, ApiKey]
+
+    def getApiKeysOf(userId: FUUID, keyType: ApiKeyType): ZIO[Any, Nothing, List[ApiKey]]
+
+    def deleteApiKeyAs(userId: FUUID, keyId: FUUID): ZIO[Any, DeleteApiKeyError, Unit]
+
+    def updateApiKeyAs(userId: FUUID, keyId: FUUID, dto: UpdateApiKeyDataReq): ZIO[Any, UpdateApiKeyError, ApiKey]
 
   }
 
@@ -121,7 +138,7 @@ object UsersService {
 
             override def patchUserData(userId: FUUID, dto: PatchUserDataReq): ZIO[Any, PatchUserError, User] =
               db.transactionOrDie(for {
-                _       <- ZIO.cond(dto.nickName.isDefined || dto.language.isDefined, (), NoUpdates(userId, dto))
+                _       <- ZIO.cond(dto.nickName.isDefined || dto.language.isDefined, (), NoUpdates("user", userId, dto))
                 updated <- usersRepo.updateUserData(userId, dto.nickName, dto.language).orDie.someOrFail(UserNotFound(userId))
               } yield updated)
 
@@ -167,6 +184,50 @@ object UsersService {
                 _               <- usersRepo.deleteTokensByTypeAndUserId(TokenType.PasswordReset, userAuth.userId).orDie
                 _               <- logger.info(s"Deleted all password reset tokens for user ${userAuth.userId}")
               } yield ())
+
+            override def createApiKeyForUser(userId: FUUID, dto: NewPersonalApiKeyReq): ZIO[Any, Nothing, ApiKey] =
+              db.transactionOrDie(for {
+                keyId      <- random.randomFuuid
+                keyValue   <- random.secureBytesHex(24).map(_.toLowerCase).orDie
+                key = ApiKey(
+                        keyId,
+                        keyValue,
+                        userId,
+                        ApiKeyType.Personal,
+                        dto.description,
+                        enabled = true,
+                        dto.validTo,
+                        Instant.EPOCH,
+                        Instant.EPOCH
+                      )
+                updatedKey <- usersRepo.createApiKey(key).orDie
+                _          <- logger.info(show"Created new personal API key with id $keyId for user $userId")
+              } yield updatedKey)
+
+            override def getApiKeysOf(userId: FUUID, keyType: ApiKeyType): ZIO[Any, Nothing, List[ApiKey]] =
+              db.transactionOrDie(usersRepo.listUsersApiKeyWithType(userId, keyType)).orDie
+
+            override def deleteApiKeyAs(userId: FUUID, keyId: FUUID): ZIO[Any, DeleteApiKeyError, Unit] =
+              db.transactionOrDie(for {
+                apiKey <- usersRepo.getApiKey(keyId).orDie.someOrFail(ApiKeyNotFound(keyId))
+                _      <- ZIO.cond(apiKey.userId === userId, (), ApiKeyBelongsToAnotherUser(keyId, userId, apiKey.userId))
+                _      <- usersRepo.deleteApiKey(keyId).orDie
+                _      <- logger.info(s"Deleted API key $keyId for user $userId")
+              } yield ())
+
+            override def updateApiKeyAs(userId: FUUID, keyId: FUUID, dto: UpdateApiKeyDataReq): ZIO[Any, UpdateApiKeyError, ApiKey] =
+              db.transactionOrDie(for {
+                _         <- ZIO.cond(
+                               dto.description.isDefined || dto.enabled.isDefined || dto.validTo.isDefined,
+                               (),
+                               NoUpdates("API key", keyId, dto)
+                             )
+                apiKey    <- usersRepo.getApiKey(keyId).orDie.someOrFail(ApiKeyNotFound(keyId))
+                _         <- ZIO.cond(apiKey.userId === userId, (), ApiKeyBelongsToAnotherUser(keyId, userId, apiKey.userId))
+                _         <- usersRepo.updateApiKey(keyId, dto.description, dto.enabled, dto.validTo.map(_.value)).orDie
+                savedUser <- usersRepo.getApiKey(keyId).orDie.someOrFail(ApiKeyNotFound(keyId))
+                _         <- logger.info(s"Updated API key $keyId for user $userId")
+              } yield savedUser)
 
           }
       )

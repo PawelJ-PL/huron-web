@@ -7,10 +7,18 @@ import com.github.huronapp.api.authentication.{AuthenticatedUser, HttpAuthentica
 import com.github.huronapp.api.config.SecurityConfig
 import com.github.huronapp.api.authentication.SessionRepository.SessionRepository
 import com.github.huronapp.api.domain.users.UsersService.UsersService
-import com.github.huronapp.api.domain.users.dto.{PatchUserDataReq, UpdatePasswordReq, UserDataResp}
+import com.github.huronapp.api.domain.users.dto.{
+  ApiKeyDataResp,
+  NewPersonalApiKeyReq,
+  PatchUserDataReq,
+  UpdateApiKeyDataReq,
+  UpdatePasswordReq,
+  UserDataResp
+}
 import com.github.huronapp.api.http.{BaseRouter, ErrorResponse}
 import com.github.huronapp.api.http.EndpointSyntax._
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
+import io.chrisdavenport.fuuid.FUUID
 import io.scalaland.chimney.dsl._
 import org.http4s.HttpRoutes
 import sttp.model.headers.{CookieValueWithMeta, CookieWithMeta}
@@ -95,6 +103,8 @@ object UsersRoutes {
                 user match {
                   case AuthenticatedUser.SessionAuthenticatedUser(session) =>
                     sessionsRepo.deleteSession(session.sessionId).orDie.as(sessionCookie("invalid", 0))
+                  case _: AuthenticatedUser.ApiKeyUser                     =>
+                    ZIO.fail(ErrorResponse.Forbidden("Logout not allowed for this authentication method"))
                 }
             }
 
@@ -143,8 +153,55 @@ object UsersRoutes {
                 )
           }
 
+          private val createApiKeyRoutes: HttpRoutes[RouteEffect] =
+            UsersEndpoints.createPersonalApiKeyEndpoint.toAuthenticatedRoutes[NewPersonalApiKeyReq](auth.asUser) {
+              case (user, dto) => usersService.createApiKeyForUser(user.userId, dto).map(_.transformInto[ApiKeyDataResp])
+            }
+
+          private val listApiKeyRoutes: HttpRoutes[RouteEffect] =
+            UsersEndpoints.listPersonalApiKeysEndpoint.toAuthenticatedRoutes[Unit](auth.asUser) {
+              case (user, _) =>
+                usersService.getApiKeysOf(user.userId, ApiKeyType.Personal).map(_.transformInto[List[ApiKeyDataResp]])
+            }
+
+          private val deleteApiKeyRoutes: HttpRoutes[RouteEffect] =
+            UsersEndpoints.deleteApiKeyEndpoint.toAuthenticatedRoutes[FUUID](auth.asUser) {
+              case (user, keyId) =>
+                usersService
+                  .deleteApiKeyAs(user.userId, keyId)
+                  .flatMapError(error =>
+                    logger.warn(s"Unable to delete API key: ${error.logMessage}").as(UserErrorsMapping.deleteApiKeyError(error))
+                  )
+            }
+
+          private val updateApiKey: HttpRoutes[RouteEffect] =
+            UsersEndpoints.updateApiKeyEndpoint.toAuthenticatedRoutes[(FUUID, UpdateApiKeyDataReq)](auth.asUser) {
+              case (user, rest) =>
+                rest match {
+                  case (keyId, dto) =>
+                    usersService
+                      .updateApiKeyAs(user.userId, keyId, dto)
+                      .map(_.transformInto[ApiKeyDataResp])
+                      .flatMapError(error =>
+                        logger.warn(s"Unable to update API key: ${error.logMessage}").as(UserErrorsMapping.updateApiKeyError(error))
+                      )
+                }
+            }
+
           override val routes: HttpRoutes[RouteEffect] =
-            registerUserRoutes <+> confirmRegistrationRoutes <+> userLoginRoutes <+> userLogoutRoutes <+> userDataRoutes <+> updateUserRoutes <+> updateUserPasswordRoutes <+> requestPasswordResetRoutes <+> passwordResetRoutes
+            registerUserRoutes <+>
+              confirmRegistrationRoutes <+>
+              userLoginRoutes <+>
+              userLogoutRoutes <+>
+              userDataRoutes <+>
+              updateUserRoutes <+>
+              updateUserPasswordRoutes <+>
+              requestPasswordResetRoutes <+>
+              passwordResetRoutes <+>
+              createApiKeyRoutes <+>
+              listApiKeyRoutes <+>
+              deleteApiKeyRoutes <+>
+              updateApiKey
 
         }
     )

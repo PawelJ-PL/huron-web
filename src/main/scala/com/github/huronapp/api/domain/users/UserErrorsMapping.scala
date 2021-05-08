@@ -25,7 +25,7 @@ object UserErrorsMapping {
 
   def patchUserError(error: PatchUserError): ErrorResponse =
     error match {
-      case _: NoUpdates    => ErrorResponse.BadRequest("No updates in request")
+      case _: NoUpdates[_] => ErrorResponse.BadRequest("No updates in request")
       case _: UserNotFound => ErrorResponse.NotFound("User not found")
     }
 
@@ -34,6 +34,19 @@ object UserErrorsMapping {
       case _: CredentialsVerificationError => UsersEndpoints.Responses.updatePasswordInvalidCredentials
       case _: UserNotFound                 => ErrorResponse.NotFound("User not found")
       case _: PasswordsEqual               => UsersEndpoints.Responses.updatePasswordPasswordsEquals
+    }
+
+  def deleteApiKeyError(error: DeleteApiKeyError): ErrorResponse =
+    error match {
+      case ApiKeyNotFound(keyId)                   => ErrorResponse.NotFound(s"API key $keyId not found")
+      case ApiKeyBelongsToAnotherUser(keyId, _, _) => ErrorResponse.NotFound(s"API key $keyId not found")
+    }
+
+  def updateApiKeyError(error: UpdateApiKeyError): ErrorResponse =
+    error match {
+      case _: NoUpdates[_]                         => ErrorResponse.BadRequest("No updates in request")
+      case ApiKeyNotFound(keyId)                   => ErrorResponse.NotFound(s"API key $keyId not found")
+      case ApiKeyBelongsToAnotherUser(keyId, _, _) => ErrorResponse.NotFound(s"API key $keyId not found")
     }
 
 }

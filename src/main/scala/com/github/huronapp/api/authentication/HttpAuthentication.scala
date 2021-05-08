@@ -1,7 +1,7 @@
 package com.github.huronapp.api.authentication
 
 import cats.syntax.eq._
-import com.github.huronapp.api.authentication.AuthenticatedUser.SessionAuthenticatedUser
+import com.github.huronapp.api.authentication.AuthenticatedUser.{ApiKeyUser, SessionAuthenticatedUser}
 import com.github.huronapp.api.authentication.SessionRepository.SessionRepository
 import com.github.huronapp.api.config.SecurityConfig
 import com.github.huronapp.api.domain.users.UsersRepository.UsersRepository
@@ -36,9 +36,15 @@ object HttpAuthentication {
       new Service {
 
         override def asUser(inputs: AuthenticationInputs): ZIO[Any, ErrorResponse, AuthenticatedUser] =
-          sessionFromCookie(inputs)
-            .tapError(err => logger.info(s"Session authentication failed with: $err"))
-            .orElseFail(ErrorResponse.Unauthorized("Invalid credentials"))
+          userFromApiKey(inputs).either.flatMap {
+            case Left(apiKeyAuthError) =>
+              sessionFromCookie(inputs).flatMapError(sessionAuthError =>
+                logger
+                  .info(s"Session auth failed with $sessionAuthError, API key auth failed with $apiKeyAuthError")
+                  .as(ErrorResponse.Unauthorized("Invalid credentials"))
+              )
+            case Right(user)           => ZIO.succeed(user)
+          }
 
         private def sessionFromCookie(inputs: AuthenticationInputs): ZIO[Any, CookieAuthenticationError, SessionAuthenticatedUser] =
           for {
@@ -56,6 +62,21 @@ object HttpAuthentication {
 
         private def checkCsrfToken(session: UserSession, inputs: AuthenticationInputs): Boolean =
           if (isSafe(inputs.method)) true else inputs.csrfToken.exists(_ === session.csrfToken.show)
+
+        private def userFromApiKey(inputs: AuthenticationInputs): ZIO[Any, ApiKeyAuthenticationError, ApiKeyUser] =
+          for {
+            apiKeyValue        <- ZIO.fromOption(inputs.apiKeyHeader.orElse(inputs.apiKeyQueryParam)).orElseFail(ApiKeyNotProvided)
+            (userAuth, apiKey) <-
+              db.transactionOrDie(usersRepo.getAuthWithApiKeyByKeyValue(apiKeyValue).orDie.someOrFail(ApiKeyNotFound(apiKeyValue)))
+            isActive           <- userAuth.isActive
+            _                  <- ZIO.cond(isActive, (), UserIsNotActive(userAuth.userId))
+            _                  <- ZIO.cond(apiKey.enabled, (), ApiKeyDisabled(apiKey.id))
+            now                <- clock.instant
+            _                  <- apiKey.validTo match {
+                                    case Some(validTo) => ZIO.cond(validTo.isAfter(now), (), ApiKeyExpired(apiKey.id, validTo))
+                                    case None          => ZIO.unit
+                                  }
+          } yield ApiKeyUser(apiKey.id, apiKey.keyType, apiKey.userId)
 
       }
     )

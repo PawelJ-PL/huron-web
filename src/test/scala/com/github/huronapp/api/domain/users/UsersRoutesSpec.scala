@@ -4,11 +4,14 @@ import cats.data.Chain
 import com.github.huronapp.api.constants.{Config, MiscConstants, Users}
 import com.github.huronapp.api.domain.users.UsersRoutes.UserRoutes
 import com.github.huronapp.api.domain.users.dto.{
+  ApiKeyDataResp,
   GeneratePasswordResetReq,
   LoginReq,
+  NewPersonalApiKeyReq,
   NewUserReq,
   PasswordResetReq,
   PatchUserDataReq,
+  UpdateApiKeyDataReq,
   UpdatePasswordReq,
   UserDataResp
 }
@@ -21,7 +24,7 @@ import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.implicits._
 import org.http4s.util.CaseInsensitiveString
-import org.http4s.{Header, Method, Request, ResponseCookie, Status}
+import org.http4s.{Header, Method, Request, ResponseCookie, Status, Uri}
 import zio.clock.Clock
 import zio.{Ref, ZIO, ZLayer}
 import zio.interop.catz._
@@ -41,6 +44,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
     UsersServiceStub.withResponses(usersServiceResponses) ++ LoggerFake.usingRef(logs) ++ ZLayer.succeed(
       ExampleSecurityConfig
     ) ++ (RandomUtilsStub.create ++ Clock.any >>> SessionRepoFake.create(sessionRepo)) ++ HttpAuthenticationFake.create >>> UsersRoutes.live
+
+  def apiKeyToResponse(apiKey: ApiKey) =
+    ApiKeyDataResp(apiKey.id, apiKey.key, apiKey.enabled, apiKey.description, apiKey.validTo, apiKey.createdAt, apiKey.updatedAt)
 
   override def spec: ZSpec[TestEnvironment, Any] =
     suite("Users routes suite")(
@@ -74,7 +80,20 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       resetPasswordRequestInactiveUser,
       resetPasswordWithToken,
       resetPasswordWithTokenInvalid,
-      resetPasswordWithTokenInactiveUser
+      resetPasswordWithTokenInactiveUser,
+      createApiKey,
+      createApiKeyUnauthorized,
+      listApiKeys,
+      listApiKeysUnauthorized,
+      deleteApiKey,
+      deleteNonExistingApiKey,
+      deleteApiKeyOwnedByAnotherUser,
+      deleteApiKeyUnauthorized,
+      updateApiKey,
+      updateApiKeyWithNoUpdates,
+      updateNonExistingApiKey,
+      updateApiKeyOwnedByAnotherUser,
+      updateApiKeyUnauthorized
     )
 
   private val exampleSession = UserSession(ExampleFuuid1, ExampleUserId, ExampleFuuid2, Instant.EPOCH)
@@ -89,7 +108,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs        <- Ref.make(Chain.empty[String])
       routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users").withEntity(dto)
-      result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body        <- result.as[ErrorResponse.BadRequest]
     } yield assert(result.status)(equalTo(Status.BadRequest)) &&
       assert(body)(equalTo(ErrorResponse.BadRequest("Invalid request")))
@@ -105,7 +124,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Created)) &&
@@ -123,7 +142,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.Conflict]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
@@ -143,7 +162,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/registrations/abc")
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.NoContent)) &&
@@ -159,7 +178,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/registrations/abc")
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.NotFound]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
@@ -178,7 +197,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         logs             <- Ref.make(Chain.empty[String])
         routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
         req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/registrations/abc")
-        result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+        result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         body             <- result.as[ErrorResponse.NotFound]
         loggedMessages   <- logs.get
         finalSessionRepo <- sessionRepo.get
@@ -198,7 +217,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/auth/login").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[UserDataResp]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
@@ -233,7 +252,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/auth/login").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.Unauthorized]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
@@ -257,7 +276,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/auth/login").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.Unauthorized]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
@@ -281,7 +300,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/auth/login").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.Unauthorized]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
@@ -305,7 +324,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/auth/login").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.Unauthorized]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
@@ -327,7 +346,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.DELETE, uri = uri"/api/v1/users/me/session").withHeaders(validAuthHeader)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.NoContent)) &&
       assert(result.headers.get(CaseInsensitiveString("set-cookie")))(
@@ -350,7 +369,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.DELETE, uri = uri"/api/v1/users/me/session")
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
       assert(result.headers.get(CaseInsensitiveString("set-cookie")))(isNone) &&
@@ -367,7 +386,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/data").withHeaders(validAuthHeader)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[UserDataResp]
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Ok)) &&
@@ -385,7 +404,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/data").withHeaders(validAuthHeader)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.NotFound)) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
@@ -401,7 +420,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/data")
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
@@ -419,7 +438,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.PATCH, uri = uri"/api/v1/users/me/data").withHeaders(validAuthHeader).withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[UserDataResp]
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Ok)) &&
@@ -430,7 +449,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   private val updateUserDataNoUpdates = testM("should generate response for user data update if no updates provided") {
     val dto = PatchUserDataReq(nickName = None, language = None)
 
-    val responses = UsersServiceStub.UsersServiceResponses(patchUser = ZIO.fail(NoUpdates(ExampleUserId, dto)))
+    val responses = UsersServiceStub.UsersServiceResponses(patchUser = ZIO.fail(NoUpdates("user", ExampleUserId, dto)))
 
     val initSessionRepo = SessionRepoFake.SessionRepoState()
 
@@ -439,7 +458,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.PATCH, uri = uri"/api/v1/users/me/data").withHeaders(validAuthHeader).withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.BadRequest]
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.BadRequest)) &&
@@ -459,7 +478,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.PATCH, uri = uri"/api/v1/users/me/data").withHeaders(validAuthHeader).withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.NotFound]
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.NotFound)) &&
@@ -479,7 +498,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.PATCH, uri = uri"/api/v1/users/me/data").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
@@ -497,7 +516,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withHeaders(validAuthHeader).withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.NoContent)) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
@@ -515,7 +534,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withHeaders(validAuthHeader).withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.NotFound)) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
@@ -533,7 +552,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withHeaders(validAuthHeader).withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.PreconditionFailed]
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
@@ -553,7 +572,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withHeaders(validAuthHeader).withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.PreconditionFailed]
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
@@ -573,7 +592,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
@@ -591,7 +610,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/password").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
     } yield assert(result.status)(equalTo(Status.NoContent)) &&
@@ -611,7 +630,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/password").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
     } yield assert(result.status)(equalTo(Status.NoContent)) &&
@@ -631,7 +650,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/password").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
     } yield assert(result.status)(equalTo(Status.NoContent)) &&
@@ -651,7 +670,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.PUT, uri = uri"/api/v1/users/password/abc").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
     } yield assert(result.status)(equalTo(Status.NoContent)) &&
@@ -671,7 +690,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.PUT, uri = uri"/api/v1/users/password/abc").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
     } yield assert(result.status)(equalTo(Status.NotFound)) &&
@@ -691,11 +710,295 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.PUT, uri = uri"/api/v1/users/password/abc").withEntity(dto)
-      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing response"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
     } yield assert(result.status)(equalTo(Status.NotFound)) &&
       assert(loggedMessages)(equalTo(Chain.one("Password reset failed: User 431e092f-50ce-47eb-afbd-b806514d3f2c is not active"))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val createApiKey = testM("should generate response for new API key") {
+    val dto = NewPersonalApiKeyReq("My Key", None)
+
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/api-keys").withHeaders(validAuthHeader).withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ApiKeyDataResp]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(equalTo(apiKeyToResponse(ExampleApiKey))) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val createApiKeyUnauthorized = testM("should generate response for new API key for unauthorized user") {
+    val dto = NewPersonalApiKeyReq("My Key", None)
+
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/api-keys").withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val listApiKeys = testM("should generate response for API keys list") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/api-keys").withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[List[ApiKeyDataResp]]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(equalTo(List(apiKeyToResponse(ExampleApiKey)))) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val listApiKeysUnauthorized = testM("should generate response for API keys list for unauthorized user") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/api-keys")
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val deleteApiKey = testM("should generate response for API key delete") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.DELETE, uri = Uri.unsafeFromString(s"/api/v1/users/me/api-keys/$ExampleApiKeyId"))
+              .withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.NoContent)) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val deleteNonExistingApiKey = testM("should generate response for API key delete if key not found") {
+    val responses = UsersServiceStub.UsersServiceResponses(deleteApiKey = ZIO.fail(ApiKeyNotFound(ExampleApiKeyId)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.DELETE, uri = Uri.unsafeFromString(s"/api/v1/users/me/api-keys/$ExampleApiKeyId"))
+              .withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.NotFound]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.NotFound)) &&
+      assert(body)(equalTo(ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found"))) &&
+      assert(loggedMessages)(equalTo(Chain.one(s"Unable to delete API key: API key with id $ExampleApiKeyId not found"))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val deleteApiKeyOwnedByAnotherUser = testM("should generate response for API key delete if key is owned by another user") {
+    val responses = UsersServiceStub.UsersServiceResponses(deleteApiKey =
+      ZIO.fail(ApiKeyBelongsToAnotherUser(ExampleApiKeyId, ExampleUserId, ExampleFuuid1))
+    )
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.DELETE, uri = Uri.unsafeFromString(s"/api/v1/users/me/api-keys/$ExampleApiKeyId"))
+              .withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.NotFound]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.NotFound)) &&
+      assert(body)(equalTo(ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found"))) &&
+      assert(loggedMessages)(
+        equalTo(Chain.one(s"Unable to delete API key: API key with ID $ExampleApiKeyId belongs to user $ExampleFuuid1, not $ExampleUserId"))
+      ) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val deleteApiKeyUnauthorized = testM("should generate response for API key delete for unauthorized user") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.DELETE, uri = Uri.unsafeFromString(s"/api/v1/users/me/api-keys/$ExampleApiKeyId"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val updateApiKey = testM("should generate response for API key update") {
+    val dto = UpdateApiKeyDataReq(None, Some(true), None)
+
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.PATCH, uri = Uri.unsafeFromString(s"/api/v1/users/me/api-keys/$ExampleApiKeyId"))
+              .withHeaders(validAuthHeader)
+              .withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ApiKeyDataResp]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(equalTo(apiKeyToResponse(ExampleApiKey))) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val updateApiKeyWithNoUpdates = testM("should generate response for API key update with missing updates") {
+    val dto = UpdateApiKeyDataReq(None, None, None)
+
+    val responses = UsersServiceStub.UsersServiceResponses(updateApiKey = ZIO.fail(NoUpdates("API key", ExampleApiKeyId, dto)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.PATCH, uri = Uri.unsafeFromString(s"/api/v1/users/me/api-keys/$ExampleApiKeyId"))
+              .withHeaders(validAuthHeader)
+              .withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.BadRequest]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.BadRequest)) &&
+      assert(body)(equalTo(ErrorResponse.BadRequest("No updates in request"))) &&
+      assert(loggedMessages)(equalTo(Chain.one(s"Unable to update API key: No updates provided for API key $ExampleApiKeyId"))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val updateNonExistingApiKey = testM("should generate response for API key update if key not found") {
+    val dto = UpdateApiKeyDataReq(None, None, None)
+
+    val responses = UsersServiceStub.UsersServiceResponses(updateApiKey = ZIO.fail(ApiKeyNotFound(ExampleApiKeyId)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.PATCH, uri = Uri.unsafeFromString(s"/api/v1/users/me/api-keys/$ExampleApiKeyId"))
+              .withHeaders(validAuthHeader)
+              .withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.NotFound]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.NotFound)) &&
+      assert(body)(equalTo(ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found"))) &&
+      assert(loggedMessages)(equalTo(Chain.one(s"Unable to update API key: API key with id $ExampleApiKeyId not found"))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val updateApiKeyOwnedByAnotherUser = testM("should generate response for API key update if key owned by another user") {
+    val dto = UpdateApiKeyDataReq(None, None, None)
+
+    val responses = UsersServiceStub.UsersServiceResponses(updateApiKey =
+      ZIO.fail(ApiKeyBelongsToAnotherUser(ExampleApiKeyId, ExampleUserId, ExampleFuuid1))
+    )
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.PATCH, uri = Uri.unsafeFromString(s"/api/v1/users/me/api-keys/$ExampleApiKeyId"))
+              .withHeaders(validAuthHeader)
+              .withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.NotFound]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.NotFound)) &&
+      assert(body)(equalTo(ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found"))) &&
+      assert(loggedMessages)(
+        equalTo(Chain.one(s"Unable to update API key: API key with ID $ExampleApiKeyId belongs to user $ExampleFuuid1, not $ExampleUserId"))
+      ) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val updateApiKeyUnauthorized = testM("should generate response for API key update if user unauthorized") {
+    val dto = UpdateApiKeyDataReq(None, Some(true), None)
+
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.PATCH, uri = Uri.unsafeFromString(s"/api/v1/users/me/api-keys/$ExampleApiKeyId"))
+              .withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }
 
