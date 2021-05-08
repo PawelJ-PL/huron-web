@@ -48,4 +48,6 @@ object Versions {
 
   val kamonHttp4s = "2.0.1"
 
+  val scalaTest = "3.2.8"
+
 }

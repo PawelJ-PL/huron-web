@@ -24,6 +24,10 @@ sealed trait RequestPasswordResetError extends UserError
 
 sealed trait PasswordResetError extends UserError
 
+sealed trait DeleteApiKeyError extends UserError
+
+sealed trait UpdateApiKeyError extends UserError
+
 final case class EmailAlreadyRegistered(emailDigest: String) extends CreateUserError {
 
   override val logMessage: String = show"Email with digest $emailDigest already registered"
@@ -69,9 +73,9 @@ final case class InvalidPassword(emailHash: String) extends CredentialsVerificat
 
 }
 
-final case class NoUpdates(userId: FUUID, dto: PatchUserDataReq) extends PatchUserError {
+final case class NoUpdates[A](resourceType: String, resourceId: FUUID, dto: A) extends PatchUserError with UpdateApiKeyError {
 
-  override val logMessage: String = s"No updates provided for user $userId"
+  override val logMessage: String = s"No updates provided for $resourceType $resourceId"
 
 }
 
@@ -84,5 +88,19 @@ final case class UserNotFound(userId: FUUID) extends PatchUserError with UpdateP
 final case class PasswordsEqual(userId: FUUID) extends UpdatePasswordError {
 
   override val logMessage: String = s"New and old password for user $userId are equal"
+
+}
+
+final case class ApiKeyNotFound(keyId: FUUID) extends DeleteApiKeyError with UpdateApiKeyError {
+
+  override val logMessage: String = s"API key with id $keyId not found"
+
+}
+
+final case class ApiKeyBelongsToAnotherUser(keyId: FUUID, expectedUser: FUUID, realUser: FUUID)
+    extends DeleteApiKeyError
+    with UpdateApiKeyError {
+
+  override val logMessage: String = s"API key with ID $keyId belongs to user $realUser, not $expectedUser"
 
 }

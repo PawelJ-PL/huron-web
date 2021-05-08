@@ -2,10 +2,20 @@ package com.github.huronapp.api.testdoubles
 
 import com.github.huronapp.api.constants.Users
 import com.github.huronapp.api.domain.users.UsersService.UsersService
-import com.github.huronapp.api.domain.users.dto.{NewUserReq, PasswordResetReq, PatchUserDataReq, UpdatePasswordReq}
+import com.github.huronapp.api.domain.users.dto.{
+  NewPersonalApiKeyReq,
+  NewUserReq,
+  PasswordResetReq,
+  PatchUserDataReq,
+  UpdateApiKeyDataReq,
+  UpdatePasswordReq
+}
 import com.github.huronapp.api.domain.users.{
+  ApiKey,
+  ApiKeyType,
   CreateUserError,
   CredentialsVerificationError,
+  DeleteApiKeyError,
   Email,
   PasswordResetError,
   PatchUserError,
@@ -13,6 +23,7 @@ import com.github.huronapp.api.domain.users.{
   SignUpConfirmationError,
   TemporaryToken,
   TokenType,
+  UpdateApiKeyError,
   UpdatePasswordError,
   User,
   UsersService
@@ -31,7 +42,11 @@ object UsersServiceStub extends Users {
     updatePassword: ZIO[Any, UpdatePasswordError, Unit] = ZIO.unit,
     passwordResetRequest: ZIO[Any, RequestPasswordResetError, TemporaryToken] = ZIO.succeed(TemporaryToken("abc", ExampleUserId,
         TokenType.PasswordReset)),
-    passwordReset: ZIO[Any, PasswordResetError, Unit] = ZIO.unit)
+    passwordReset: ZIO[Any, PasswordResetError, Unit] = ZIO.unit,
+    createApiKey: ZIO[Any, Nothing, ApiKey] = ZIO.succeed(ExampleApiKey),
+    listApiKeys: ZIO[Any, Nothing, List[ApiKey]] = ZIO.succeed(List(ExampleApiKey)),
+    deleteApiKey: ZIO[Any, DeleteApiKeyError, Unit] = ZIO.unit,
+    updateApiKey: ZIO[Any, UpdateApiKeyError, ApiKey] = ZIO.succeed(ExampleApiKey))
 
   def withResponses(responses: UsersServiceResponses): ULayer[UsersService] =
     ZLayer.succeed(new UsersService.Service {
@@ -54,6 +69,14 @@ object UsersServiceStub extends Users {
 
       override def passwordResetUsingToken(tokenValue: String, dto: PasswordResetReq): ZIO[Any, PasswordResetError, Unit] =
         responses.passwordReset
+
+      override def createApiKeyForUser(userId: FUUID, dto: NewPersonalApiKeyReq): ZIO[Any, Nothing, ApiKey] = responses.createApiKey
+
+      override def getApiKeysOf(userId: FUUID, keyType: ApiKeyType): ZIO[Any, Nothing, List[ApiKey]] = responses.listApiKeys
+
+      override def deleteApiKeyAs(userId: FUUID, keyId: FUUID): ZIO[Any, DeleteApiKeyError, Unit] = responses.deleteApiKey
+
+      override def updateApiKeyAs(userId: FUUID, keyId: FUUID, dto: UpdateApiKeyDataReq): ZIO[Any, UpdateApiKeyError, ApiKey] = responses.updateApiKey
 
     })
 

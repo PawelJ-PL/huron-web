@@ -2,7 +2,7 @@ package com.github.huronapp.api.testdoubles
 
 import cats.syntax.eq._
 import com.github.huronapp.api.domain.users.UsersRepository.UsersRepository
-import com.github.huronapp.api.domain.users.{Language, TemporaryToken, TokenType, User, UserAuth, UsersRepository}
+import com.github.huronapp.api.domain.users.{ApiKey, ApiKeyType, Language, TemporaryToken, TokenType, User, UserAuth, UsersRepository}
 import doobie.util.transactor
 import io.chrisdavenport.fuuid.FUUID
 import io.github.gaelrenoux.tranzactio.DbException
@@ -13,7 +13,13 @@ import scala.concurrent.duration.FiniteDuration
 
 object UsersRepoFake {
 
-  final case class UsersRepoState(users: Set[User] = Set.empty, auth: Set[UserAuth] = Set.empty, tokens: Set[TemporaryToken] = Set.empty)
+  final val RepoTimeNow = Instant.EPOCH.plusSeconds(1200)
+
+  final case class UsersRepoState(
+    users: Set[User] = Set.empty,
+    auth: Set[UserAuth] = Set.empty,
+    tokens: Set[TemporaryToken] = Set.empty,
+    apiKeys: Set[ApiKey] = Set.empty)
 
   def create(ref: Ref[UsersRepoState]): ULayer[UsersRepository] =
     ZLayer.succeed(new UsersRepository.Service {
@@ -122,6 +128,62 @@ object UsersRepoFake {
             prev.copy(tokens = updated)
           }
           .flatMap(beforeUpdate => ref.get.map(state => beforeUpdate.tokens.size - state.tokens.size))
+
+      override def createApiKey(apiKey: ApiKey): ZIO[Has[transactor.Transactor[Task]], DbException, ApiKey] = {
+        val savedKey = apiKey.copy(updatedAt = RepoTimeNow, createdAt = RepoTimeNow)
+        ref.update(prev => prev.copy(apiKeys = prev.apiKeys + savedKey)).as(savedKey)
+      }
+
+      override def listUsersApiKeyWithType(
+        userId: FUUID,
+        apiKeyType: ApiKeyType
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, List[ApiKey]] =
+        ref.get.map(_.apiKeys.filter(k => k.userId === userId && k.keyType === apiKeyType).toList)
+
+      override def getApiKey(keyId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Option[ApiKey]] =
+        ref.get.map(_.apiKeys.find(_.id === keyId))
+
+      override def getAuthWithApiKeyByKeyValue(
+        value: String
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Option[(UserAuth, ApiKey)]] =
+        ref
+          .get
+          .map(state =>
+            for {
+              apiKey <- state.apiKeys.find(_.key === value)
+              auth   <- state.auth.find(_.userId === apiKey.userId)
+            } yield (auth, apiKey)
+          )
+
+      override def deleteApiKey(keyId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
+        ref
+          .getAndUpdate { prev =>
+            val updated = prev.apiKeys.filter(_.id =!= keyId)
+            prev.copy(apiKeys = updated)
+          }
+          .flatMap(beforeUpdate => ref.get.map(state => state.apiKeys =!= beforeUpdate.apiKeys))
+
+      override def updateApiKey(
+        keyId: FUUID,
+        description: Option[String],
+        enabled: Option[Boolean],
+        validTo: Option[Option[Instant]]
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
+        ref
+          .getAndUpdate { prev =>
+            val apiKey = prev.apiKeys.find(_.id === keyId)
+            val updatedKey = apiKey.map { k =>
+              k.copy(
+                description = description.getOrElse(k.description),
+                enabled = enabled.getOrElse(k.enabled),
+                validTo = validTo.getOrElse(k.validTo)
+              )
+            }
+            val updated = updatedKey.map(u => prev.apiKeys.filter(_.id =!= u.id) + u).getOrElse(prev.apiKeys)
+            prev.copy(apiKeys = updated)
+
+          }
+          .flatMap(beforeUpdate => ref.get.map(state => state.apiKeys =!= beforeUpdate.apiKeys))
 
     })
 

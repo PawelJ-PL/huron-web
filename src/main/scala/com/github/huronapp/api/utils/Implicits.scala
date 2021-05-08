@@ -5,7 +5,7 @@ import ciris.{ConfigDecoder, ConfigError}
 import com.vdurmont.semver4j.Semver
 import io.chrisdavenport.fuuid.FUUID
 import io.circe.{Decoder, Encoder}
-import sttp.tapir.Schema
+import sttp.tapir.{Codec, CodecFormat, DecodeResult, Schema}
 
 object Implicits {
 
@@ -27,6 +27,15 @@ object Implicits {
   object fuuid {
 
     implicit val fuuidTapirSchema: Schema[FUUID] = Schema.schemaForString.map(FUUID.fromStringOpt)(_.show)
+
+    implicit val fuuidTapirTextPlainCodec: Codec[String, FUUID, CodecFormat.TextPlain] = Codec
+      .string
+      .mapDecode(value =>
+        FUUID.fromString(value) match {
+          case Left(error)  => DecodeResult.Error(value, error)
+          case Right(fuuid) => DecodeResult.Value(fuuid)
+        }
+      )(_.show)
 
   }
 

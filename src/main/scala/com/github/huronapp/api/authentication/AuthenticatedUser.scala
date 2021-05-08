@@ -1,6 +1,6 @@
 package com.github.huronapp.api.authentication
 
-import com.github.huronapp.api.domain.users.UserSession
+import com.github.huronapp.api.domain.users.{ApiKeyType, UserSession}
 import io.chrisdavenport.fuuid.FUUID
 
 sealed trait AuthenticatedUser {
@@ -16,5 +16,7 @@ object AuthenticatedUser {
     override val userId: FUUID = session.userId
 
   }
+
+  final case class ApiKeyUser(apiKeyId: FUUID, keyType: ApiKeyType, userId: FUUID) extends AuthenticatedUser
 
 }

@@ -2,9 +2,17 @@ package com.github.huronapp.api.domain.users
 
 import com.github.huronapp.api.constants.{Config, MiscConstants, Users}
 import com.github.huronapp.api.domain.users.UsersService.UsersService
-import com.github.huronapp.api.domain.users.dto.{NewUserReq, PasswordResetReq, PatchUserDataReq, UpdatePasswordReq}
+import com.github.huronapp.api.domain.users.dto.{
+  NewPersonalApiKeyReq,
+  NewUserReq,
+  PasswordResetReq,
+  PatchUserDataReq,
+  UpdateApiKeyDataReq,
+  UpdatePasswordReq
+}
 import com.github.huronapp.api.messagebus.InternalMessage
 import com.github.huronapp.api.testdoubles.{CryptoStub, InternalTopicFake, KamonTracingFake, RandomUtilsStub, UsersRepoFake}
+import com.github.huronapp.api.utils.OptionalValue
 import io.github.gaelrenoux.tranzactio.doobie.Database
 import kamon.context.Context
 import zio.blocking.Blocking
@@ -13,6 +21,8 @@ import zio.logging.slf4j.Slf4jLogger
 import zio.test.Assertion.{equalTo, hasSameElements, isEmpty, isLeft, isNone, isSome}
 import zio.test.environment.TestEnvironment
 import zio.test.{DefaultRunnableSpec, ZSpec, assert}
+
+import java.time.Instant
 
 object UserServiceSpec extends DefaultRunnableSpec with Users with Config with MiscConstants {
 
@@ -53,7 +63,16 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       passwordResetRequestForNonExistingEmail,
       passwordResetRequestForInactiveUser,
       passwordResetWithToken,
-      passwordResetWithTokenForInactiveUser
+      passwordResetWithTokenForInactiveUser,
+      createApiKey,
+      getApiKeys,
+      deleteApiKey,
+      deleteNonExistingApiKey,
+      deleteApiKeyOwnedByAnotherUser,
+      updateApiKey,
+      updateApiKeyWithEmptyUpdatesSet,
+      updateNonExistingApiKey,
+      updateApiKeyOwnedByAnotherUser
     )
 
   private val newUserDto = NewUserReq(ExampleUserNickName, ExampleUserEmail, ExampleUserPassword, Some(ExampleUserLanguage))
@@ -287,7 +306,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       result              <- UsersService.patchUserData(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
       finalUsersRepoState <- usersRepo.get
       sentMessages        <- internalTopic.get
-    } yield assert(result)(isLeft(equalTo(NoUpdates(ExampleUserId, dto)))) &&
+    } yield assert(result)(isLeft(equalTo(NoUpdates("user", ExampleUserId, dto)))) &&
       assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
       assert(sentMessages)(isEmpty)
   }
@@ -528,6 +547,159 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       assert(finalUsersRepoState.users)(equalTo(initUsersRepoState.users)) &&
       assert(finalUsersRepoState.auth)(equalTo(initUsersRepoState.auth)) &&
       assert(finalUsersRepoState.tokens)(equalTo(initUsersRepoState.tokens)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val createApiKey = testM("should create new API key") {
+    val dto = NewPersonalApiKeyReq("My Key", None)
+    val initUsersRepoState = UsersRepoFake.UsersRepoState()
+    val expectedKey =
+      ApiKey(
+        FirstRandomFuuid,
+        "000102030405060708090a0b0c0d0e0f1011121314151617",
+        ExampleUserId,
+        ApiKeyType.Personal,
+        "My Key",
+        enabled = true,
+        None,
+        UsersRepoFake.RepoTimeNow,
+        UsersRepoFake.RepoTimeNow
+      )
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo           <- Ref.make(initUsersRepoState)
+      key                 <- UsersService.createApiKeyForUser(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic))
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(key)(equalTo(expectedKey)) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState.copy(apiKeys = initUsersRepoState.apiKeys + expectedKey))) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val getApiKeys = testM("should get API key") {
+    val otherUsersKey = ExampleApiKey.copy(id = ExampleFuuid2, key = "XYZ", userId = ExampleFuuid3)
+
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(apiKeys = Set(ExampleApiKey, otherUsersKey))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo           <- Ref.make(initUsersRepoState)
+      keys                <- UsersService.getApiKeysOf(ExampleUserId, ApiKeyType.Personal).provideLayer(createUsersService(usersRepo, internalTopic))
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(keys)(hasSameElements(List(ExampleApiKey))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val deleteApiKey = testM("should delete API key") {
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(apiKeys = Set(ExampleApiKey))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo           <- Ref.make(initUsersRepoState)
+      _                   <- UsersService.deleteApiKeyAs(ExampleUserId, ExampleApiKeyId).provideLayer(createUsersService(usersRepo, internalTopic))
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(finalUsersRepoState)(equalTo(initUsersRepoState.copy(apiKeys = Set.empty))) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val deleteNonExistingApiKey = testM("should not delete API key if key not found") {
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(apiKeys = Set(ExampleApiKey.copy(id = ExampleFuuid3)))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo           <- Ref.make(initUsersRepoState)
+      result              <- UsersService.deleteApiKeyAs(ExampleUserId, ExampleFuuid1).provideLayer(createUsersService(usersRepo, internalTopic)).either
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(result)(isLeft(equalTo(ApiKeyNotFound(ExampleFuuid1)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val deleteApiKeyOwnedByAnotherUser = testM("should not delete API key which belongs to another user") {
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(apiKeys = Set(ExampleApiKey.copy(userId = ExampleFuuid3)))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo           <- Ref.make(initUsersRepoState)
+      result              <- UsersService.deleteApiKeyAs(ExampleUserId, ExampleApiKeyId).provideLayer(createUsersService(usersRepo, internalTopic)).either
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(result)(isLeft(equalTo(ApiKeyBelongsToAnotherUser(ExampleApiKeyId, ExampleUserId, ExampleFuuid3)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val updateApiKey = testM("should update API key") {
+    val dto = UpdateApiKeyDataReq(None, Some(false), Some(OptionalValue(Some(Instant.EPOCH.plusSeconds(60)))))
+
+    val expectedKey = ExampleApiKey.copy(enabled = false, validTo = Some(Instant.EPOCH.plusSeconds(60)))
+
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(apiKeys = Set(ExampleApiKey))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo           <- Ref.make(initUsersRepoState)
+      result              <- UsersService.updateApiKeyAs(ExampleUserId, ExampleApiKeyId, dto).provideLayer(createUsersService(usersRepo, internalTopic))
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(result)(equalTo(expectedKey)) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState.copy(apiKeys = Set(expectedKey)))) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val updateApiKeyWithEmptyUpdatesSet = testM("should not update API key if nothing has changed") {
+    val dto = UpdateApiKeyDataReq(None, None, None)
+
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(apiKeys = Set(ExampleApiKey))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo           <- Ref.make(initUsersRepoState)
+      result              <-
+        UsersService.updateApiKeyAs(ExampleUserId, ExampleFuuid1, dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(result)(isLeft(equalTo(NoUpdates("API key", ExampleFuuid1, dto)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val updateNonExistingApiKey = testM("should not update API key if key not found") {
+    val dto = UpdateApiKeyDataReq(None, Some(false), Some(OptionalValue(Some(Instant.EPOCH.plusSeconds(60)))))
+
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(apiKeys = Set(ExampleApiKey))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo           <- Ref.make(initUsersRepoState)
+      result              <-
+        UsersService.updateApiKeyAs(ExampleUserId, ExampleFuuid3, dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(result)(isLeft(equalTo(ApiKeyNotFound(ExampleFuuid3)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val updateApiKeyOwnedByAnotherUser = testM("should not update API key owned by another user") {
+    val dto = UpdateApiKeyDataReq(None, Some(false), Some(OptionalValue(Some(Instant.EPOCH.plusSeconds(60)))))
+
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(apiKeys = Set(ExampleApiKey.copy(userId = ExampleFuuid3)))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo           <- Ref.make(initUsersRepoState)
+      result              <-
+        UsersService.updateApiKeyAs(ExampleUserId, ExampleApiKeyId, dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(result)(isLeft(equalTo(ApiKeyBelongsToAnotherUser(ExampleApiKeyId, ExampleUserId, ExampleFuuid3)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
       assert(sentMessages)(isEmpty)
   }
 

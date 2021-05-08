@@ -23,7 +23,7 @@ val dependencies = {
     "org.http4s" %% "http4s-core",
     "org.http4s" %% "http4s-blaze-server",
     "org.http4s" %% "http4s-dsl"
-  ).map(_ % Versions.http4s) ++ Seq( "org.http4s" %% "http4s-circe" % Versions.http4s % "test")
+  ).map(_ % Versions.http4s) ++ Seq("org.http4s" %% "http4s-circe" % Versions.http4s % "test")
 
   val logger = Seq(
     "ch.qos.logback" % "logback-classic" % Versions.logback
@@ -48,7 +48,9 @@ val dependencies = {
     "io.circe" %% "circe-generic",
     "io.circe" %% "circe-shapes",
     "io.circe" %% "circe-generic-extras"
-  ).map(_ % Versions.circe)
+  ).map(_ % Versions.circe) ++ Seq(
+    "io.circe" %% "circe-literal" % Versions.circe,
+  )
 
   val cats = Seq(
     "org.typelevel" %% "cats-core" % Versions.cats
@@ -113,7 +115,11 @@ val dependencies = {
     "io.kamon" %% "kamon-http4s" % Versions.kamonHttp4s
   )
 
-  libraryDependencies ++= plugins ++ zio ++ http4s ++ logger ++ ciris ++ tapir ++ circe ++ cats ++ semver ++ database ++ doobie ++ chimney ++ fuuid ++ crypt ++ enumeratum ++ templating ++ scalaCache ++ kamon
+  val tests = Seq(
+    "org.scalatest" %% "scalatest" % Versions.scalaTest % Test
+  )
+
+  libraryDependencies ++= plugins ++ zio ++ http4s ++ logger ++ ciris ++ tapir ++ circe ++ cats ++ semver ++ database ++ doobie ++ chimney ++ fuuid ++ crypt ++ enumeratum ++ templating ++ scalaCache ++ kamon ++ tests
 }
 
 val compilerOptions = scalacOptions ~= (_.filterNot(Set("-Xfatal-warnings")).+:("-Ymacro-annotations"))

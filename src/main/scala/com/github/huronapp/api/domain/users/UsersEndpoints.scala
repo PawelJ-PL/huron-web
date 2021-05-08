@@ -4,15 +4,20 @@ import cats.data.NonEmptyList
 import com.github.huronapp.api.authentication.AuthenticationInputs
 import com.github.huronapp.api.authentication.TapirAuthenticationInputs.authRequestParts
 import com.github.huronapp.api.domain.users.dto.{
+  ApiKeyDataResp,
   GeneratePasswordResetReq,
   LoginReq,
+  NewPersonalApiKeyReq,
   NewUserReq,
   PasswordResetReq,
   PatchUserDataReq,
+  UpdateApiKeyDataReq,
   UpdatePasswordReq,
   UserDataResp
 }
 import com.github.huronapp.api.http.{BaseEndpoint, ErrorResponse}
+import com.github.huronapp.api.utils.Implicits.fuuid._
+import io.chrisdavenport.fuuid.FUUID
 import sttp.model.StatusCode
 import sttp.model.headers.CookieValueWithMeta
 import sttp.tapir.EndpointIO.Example
@@ -160,6 +165,54 @@ object UsersEndpoints extends BaseEndpoint {
 
   }
 
+  val createPersonalApiKeyEndpoint: Endpoint[(AuthenticationInputs, NewPersonalApiKeyReq), ErrorResponse, ApiKeyDataResp, Any] =
+    usersEndpoint
+      .summary("Create personal API key")
+      .post
+      .prependIn(authRequestParts)
+      .in("me" / "api-keys")
+      .in(jsonBody[NewPersonalApiKeyReq])
+      .out(jsonBody[ApiKeyDataResp])
+      .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))
+
+  val listPersonalApiKeysEndpoint: Endpoint[AuthenticationInputs, ErrorResponse, List[ApiKeyDataResp], Any] = usersEndpoint
+    .summary("List users API keys")
+    .get
+    .prependIn(authRequestParts)
+    .in("me" / "api-keys")
+    .out(jsonBody[List[ApiKeyDataResp]])
+    .errorOut(oneOf[ErrorResponse](unauthorized))
+
+  val deleteApiKeyEndpoint: Endpoint[(AuthenticationInputs, FUUID), ErrorResponse, Unit, Any] =
+    usersEndpoint
+      .summary("Delete personal API key")
+      .delete
+      .prependIn(authRequestParts)
+      .in("me" / "api-keys" / path[FUUID]("apiKeyId"))
+      .out(statusCode(StatusCode.NoContent))
+      .errorOut(
+        oneOf[ErrorResponse](
+          badRequest,
+          unauthorized,
+          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("API token not found"))
+        )
+      )
+
+  val updateApiKeyEndpoint: Endpoint[(AuthenticationInputs, FUUID, UpdateApiKeyDataReq), ErrorResponse, ApiKeyDataResp, Any] = usersEndpoint
+    .summary("Update personal API key")
+    .patch
+    .prependIn(authRequestParts)
+    .in("me" / "api-keys" / path[FUUID]("apiKeyId"))
+    .in(jsonBody[UpdateApiKeyDataReq])
+    .out(jsonBody[ApiKeyDataResp])
+    .errorOut(
+      oneOf[ErrorResponse](
+        unauthorized,
+        oneOfMapping(StatusCode.BadRequest, jsonBody[ErrorResponse.BadRequest].description("No updates provided")),
+        oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("API key not found"))
+      )
+    )
+
   val endpoints: NonEmptyList[ZEndpoint[_, _, _]] =
     NonEmptyList.of(
       registerUserEndpoint,
@@ -170,7 +223,11 @@ object UsersEndpoints extends BaseEndpoint {
       updateUserDataEndpoint,
       updateUserPasswordEndpoint,
       requestPasswordResetEndpoint,
-      passwordResetEndpoint
+      passwordResetEndpoint,
+      createPersonalApiKeyEndpoint,
+      listPersonalApiKeysEndpoint,
+      deleteApiKeyEndpoint,
+      updateApiKeyEndpoint
     )
 
 }

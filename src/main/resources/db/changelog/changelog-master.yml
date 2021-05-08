@@ -127,3 +127,70 @@ databaseChangeLog:
             columns:
               - column:
                   name: created_at
+
+        - createTable:
+            tableName: api_keys
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: key
+                  type: varchar
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_api_key_user_id
+                    deleteCascade: true
+                    references: users(id)
+                    nullable: false
+              - column:
+                  name: key_type
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: enabled
+                  type: boolean
+                  constraints:
+                    nullable: false
+              - column:
+                  name: valid_to
+                  type: timestamptz
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+        - sql:
+            dbms: postgresql
+            sql: "ALTER TABLE api_keys ADD CONSTRAINT api_key_type_check CHECK (key_type IN ('Personal'))"
+
+        - createIndex:
+            tableName: api_keys
+            columns:
+              - column:
+                  name: key
+
+        - createIndex:
+            tableName: api_keys
+            columns:
+              - column:
+                  name: user_id
