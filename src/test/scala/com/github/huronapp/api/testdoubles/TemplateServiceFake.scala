@@ -4,7 +4,7 @@ import cats.Show
 import cats.syntax.show._
 import com.github.huronapp.api.domain.users.Language
 import com.github.huronapp.api.utils.templates.TemplateService.TemplateService
-import com.github.huronapp.api.utils.templates.{Template, TemplateError, TemplateService}
+import com.github.huronapp.api.utils.templates.Template
 import zio.{ULayer, ZIO, ZLayer}
 
 object TemplateServiceFake {

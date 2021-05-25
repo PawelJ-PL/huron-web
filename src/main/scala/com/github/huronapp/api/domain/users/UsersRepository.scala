@@ -328,7 +328,7 @@ private final case class UserEntity(
   createdAt: Instant,
   updatedAt: Instant)
 
-private final case class AuthEntity(userId: FUUID, passwordHash: Option[String], confirmed: Boolean, enabled: Boolean, updatedAt: Instant)
+private final case class AuthEntity(userId: FUUID, passwordHash: String, confirmed: Boolean, enabled: Boolean, updatedAt: Instant)
 
 private final case class TokenEntity(token: String, userId: FUUID, tokenType: TokenType, createdAt: Instant)
 

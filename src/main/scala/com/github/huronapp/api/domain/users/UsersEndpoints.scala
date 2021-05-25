@@ -3,6 +3,7 @@ package com.github.huronapp.api.domain.users
 import cats.data.NonEmptyList
 import com.github.huronapp.api.authentication.AuthenticationInputs
 import com.github.huronapp.api.authentication.TapirAuthenticationInputs.authRequestParts
+import com.github.huronapp.api.domain.users.dto.fields.{Nickname, Password}
 import com.github.huronapp.api.domain.users.dto.{
   ApiKeyDataResp,
   GeneratePasswordResetReq,
@@ -32,7 +33,7 @@ object UsersEndpoints extends BaseEndpoint {
   val registerUserEndpoint: Endpoint[NewUserReq, ErrorResponse, Unit, Any] = usersEndpoint
     .summary("Register new user")
     .post
-    .in(jsonBody[NewUserReq].example(NewUserReq("Alice", Email("foo@example.org"), "secret", Some(Language.En))))
+    .in(jsonBody[NewUserReq].example(NewUserReq(Nickname("Alice"), Email("foo@example.org"), Password("secret"), Some(Language.En))))
     .out(statusCode(StatusCode.Created))
     .errorOut(
       oneOf[ErrorResponse](

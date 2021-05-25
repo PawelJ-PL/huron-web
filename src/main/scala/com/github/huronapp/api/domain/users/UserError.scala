@@ -61,12 +61,6 @@ final case class UserIsNotActive(userId: FUUID)
 
 }
 
-final case class PasswordNotDefined(userId: FUUID) extends CredentialsVerificationError {
-
-  override val logMessage: String = s"Password not defined for user $userId"
-
-}
-
 final case class InvalidPassword(emailHash: String) extends CredentialsVerificationError {
 
   override val logMessage: String = s"Invalid password for user with email hash $emailHash"

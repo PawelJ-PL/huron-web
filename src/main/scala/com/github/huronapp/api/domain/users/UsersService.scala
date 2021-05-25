@@ -75,9 +75,9 @@ object UsersService {
                   emailDigest  <- dto.email.digest.provideLayer(ZLayer.succeed(crypto))
                   _            <- usersRepo.findByEmailDigest(emailDigest).orDie.none.orElseFail(EmailAlreadyRegistered(emailDigest))
                   userId       <- random.randomFuuid
-                  user = User(userId, emailDigest, dto.nickName, dto.language.getOrElse(Language.En))
-                  passwordHash <- crypto.bcryptGenerate(dto.password.getBytes).orDie
-                  authData = UserAuth(userId, Some(passwordHash), confirmed = false, enabled = true)
+                  user = User(userId, emailDigest, dto.nickName.value, dto.language.getOrElse(Language.En))
+                  passwordHash <- crypto.bcryptGenerate(dto.password.value.getBytes).orDie
+                  authData = UserAuth(userId, passwordHash, confirmed = false, enabled = true)
                   _            <- logger.info(show"Registering new user with id $userId")
                   savedUser    <- usersRepo.create(user).orDie
                   _            <- usersRepo.setAuth(authData).orDie
@@ -123,7 +123,6 @@ object UsersService {
                                       .checkPassword(password.getBytes)
                                       .provideLayer(ZLayer.succeed(crypto))
                                       .orDie
-                                      .someOrFail(PasswordNotDefined(user.id))
                 _                <- ZIO.cond(passwordMatch, (), InvalidPassword(emailDigest))
               } yield (user, authData))
                 .tapError {
@@ -139,16 +138,16 @@ object UsersService {
             override def patchUserData(userId: FUUID, dto: PatchUserDataReq): ZIO[Any, PatchUserError, User] =
               db.transactionOrDie(for {
                 _       <- ZIO.cond(dto.nickName.isDefined || dto.language.isDefined, (), NoUpdates("user", userId, dto))
-                updated <- usersRepo.updateUserData(userId, dto.nickName, dto.language).orDie.someOrFail(UserNotFound(userId))
+                updated <- usersRepo.updateUserData(userId, dto.nickName.map(_.value), dto.language).orDie.someOrFail(UserNotFound(userId))
               } yield updated)
 
             override def updatePasswordForUser(userId: FUUID, dto: UpdatePasswordReq): ZIO[Any, UpdatePasswordError, Unit] =
               db.transactionOrDie(for {
-                _               <- ZIO.cond(dto.currentPassword =!= dto.newPassword, (), PasswordsEqual(userId))
+                _               <- ZIO.cond(dto.currentPassword =!= dto.newPassword.value, (), PasswordsEqual(userId))
                 user            <- usersRepo.findById(userId).orDie.someOrFail(UserNotFound(userId))
                 (_, authData)   <- verifyCredentialsWithEmailDigest(user.emailHash, dto.currentPassword)
-                newPasswordHash <- crypto.bcryptGenerate(dto.newPassword.getBytes).orDie
-                _               <- usersRepo.updateUserAuth(authData.copy(passwordHash = Some(newPasswordHash))).orDie
+                newPasswordHash <- crypto.bcryptGenerate(dto.newPassword.value.getBytes).orDie
+                _               <- usersRepo.updateUserAuth(authData.copy(passwordHash = newPasswordHash)).orDie
                 _               <- logger.info(s"Updated password for user $userId")
               } yield ())
 
@@ -178,8 +177,8 @@ object UsersService {
                                      .someOrFail(NoValidTokenFound(tokenValue))
                 isActive        <- userAuth.isActive
                 _               <- ZIO.cond(isActive, (), UserIsNotActive(userAuth.userId))
-                newPasswordHash <- crypto.bcryptGenerate(dto.password.getBytes).orDie
-                _               <- usersRepo.updateUserAuth(userAuth.copy(passwordHash = Some(newPasswordHash))).orDie
+                newPasswordHash <- crypto.bcryptGenerate(dto.password.value.getBytes).orDie
+                _               <- usersRepo.updateUserAuth(userAuth.copy(passwordHash = newPasswordHash)).orDie
                 _               <- logger.info(s"Password has been reset for user ${userAuth.userId}")
                 _               <- usersRepo.deleteTokensByTypeAndUserId(TokenType.PasswordReset, userAuth.userId).orDie
                 _               <- logger.info(s"Deleted all password reset tokens for user ${userAuth.userId}")
@@ -194,7 +193,7 @@ object UsersService {
                         keyValue,
                         userId,
                         ApiKeyType.Personal,
-                        dto.description,
+                        dto.description.value,
                         enabled = true,
                         dto.validTo,
                         Instant.EPOCH,
@@ -224,7 +223,7 @@ object UsersService {
                              )
                 apiKey    <- usersRepo.getApiKey(keyId).orDie.someOrFail(ApiKeyNotFound(keyId))
                 _         <- ZIO.cond(apiKey.userId === userId, (), ApiKeyBelongsToAnotherUser(keyId, userId, apiKey.userId))
-                _         <- usersRepo.updateApiKey(keyId, dto.description, dto.enabled, dto.validTo.map(_.value)).orDie
+                _         <- usersRepo.updateApiKey(keyId, dto.description.map(_.value), dto.enabled, dto.validTo.map(_.value)).orDie
                 savedUser <- usersRepo.getApiKey(keyId).orDie.someOrFail(ApiKeyNotFound(keyId))
                 _         <- logger.info(s"Updated API key $keyId for user $userId")
               } yield savedUser)
