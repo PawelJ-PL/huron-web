@@ -127,7 +127,7 @@ object UsersRepoFake {
             val updated = prev.tokens.filter(t => t.tokenType =!= tokenType || t.userId =!= userId)
             prev.copy(tokens = updated)
           }
-          .flatMap(beforeUpdate => ref.get.map(state => beforeUpdate.tokens.size - state.tokens.size))
+          .flatMap(beforeUpdate => ref.get.map(state => (beforeUpdate.tokens.size - state.tokens.size).toLong))
 
       override def createApiKey(apiKey: ApiKey): ZIO[Has[transactor.Transactor[Task]], DbException, ApiKey] = {
         val savedKey = apiKey.copy(updatedAt = RepoTimeNow, createdAt = RepoTimeNow)

@@ -19,7 +19,6 @@ object UserErrorsMapping {
     error match {
       case _: EmailNotFound      => ErrorResponse.Unauthorized("Invalid credentials")
       case _: UserIsNotActive    => ErrorResponse.Unauthorized("Invalid credentials")
-      case _: PasswordNotDefined => ErrorResponse.Unauthorized("Invalid credentials")
       case _: InvalidPassword    => ErrorResponse.Unauthorized("Invalid credentials")
     }
 

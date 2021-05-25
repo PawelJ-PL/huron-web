@@ -15,11 +15,11 @@ trait Users {
 
   final val ExampleUserEmailDigest = "digest(alice@example.org)"
 
-  final val ExampleUserPassword = "secret"
+  final val ExampleUserPassword = "secret-password"
 
   final val ExampleUserLanguage = Language.Pl
 
-  final val ExampleUserPasswordHash = "bcrypt(secret)"
+  final val ExampleUserPasswordHash = "bcrypt(secret-password)"
 
   final val ExampleUser = User(ExampleUserId, ExampleUserEmailDigest, ExampleUserNickName, ExampleUserLanguage)
 

@@ -60,7 +60,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true))
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
     )
 
     val initSessionsRepoState = SessionRepoFake.SessionRepoState(sessions = Set(userSession))
@@ -84,7 +84,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true))
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
     )
 
     val initSessionsRepoState = SessionRepoFake.SessionRepoState(sessions = Set(userSession))
@@ -112,7 +112,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true))
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
     )
 
     val initSessionsRepoState = SessionRepoFake.SessionRepoState(sessions = Set(userSession))
@@ -140,7 +140,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true))
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
     )
 
     val initSessionsRepoState = SessionRepoFake.SessionRepoState()
@@ -201,7 +201,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = false))
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = false))
     )
 
     val initSessionsRepoState = SessionRepoFake.SessionRepoState(sessions = Set(userSession))
@@ -233,7 +233,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true))
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
     )
 
     val initSessionsRepoState = SessionRepoFake.SessionRepoState(sessions = Set(userSession))
@@ -259,7 +259,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true))
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
     )
 
     val initSessionsRepoState = SessionRepoFake.SessionRepoState(sessions = Set(userSession))
@@ -292,7 +292,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
       val initUsersRepoState = UsersRepoFake.UsersRepoState(
         users = Set(ExampleUser),
-        auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true))
+        auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
       )
 
       val initSessionsRepoState = SessionRepoFake.SessionRepoState(sessions = Set(userSession))
@@ -313,11 +313,11 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
     val inputs = AuthenticationInputs(Some(ExampleFuuid1.show), Some(ExampleFuuid2.show), None, None, Method.POST)
 
     val secondsInWeek = 60 * 60 * 24 * 7
-    val userSession = UserSession(ExampleFuuid1, ExampleUserId, ExampleFuuid2, Instant.EPOCH.minusSeconds(8 * secondsInWeek))
+    val userSession = UserSession(ExampleFuuid1, ExampleUserId, ExampleFuuid2, Instant.EPOCH.minusSeconds(8L * secondsInWeek))
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true))
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
     )
 
     val initSessionsRepoState = SessionRepoFake.SessionRepoState(sessions = Set(userSession))
@@ -347,7 +347,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true)),
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
       apiKeys = Set(ExampleApiKey)
     )
 
@@ -370,7 +370,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true)),
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
       apiKeys = Set(ExampleApiKey)
     )
 
@@ -393,7 +393,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true)),
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
       apiKeys = Set.empty
     )
 
@@ -424,7 +424,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = false)),
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = false)),
       apiKeys = Set(ExampleApiKey)
     )
 
@@ -455,7 +455,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true)),
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
       apiKeys = Set(ExampleApiKey.copy(enabled = false))
     )
 
@@ -486,7 +486,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true)),
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
       apiKeys = Set(ExampleApiKey.copy(validTo = Some(Instant.EPOCH.minusSeconds(1200))))
     )
 
@@ -517,7 +517,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true)),
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
       apiKeys = Set(ExampleApiKey.copy(validTo = Some(Instant.EPOCH.plusSeconds(1200))))
     )
 
@@ -544,7 +544,7 @@ object HttpAuthenticationsSpec extends DefaultRunnableSpec with Config with Misc
 
     val initUsersRepoState = UsersRepoFake.UsersRepoState(
       users = Set(ExampleUser),
-      auth = Set(UserAuth(ExampleUserId, Some(ExampleUserPasswordHash), confirmed = true, enabled = true)),
+      auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
       apiKeys = Set(ExampleApiKey)
     )
 
