@@ -33,7 +33,7 @@ object UsersEndpoints extends BaseEndpoint {
   val registerUserEndpoint: Endpoint[NewUserReq, ErrorResponse, Unit, Any] = usersEndpoint
     .summary("Register new user")
     .post
-    .in(jsonBody[NewUserReq].example(NewUserReq(Nickname("Alice"), Email("foo@example.org"), Password("secret"), Some(Language.En))))
+    .in(jsonBody[NewUserReq].example(NewUserReq(Nickname("Alice"), Email("foo@example.org"), Password("secret-password"), Some(Language.En))))
     .out(statusCode(StatusCode.Created))
     .errorOut(
       oneOf[ErrorResponse](
@@ -78,12 +78,13 @@ object UsersEndpoints extends BaseEndpoint {
       )
     )
 
-  val userDataEndpoint: Endpoint[AuthenticationInputs, ErrorResponse, UserDataResp, Any] = usersEndpoint
+  val userDataEndpoint: Endpoint[AuthenticationInputs, ErrorResponse, (UserDataResp, Option[FUUID]), Any] = usersEndpoint
     .summary("Current users data")
     .get
     .prependIn(authRequestParts)
     .in("me" / "data")
     .out(jsonBody[UserDataResp])
+    .out(header[Option[FUUID]]("X-Csrf-Token"))
     .errorOut(
       oneOf[ErrorResponse](
         unauthorized,
