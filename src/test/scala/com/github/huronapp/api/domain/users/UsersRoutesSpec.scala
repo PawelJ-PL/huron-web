@@ -4,7 +4,18 @@ import cats.data.Chain
 import com.github.huronapp.api.constants.{Config, MiscConstants, Users}
 import com.github.huronapp.api.domain.users.UsersRoutes.UserRoutes
 import com.github.huronapp.api.domain.users.dto.fields.{ApiKeyDescription, Nickname, Password}
-import com.github.huronapp.api.domain.users.dto.{ApiKeyDataResp, GeneratePasswordResetReq, LoginReq, NewPersonalApiKeyReq, NewUserReq, PasswordResetReq, PatchUserDataReq, UpdateApiKeyDataReq, UpdatePasswordReq, UserDataResp}
+import com.github.huronapp.api.domain.users.dto.{
+  ApiKeyDataResp,
+  GeneratePasswordResetReq,
+  LoginReq,
+  NewPersonalApiKeyReq,
+  NewUserReq,
+  PasswordResetReq,
+  PatchUserDataReq,
+  UpdateApiKeyDataReq,
+  UpdatePasswordReq,
+  UserDataResp
+}
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import com.github.huronapp.api.http.ErrorResponse
 import com.github.huronapp.api.testdoubles.HttpAuthenticationFake.validAuthHeader
@@ -14,7 +25,7 @@ import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.implicits._
 import org.http4s.util.CaseInsensitiveString
-import org.http4s.{Header, Method, Request, ResponseCookie, Status, Uri}
+import org.http4s.{Header, Headers, Method, Request, ResponseCookie, Status, Uri}
 import zio.clock.Clock
 import zio.{Ref, ZIO, ZLayer}
 import zio.interop.catz._
@@ -51,8 +62,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       loginUserInactiveUser,
       loginUserInvalidCredentials,
       logoutUser,
+      logoutApiKeyUser,
       logoutUserUnauthorized,
       userData,
+      userDataAuthenticatedWithApiKey,
       userDataNotFound,
       userDataUnauthorized,
       updateUserData,
@@ -324,6 +337,25 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       assert(finalSessionRepo.sessions)(isEmpty)
   }
 
+  private val logoutApiKeyUser = testM("should generate logout response for user authenticated with API key") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+    val initSessionsRepoState = SessionRepoFake.SessionRepoState(sessions = Set(exampleSession))
+
+    for {
+      sessionRepo      <- Ref.make(initSessionsRepoState)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.DELETE, uri = uri"/api/v1/users/me/session")
+              .withHeaders(Headers.of(Header("X-Api-Key", "UserOk")))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.Forbidden]
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.Forbidden)) &&
+      assert(body)(equalTo(ErrorResponse.Forbidden("Logout not allowed for this authentication method"))) &&
+      assert(result.headers.get(CaseInsensitiveString("set-cookie")))(isNone) &&
+      assert(finalSessionRepo)(equalTo(initSessionsRepoState))
+  }
+
   private val logoutUserUnauthorized = testM("should generate response for logout if user unauthorized") {
     val responses = UsersServiceStub.UsersServiceResponses()
 
@@ -355,6 +387,26 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[UserDataResp]
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(result.headers.get(CaseInsensitiveString("X-Csrf-Token")))(isSome(equalTo(Header("X-Csrf-Token", ExampleFuuid2.show)))) &&
+      assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val userDataAuthenticatedWithApiKey = testM("should generate response for API key user data") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/data").withHeaders(Headers.of(Header("X-Api-Key", "UserOk")))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[UserDataResp]
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(result.headers.get(CaseInsensitiveString("X-Csrf-Token")))(isNone) &&
       assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage))) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }

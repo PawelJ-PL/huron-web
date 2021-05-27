@@ -110,8 +110,18 @@ object UsersRoutes {
 
           private val userDataRoutes: HttpRoutes[RouteEffect] = UsersEndpoints.userDataEndpoint.toAuthenticatedRoutes[Unit](auth.asUser) {
             case (user, _) =>
-              usersService.userData(user.userId).someOrFail(ErrorResponse.NotFound("User not found")).map(_.transformInto[UserDataResp])
+              usersService
+                .userData(user.userId)
+                .someOrFail(ErrorResponse.NotFound("User not found"))
+                .map(_.transformInto[UserDataResp])
+                .map((_, csrfTokenForUser(user)))
           }
+
+          private def csrfTokenForUser(user: AuthenticatedUser): Option[FUUID] =
+            user match {
+              case AuthenticatedUser.SessionAuthenticatedUser(session) => Some(session.csrfToken)
+              case _: AuthenticatedUser.ApiKeyUser                     => None
+            }
 
           private val updateUserRoutes: HttpRoutes[RouteEffect] =
             UsersEndpoints.updateUserDataEndpoint.toAuthenticatedRoutes[PatchUserDataReq](auth.asUser) {
