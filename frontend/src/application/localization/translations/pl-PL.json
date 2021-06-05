@@ -1,0 +1,130 @@
+{
+    "common": {
+        "email": "email",
+        "password": "hasło",
+        "nickname": "pseudonim",
+        "language": "język",
+        "description": "opis",
+        "unexpected-error": "nieoczekiwany błąd",
+        "field-required": "Pole jest wymagane",
+        "field-min-length": "Minimalna ilość znaków wynosi {{minChars}}",
+        "field-max-length": "Maksymalna ilość znaków wynosi {{maxChars}}",
+        "field-word-regex": "Dopuszczalne znaki to litery, cyfry oraz symbol podkreślenia",
+        "field-non-empty": "Pole nie może być puste",
+        "form-save": "zapisz",
+        "form-reset": "reset",
+        "copy-imperative": "kopiuj",
+        "delete-imperative": "skasuj",
+        "never": "nigdy",
+        "cancel-imperative": "anuluj",
+        "confirm-imperative": "potwierdź",
+        "create-imperative": "stwórz",
+        "not-valid-date": "nieprawidłowa data"
+    },
+    "error-pages": {
+        "user-loading-failed": {
+            "header": "Oops! Coś poszło nie tak.",
+            "description": "Nie można odczytać danych użytkownika"
+        },
+        "page-not-found": {
+            "description": "Strona nie została odnaleziona"
+        },
+        "user-activation-failed": {
+            "header": "Oops! Coś poszło nie tak.",
+            "description": "Nie można aktywować użytkownika. Spróbuj ponownie później."
+        }
+    },
+    "login-page": {
+        "password-min-length": "Hasło musi zawierać przynajmniej {{minChars}} znaków",
+        "invalid-username-or-password": "Niepoprawny użytkownik lub hasło",
+        "sign-up-invitation": "<0>Nie masz jeszcze konta? <1>Zarejestruj się</1></0>",
+        "forgot-my-password": "Nie pamiętam hasła"
+    },
+    "signup-page": {
+        "email-address-label": "Adres email",
+        "create-account": "Utwórz konto",
+        "invalid-email-format": "Niepoprawny format adresu",
+        "password-min-length": "Hasło musi zawierać przynajmniej {{minChars}} znaków",
+        "user-already-registered": "Podany adres został już zarejestrowany",
+        "signup-success-message": "Rejestracja zakończona powodzeniem. Sprawdź swoją skrzynkę e-mail w celu aktywacji konta.",
+        "show-password-button-label": "Pokaż hasło",
+        "hide-password-button-label": "Ukryj hasło",
+        "back-to-login": "<0>Posiadam już konto. Powrót do <1>strony logowania</1></0>"
+    },
+    "activation-page": {
+        "activation-successful-message": "Aktywacja zakończona. Możesz już korzystać z serwisu",
+        "activation-failed-message": "Link aktywacyjny jest niepoprawny lub wygasł"
+    },
+    "password-reset-request-page": {
+        "forgot-my-password": "Nie pamiętam swojego hasła",
+        "provide-email-address": "Wprowadź adres e-mail. Zostanie na niego wysłany link umożliwiający reset hasła.",
+        "send-link": "Wyślij email z linkiem do resetu hasła",
+        "request-success-message": "Jeśli adres email jest zarejetrowany, zostanie na niego wysłany link do resetu hasła. Sprawdź swoją skrzynkę odbiorczą.",
+        "back-to-login": "<0>Powrót do <1>strony logowania</1></0>"
+    },
+    "reset-password-page": {
+        "access-to-documents-will-be-lost": "Dostęp do wszystkich zaszyfrowanych dokumentów zostanie utracony. Jeśli do dokumentu mają dostęp inni użytkownicy, można poprosić ich o ponowne nadanie dostępu.",
+        "password-min-length": "Hasło musi zawierać przynajmniej {{minChars}} znaków",
+        "not-the-same-passwords": "Hasła nie są takie same",
+        "confirm-password": "Powtórz hasło",
+        "set-new-password": "Ustaw nowe hasło",
+        "invalid-token-or-email": "Nie udało się ustawić hasła. Użyty link jest niepoprawny, wygasł lub wprowadzono niewłaściwy adres email.",
+        "password-has-been-reset": "Hasło został zmienione."
+    },
+    "top-bar": {
+        "unknown-user": "Nieznany użytkownik",
+        "account-menu-items": {
+            "profile": "Profil użytkownika",
+            "logout": "Wyloguj"
+        },
+        "logout-failed-message": "Wylogowanie nie powiodło się"
+    },
+    "profile-page": {
+        "refresh-failed-toast": {
+            "title": "Nie udało się pobrać danych o użytkowniku",
+            "description": "Prezentowane dane mogą być przestarzałe"
+        },
+        "loading-user-data": "Wczytywanie danych użytkownika",
+        "sections": {
+            "user-profile": "Profil użytkownika",
+            "change-password": "Zmiana hasła",
+            "api-keys": "Klucze API"
+        },
+        "no-updates-provided-message": "Nie dokonano żadnych zmian",
+        "loading-api-keys": "Wczytywanie listy kluczy API",
+        "no-api-keys-created": "Nie utworzono żadnego klucza",
+        "create-api-key": "Stwórz nowy klucz API",
+        "api-key-list-fields": {
+            "api-key": "Klucz API",
+            "description": "Opis",
+            "enabled": "Włączony",
+            "valid-to": "Wygasa",
+            "created-at": "Utworzony",
+            "delete": "Skasuj"
+        },
+        "show-api-key-label": "Pokaż klucz API",
+        "hide-api-key-label": "Ukryj klucz API",
+        "api-key-update-failed": "Nie można zapisać zmian",
+        "delete-api-key-confirmation": "Czy na pewno usunąć klucz API?",
+        "api-key-delete-failed": "Nie udało się usunąć klucza API",
+        "api-key-expirataion-modal": {
+            "header": "Ustaw czas wygaśnięcia klucza API",
+            "expiration-switch-label": "Klucz API wygasa",
+            "datepicker-time-caption": "Godzina"
+        },
+        "api-key-description-pattern-not-match": "Dozwolone wyłącznie małe i wielkie litery, cyfry, znak spacji oraz _",
+        "create-new-api-key": "Stwórz nowy klucz API",
+        "api-key-create-failed": "Nie udało się stworzyć klucza API",
+        "password-change": {
+            "not-the-same-passwords": "Hasła nie są takie same",
+            "old-and-new-are-equal": "Nowe hasło jest takie same jak obecne",
+            "old-password-field": "Aktualne hasło",
+            "new-password-field": "Nowe hasło",
+            "confirm-new-password-field": "Potwierdź nowe hasło",
+            "submit-button": "Zmień hasło",
+            "invalid-credentials-error": "Wprowadzone aktualne hasło jest nieprawidłowe.",
+            "invalid-email-error": "Wprowadzony adres email jest nieprawidłowy.",
+            "password-changed-message": "Hasło zostało zmienione."
+        }
+    }
+}

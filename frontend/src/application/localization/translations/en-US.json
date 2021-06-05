@@ -1,0 +1,130 @@
+{
+    "common": {
+        "email": "email",
+        "password": "password",
+        "nickname": "nickname",
+        "language": "language",
+        "description": "description",
+        "unexpected-error": "unexpected error",
+        "field-required": "The field is required",
+        "field-min-length": "the minimum number of characters is {{minChars}}",
+        "field-max-length": "the maximum number of characters is {{maxChars}}",
+        "field-word-regex": "The only acceptable characters are letters, numbers and the underscore",
+        "field-non-empty": "Field cannot be empty",
+        "form-save": "save",
+        "form-reset": "reset",
+        "copy-imperative": "copy",
+        "delete-imperative": "delete",
+        "never": "never",
+        "cancel-imperative": "cancel",
+        "confirm-imperative": "confirm",
+        "create-imperative": "create",
+        "not-valid-date": "not valid date"
+    },
+    "error-pages": {
+        "user-loading-failed": {
+            "header": "Oops! Something went wrong.",
+            "description": "Unable to read user data"
+        },
+        "page-not-found": {
+            "description": "Page not found"
+        },
+        "user-activation-failed": {
+            "header": "Oops! Something went wrong.",
+            "description": "Unable to activate user. Try again later."
+        }
+    },
+    "login-page": {
+        "password-min-length": "Password must be at least {{minChars}} characters",
+        "invalid-username-or-password": "Invalid username or password",
+        "sign-up-invitation": "<0>Don't have an account yet? <1>Sign up</1></0>",
+        "forgot-my-password": "I forgot my password"
+    },
+    "signup-page": {
+        "email-address-label": "Email address",
+        "create-account": "Create account",
+        "invalid-email-format": "Invalid address format",
+        "password-min-length": "Password must be at least {{minChars}} characters",
+        "user-already-registered": "Email already registered.",
+        "signup-success-message": "Registration successfully completed. Check your email for account activation.",
+        "show-password-button-label": "Show password",
+        "hide-password-button-label": "Hide password",
+        "back-to-login": "<0>I already have an account. Back to login page <1>login page</1></0>"
+    },
+    "activation-page": {
+        "activation-successful-message": "Activation successfully completed. Now you can use the service.",
+        "activation-failed-message": "Activation link is incorrect or expired"
+    },
+    "password-reset-request-page": {
+        "forgot-my-password": "I forgot my password",
+        "provide-email-address": "Enter your email address. A password reset link will be sent to your mailbox.",
+        "send-link": "Send email with password reset link",
+        "request-success-message": "If the email address is registered, a password reset link will be sent to it. Check your inbox.",
+        "back-to-login": "<0>Back to <1>login page</1></0>"
+    },
+    "reset-password-page": {
+        "access-to-documents-will-be-lost": "Access to all encrypted documents will be lost. If other users have access to the document, you can ask them to grant access.",
+        "password-min-length": "Password must be at least {{minChars}} characters",
+        "not-the-same-passwords": "Passwords aren't the same",
+        "confirm-password": "Confirm password",
+        "set-new-password": "Set new password",
+        "invalid-token-or-email": "Failed to set a new password. The link used is invalid, expired, or the wrong email address was provided.",
+        "password-has-been-reset": "Password has been changed."
+    },
+    "top-bar": {
+        "unknown-user": "Unknown user",
+        "account-menu-items": {
+            "profile": "User profile",
+            "logout": "Logout"
+        },
+        "logout-failed-message": "Logout failed"
+    },
+    "profile-page": {
+        "refresh-failed-toast": {
+            "title": "Failed to retrieve user data",
+            "description": "Presented data may be outdated"
+        },
+        "loading-user-data": "Loading user data",
+        "sections": {
+            "user-profile": "User profile",
+            "change-password": "Change password",
+            "api-keys": "API keys"
+        },
+        "no-updates-provided-message": "No changes have been made",
+        "loading-api-keys": "Loading API keys list",
+        "no-api-keys-created": "No API key has been created",
+        "create-api-key": "Create new API key",
+        "api-key-list-fields": {
+            "api-key": "API key",
+            "description": "Description",
+            "enabled": "Enabled",
+            "valid-to": "Wygasa",
+            "created-at": "Created",
+            "delete": "Delete"
+        },
+        "show-api-key-label": "Show API key",
+        "hide-api-key-label": "Hide API key",
+        "api-key-update-failed": "Unable to save changes",
+        "delete-api-key-confirmation": "Are you sure you want to delete the API key?",
+        "api-key-delete-failed": "Failed to delete API key",
+        "api-key-expirataion-modal": {
+            "header": "Set expiration time for the API key",
+            "expiration-switch-label": "API key expires",
+            "datepicker-time-caption": "Time"
+        },
+        "api-key-description-pattern-not-match": "Only lowercase and uppercase letters, numbers, space character and _ are allowed.",
+        "create-new-api-key": "Create a new API key",
+        "api-key-create-failed": "Failed to create API key",
+        "password-change": {
+            "not-the-same-passwords": "Passwords aren't the same",
+            "old-and-new-are-equal": "The new password is the same as the current one",
+            "old-password-field": "Current password",
+            "new-password-field": "New password",
+            "confirm-new-password-field": "Confirm new password",
+            "submit-button": "Change password",
+            "invalid-credentials-error": "The current password you entered is incorrect.",
+            "invalid-email-error": "The email address you entered is incorrect.",
+            "password-changed-message": "The password has been changed."
+        }
+    }
+}
