@@ -63,6 +63,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       passwordResetRequestForInactiveUser,
       passwordResetWithToken,
       passwordResetWithTokenForInactiveUser,
+      passwordResetWithTokenForInvalidEmail,
       createApiKey,
       getApiKeys,
       deleteApiKey,
@@ -464,7 +465,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val passwordResetWithToken = testM("should reset password") {
-    val dto = PasswordResetReq(Password("new-secret-password"))
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -489,7 +490,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val passwordResetWithTokenForInactiveUser = testM("should not reset password if user is not active") {
-    val dto = PasswordResetReq(Password("new-secret-password"))
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -506,6 +507,30 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState <- usersRepo.get
       sentMessages        <- internalTopic.get
     } yield assert(result)(isLeft(equalTo(UserIsNotActive(ExampleUserId)))) &&
+      assert(finalUsersRepoState.users)(equalTo(initUsersRepoState.users)) &&
+      assert(finalUsersRepoState.auth)(equalTo(initUsersRepoState.auth)) &&
+      assert(finalUsersRepoState.tokens)(equalTo(initUsersRepoState.tokens)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val passwordResetWithTokenForInvalidEmail = testM("should not reset password if email address does not match") {
+    val dto = PasswordResetReq(Password("new-secret-password"), Email("other@example.org"))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(
+        users = Set(ExampleUser),
+        auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
+        tokens = Set(
+          TemporaryToken("abc", ExampleUserId, TokenType.PasswordReset),
+          TemporaryToken("xyz", ExampleUserId, TokenType.PasswordReset)
+        )
+      )
+      usersRepo           <- Ref.make(initUsersRepoState)
+      result              <- UsersService.passwordResetUsingToken("abc", dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(result)(isLeft(equalTo(EmailDigestDoesNotMatch(ExampleUserId, "digest(other@example.org)", ExampleUserEmailDigest)))) &&
       assert(finalUsersRepoState.users)(equalTo(initUsersRepoState.users)) &&
       assert(finalUsersRepoState.auth)(equalTo(initUsersRepoState.auth)) &&
       assert(finalUsersRepoState.tokens)(equalTo(initUsersRepoState.tokens)) &&

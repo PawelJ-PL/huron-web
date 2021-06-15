@@ -83,6 +83,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       resetPasswordWithToken,
       resetPasswordWithTokenInvalid,
       resetPasswordWithTokenInactiveUser,
+      resetPasswordWithInvalidEmail,
       createApiKey,
       createApiKeyUnauthorized,
       listApiKeys,
@@ -401,7 +402,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       sessionRepo      <- Ref.make(initSessionRepo)
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-      req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/data").withHeaders(Headers.of(Header("X-Api-Key", "UserOk")))
+      req =
+        Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/data").withHeaders(Headers.of(Header("X-Api-Key", "UserOk")))
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[UserDataResp]
       finalSessionRepo <- sessionRepo.get
@@ -676,7 +678,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val resetPasswordWithToken = testM("should generate response for password reset") {
-    val dto = PasswordResetReq(Password("new-secret-password"))
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
 
     val responses = UsersServiceStub.UsersServiceResponses()
 
@@ -696,7 +698,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val resetPasswordWithTokenInvalid = testM("should generate response for password reset if token is invalid") {
-    val dto = PasswordResetReq(Password("new-secret-password"))
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
 
     val responses = UsersServiceStub.UsersServiceResponses(passwordReset = ZIO.fail(NoValidTokenFound("abc")))
 
@@ -716,7 +718,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val resetPasswordWithTokenInactiveUser = testM("should generate response for password reset if user is inactive") {
-    val dto = PasswordResetReq(Password("new-secret-password"))
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
 
     val responses = UsersServiceStub.UsersServiceResponses(passwordReset = ZIO.fail(UserIsNotActive(ExampleUserId)))
 
@@ -732,6 +734,34 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       loggedMessages   <- logs.get
     } yield assert(result.status)(equalTo(Status.NotFound)) &&
       assert(loggedMessages)(equalTo(Chain.one("Password reset failed: User 431e092f-50ce-47eb-afbd-b806514d3f2c is not active"))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val resetPasswordWithInvalidEmail = testM("should generate response for password reset if email is incorrect") {
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
+
+    val responses = UsersServiceStub.UsersServiceResponses(passwordReset =
+      ZIO.fail(EmailDigestDoesNotMatch(ExampleUserId, ExampleUserEmailDigest, "otherDigest"))
+    )
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.PUT, uri = uri"/api/v1/users/password/abc").withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.NotFound)) &&
+      assert(loggedMessages)(
+        equalTo(
+          Chain.one(
+            "Password reset failed: The digest of user 431e092f-50ce-47eb-afbd-b806514d3f2c email address was expected to be digest(alice@example.org), but otherDigest was found"
+          )
+        )
+      ) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }
 

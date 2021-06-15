@@ -171,17 +171,24 @@ object UsersService {
 
             override def passwordResetUsingToken(tokenValue: String, dto: PasswordResetReq): ZIO[Any, PasswordResetError, Unit] =
               db.transactionOrDie(for {
-                userAuth        <- usersRepo
-                                     .getAuthWithTokenNotOlderThan(tokenValue, TokenType.PasswordReset, securityConfig.passwordResetValidFor)
-                                     .orDie
-                                     .someOrFail(NoValidTokenFound(tokenValue))
-                isActive        <- userAuth.isActive
-                _               <- ZIO.cond(isActive, (), UserIsNotActive(userAuth.userId))
-                newPasswordHash <- crypto.bcryptGenerate(dto.password.value.getBytes).orDie
-                _               <- usersRepo.updateUserAuth(userAuth.copy(passwordHash = newPasswordHash)).orDie
-                _               <- logger.info(s"Password has been reset for user ${userAuth.userId}")
-                _               <- usersRepo.deleteTokensByTypeAndUserId(TokenType.PasswordReset, userAuth.userId).orDie
-                _               <- logger.info(s"Deleted all password reset tokens for user ${userAuth.userId}")
+                userAuth            <- usersRepo
+                                         .getAuthWithTokenNotOlderThan(tokenValue, TokenType.PasswordReset, securityConfig.passwordResetValidFor)
+                                         .orDie
+                                         .someOrFail(NoValidTokenFound(tokenValue))
+                isActive            <- userAuth.isActive
+                _                   <- ZIO.cond(isActive, (), UserIsNotActive(userAuth.userId))
+                userData            <- usersRepo.findById(userAuth.userId).orDie.someOrFail(UserNotFound(userAuth.userId))
+                expectedEmailDigest <- dto.email.digest.provideLayer(ZLayer.succeed(crypto))
+                _                   <- ZIO.cond(
+                                         expectedEmailDigest === userData.emailHash,
+                                         (),
+                                         EmailDigestDoesNotMatch(userAuth.userId, expectedEmailDigest, userData.emailHash)
+                                       )
+                newPasswordHash     <- crypto.bcryptGenerate(dto.password.value.getBytes).orDie
+                _                   <- usersRepo.updateUserAuth(userAuth.copy(passwordHash = newPasswordHash)).orDie
+                _                   <- logger.info(s"Password has been reset for user ${userAuth.userId}")
+                _                   <- usersRepo.deleteTokensByTypeAndUserId(TokenType.PasswordReset, userAuth.userId).orDie
+                _                   <- logger.info(s"Deleted all password reset tokens for user ${userAuth.userId}")
               } yield ())
 
             override def createApiKeyForUser(userId: FUUID, dto: NewPersonalApiKeyReq): ZIO[Any, Nothing, ApiKey] =
