@@ -1,7 +1,6 @@
 package com.github.huronapp.api.domain.users
 
 import cats.syntax.show._
-import com.github.huronapp.api.domain.users.dto.PatchUserDataReq
 import io.chrisdavenport.fuuid.FUUID
 
 sealed trait UserError {
@@ -73,7 +72,7 @@ final case class NoUpdates[A](resourceType: String, resourceId: FUUID, dto: A) e
 
 }
 
-final case class UserNotFound(userId: FUUID) extends PatchUserError with UpdatePasswordError {
+final case class UserNotFound(userId: FUUID) extends PatchUserError with UpdatePasswordError with PasswordResetError {
 
   override val logMessage: String = s"User with id $userId not found"
 
@@ -96,5 +95,12 @@ final case class ApiKeyBelongsToAnotherUser(keyId: FUUID, expectedUser: FUUID, r
     with UpdateApiKeyError {
 
   override val logMessage: String = s"API key with ID $keyId belongs to user $realUser, not $expectedUser"
+
+}
+
+final case class EmailDigestDoesNotMatch(userId: FUUID, expectedDigest: String, currentDigest: String) extends PasswordResetError {
+
+  override val logMessage: String =
+    s"The digest of user $userId email address was expected to be $expectedDigest, but $currentDigest was found"
 
 }
