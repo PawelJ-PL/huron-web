@@ -33,7 +33,9 @@ object UsersEndpoints extends BaseEndpoint {
   val registerUserEndpoint: Endpoint[NewUserReq, ErrorResponse, Unit, Any] = usersEndpoint
     .summary("Register new user")
     .post
-    .in(jsonBody[NewUserReq].example(NewUserReq(Nickname("Alice"), Email("foo@example.org"), Password("secret-password"), Some(Language.En))))
+    .in(
+      jsonBody[NewUserReq].example(NewUserReq(Nickname("Alice"), Email("foo@example.org"), Password("secret-password"), Some(Language.En)))
+    )
     .out(statusCode(StatusCode.Created))
     .errorOut(
       oneOf[ErrorResponse](
@@ -164,6 +166,9 @@ object UsersEndpoints extends BaseEndpoint {
 
     val updatePasswordInvalidCredentials: ErrorResponse.PreconditionFailed =
       ErrorResponse.PreconditionFailed("Current password is incorrect", Some("InvalidCurrentPassword"))
+
+    val updatePasswordInvalidEmail: ErrorResponse.PreconditionFailed =
+      ErrorResponse.PreconditionFailed("Email is incorrect", Some("InvalidEmail"))
 
   }
 

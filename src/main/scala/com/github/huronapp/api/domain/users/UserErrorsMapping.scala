@@ -17,9 +17,9 @@ object UserErrorsMapping {
 
   def loginError(error: CredentialsVerificationError): ErrorResponse =
     error match {
-      case _: EmailNotFound      => ErrorResponse.Unauthorized("Invalid credentials")
-      case _: UserIsNotActive    => ErrorResponse.Unauthorized("Invalid credentials")
-      case _: InvalidPassword    => ErrorResponse.Unauthorized("Invalid credentials")
+      case _: EmailNotFound   => ErrorResponse.Unauthorized("Invalid credentials")
+      case _: UserIsNotActive => ErrorResponse.Unauthorized("Invalid credentials")
+      case _: InvalidPassword => ErrorResponse.Unauthorized("Invalid credentials")
     }
 
   def patchUserError(error: PatchUserError): ErrorResponse =
@@ -31,6 +31,7 @@ object UserErrorsMapping {
   def updatePasswordError(error: UpdatePasswordError): ErrorResponse =
     error match {
       case _: CredentialsVerificationError => UsersEndpoints.Responses.updatePasswordInvalidCredentials
+      case _: EmailDigestDoesNotMatch      => UsersEndpoints.Responses.updatePasswordInvalidEmail
       case _: UserNotFound                 => ErrorResponse.NotFound("User not found")
       case _: PasswordsEqual               => UsersEndpoints.Responses.updatePasswordPasswordsEquals
     }
