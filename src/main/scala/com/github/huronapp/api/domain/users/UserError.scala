@@ -98,7 +98,9 @@ final case class ApiKeyBelongsToAnotherUser(keyId: FUUID, expectedUser: FUUID, r
 
 }
 
-final case class EmailDigestDoesNotMatch(userId: FUUID, expectedDigest: String, currentDigest: String) extends PasswordResetError {
+final case class EmailDigestDoesNotMatch(userId: FUUID, expectedDigest: String, currentDigest: String)
+    extends PasswordResetError
+    with UpdatePasswordError {
 
   override val logMessage: String =
     s"The digest of user $userId email address was expected to be $expectedDigest, but $currentDigest was found"

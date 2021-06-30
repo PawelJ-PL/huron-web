@@ -1,11 +1,12 @@
 package com.github.huronapp.api.domain.users.dto
 
+import com.github.huronapp.api.domain.users.Email
 import com.github.huronapp.api.domain.users.dto.fields.Password
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.Schema
 
-final case class UpdatePasswordReq(currentPassword: String, newPassword: Password)
+final case class UpdatePasswordReq(email: Email, currentPassword: String, newPassword: Password)
 
 object UpdatePasswordReq {
 

@@ -75,6 +75,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       changePassword,
       changePasswordUserNotFound,
       changePasswordInvalidCredentials,
+      changePasswordInvalidEmails,
       changePasswordPasswordsEqual,
       changePasswordUnauthorized,
       resetPasswordRequest,
@@ -524,7 +525,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePassword = testM("should generate response for password change") {
-    val dto = UpdatePasswordReq(ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
 
     val responses = UsersServiceStub.UsersServiceResponses()
 
@@ -542,7 +543,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordUserNotFound = testM("should generate response for password change if user not found") {
-    val dto = UpdatePasswordReq(ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
 
     val responses = UsersServiceStub.UsersServiceResponses(updatePassword = ZIO.fail(UserNotFound(ExampleUserId)))
 
@@ -560,7 +561,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordInvalidCredentials = testM("should generate response for password change if old password is incorrect") {
-    val dto = UpdatePasswordReq(ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
 
     val responses = UsersServiceStub.UsersServiceResponses(updatePassword = ZIO.fail(InvalidPassword(ExampleUserEmailDigest)))
 
@@ -579,8 +580,28 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }
 
+  private val changePasswordInvalidEmails = testM("should generate response for password change if email address is incorrect") {
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
+
+    val responses = UsersServiceStub.UsersServiceResponses(updatePassword = ZIO.fail(EmailDigestDoesNotMatch(ExampleUserId, ExampleUserEmailDigest, "digest(other)")))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withHeaders(validAuthHeader).withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.PreconditionFailed]
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
+      assert(body)(equalTo(ErrorResponse.PreconditionFailed("Email is incorrect", Some("InvalidEmail")))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
   private val changePasswordPasswordsEqual = testM("should generate response for password change if old and new passwords are equal") {
-    val dto = UpdatePasswordReq(ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
 
     val responses = UsersServiceStub.UsersServiceResponses(updatePassword = ZIO.fail(PasswordsEqual(ExampleUserId)))
 
@@ -600,7 +621,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordUnauthorized = testM("should generate response for password change if user unathorized") {
-    val dto = UpdatePasswordReq(ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
 
     val responses = UsersServiceStub.UsersServiceResponses()
 

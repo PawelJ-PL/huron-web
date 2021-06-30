@@ -55,6 +55,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       updatePassword,
       updatePasswordWithMissingEmail,
       updatePasswordWithInvalidCredentials,
+      updatePasswordWithInvalidEmail,
       updatePasswordWithTheSameValue,
       updatePasswordForInactiveUser,
       updatePasswordForNonExistingUser,
@@ -308,7 +309,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val updatePassword = testM("should update user password") {
-    val dto = UpdatePasswordReq(ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -328,8 +329,8 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       assert(sentMessages)(isEmpty)
   }
 
-  private val updatePasswordWithMissingEmail = testM("should not update user password id emails is missing") {
-    val dto = UpdatePasswordReq(ExampleUserPassword, Password("new-secret-password"))
+  private val updatePasswordWithMissingEmail = testM("should not update user password if emails is missing") {
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -346,7 +347,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val updatePasswordWithInvalidCredentials = testM("should not update user password if current password is invalid") {
-    val dto = UpdatePasswordReq("invalid-password", Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, "invalid-password", Password("new-secret-password"))
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -363,8 +364,26 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       assert(sentMessages)(isEmpty)
   }
 
+  private val updatePasswordWithInvalidEmail = testM("should not update user password if email address does not match") {
+    val dto = UpdatePasswordReq(Email("other@example.org"), ExampleUserPassword, Password("new-secret-password"))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(
+                             users = Set(ExampleUser),
+                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
+                           )
+      usersRepo           <- Ref.make(initUsersRepoState)
+      result              <- UsersService.updatePasswordForUser(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(result)(isLeft(equalTo(EmailDigestDoesNotMatch(ExampleUserId, "digest(other@example.org)", ExampleUserEmailDigest)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
   private val updatePasswordWithTheSameValue = testM("should not update user password if new password is equal previous one") {
-    val dto = UpdatePasswordReq(ExampleUserPassword, Password(ExampleUserPassword))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password(ExampleUserPassword))
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -382,7 +401,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val updatePasswordForInactiveUser = testM("should not update password is user is inactive") {
-    val dto = UpdatePasswordReq(ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -400,7 +419,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val updatePasswordForNonExistingUser = testM("should nor update password if user not exists") {
-    val dto = UpdatePasswordReq(ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -519,13 +538,13 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
       initUsersRepoState = UsersRepoFake.UsersRepoState(
-        users = Set(ExampleUser),
-        auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
-        tokens = Set(
-          TemporaryToken("abc", ExampleUserId, TokenType.PasswordReset),
-          TemporaryToken("xyz", ExampleUserId, TokenType.PasswordReset)
-        )
-      )
+                             users = Set(ExampleUser),
+                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
+                             tokens = Set(
+                               TemporaryToken("abc", ExampleUserId, TokenType.PasswordReset),
+                               TemporaryToken("xyz", ExampleUserId, TokenType.PasswordReset)
+                             )
+                           )
       usersRepo           <- Ref.make(initUsersRepoState)
       result              <- UsersService.passwordResetUsingToken("abc", dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
       finalUsersRepoState <- usersRepo.get

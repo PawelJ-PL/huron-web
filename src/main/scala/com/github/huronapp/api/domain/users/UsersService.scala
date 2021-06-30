@@ -143,12 +143,15 @@ object UsersService {
 
             override def updatePasswordForUser(userId: FUUID, dto: UpdatePasswordReq): ZIO[Any, UpdatePasswordError, Unit] =
               db.transactionOrDie(for {
-                _               <- ZIO.cond(dto.currentPassword =!= dto.newPassword.value, (), PasswordsEqual(userId))
-                user            <- usersRepo.findById(userId).orDie.someOrFail(UserNotFound(userId))
-                (_, authData)   <- verifyCredentialsWithEmailDigest(user.emailHash, dto.currentPassword)
-                newPasswordHash <- crypto.bcryptGenerate(dto.newPassword.value.getBytes).orDie
-                _               <- usersRepo.updateUserAuth(authData.copy(passwordHash = newPasswordHash)).orDie
-                _               <- logger.info(s"Updated password for user $userId")
+                _                   <- ZIO.cond(dto.currentPassword =!= dto.newPassword.value, (), PasswordsEqual(userId))
+                providedEmailDigest <- dto.email.digest.provideLayer(ZLayer.succeed(crypto))
+                user                <- usersRepo.findById(userId).orDie.someOrFail(UserNotFound(userId))
+                _                   <-
+                  ZIO.cond(providedEmailDigest === user.emailHash, (), EmailDigestDoesNotMatch(userId, providedEmailDigest, user.emailHash))
+                (_, authData)       <- verifyCredentialsWithEmailDigest(user.emailHash, dto.currentPassword)
+                newPasswordHash     <- crypto.bcryptGenerate(dto.newPassword.value.getBytes).orDie
+                _                   <- usersRepo.updateUserAuth(authData.copy(passwordHash = newPasswordHash)).orDie
+                _                   <- logger.info(s"Updated password for user $userId")
               } yield ())
 
             override def requestPasswordResetForUser(email: Email): ZIO[Any, RequestPasswordResetError, TemporaryToken] =
