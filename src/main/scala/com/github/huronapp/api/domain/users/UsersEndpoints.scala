@@ -115,10 +115,16 @@ object UsersEndpoints extends BaseEndpoint {
     Responses.updatePasswordPasswordsEquals.reason
   )
 
-  private val updatePasswordPasswordsEqualsExample1 = Example(
+  private val updatePasswordInvalidCredentials = Example(
     Responses.updatePasswordInvalidCredentials,
     Responses.updatePasswordInvalidCredentials.reason,
     Responses.updatePasswordInvalidCredentials.reason
+  )
+
+  private val updatePasswordInvalidEmail = Example(
+    Responses.updatePasswordInvalidEmail,
+    Responses.updatePasswordInvalidEmail.reason,
+    Responses.updatePasswordInvalidEmail.reason
   )
 
   val updateUserPasswordEndpoint: Endpoint[(AuthenticationInputs, UpdatePasswordReq), ErrorResponse, Unit, Any] = usersEndpoint
@@ -136,7 +142,7 @@ object UsersEndpoints extends BaseEndpoint {
         oneOfMapping(
           StatusCode.PreconditionFailed,
           jsonBody[ErrorResponse.PreconditionFailed]
-            .examples(List(updatePasswordPasswordsEqualsExample, updatePasswordPasswordsEqualsExample1))
+            .examples(List(updatePasswordPasswordsEqualsExample, updatePasswordInvalidCredentials, updatePasswordInvalidEmail))
         )
       )
     )
