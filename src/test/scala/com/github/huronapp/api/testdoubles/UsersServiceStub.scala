@@ -17,6 +17,7 @@ import com.github.huronapp.api.domain.users.{
   CredentialsVerificationError,
   DeleteApiKeyError,
   Email,
+  KeyPair,
   PasswordResetError,
   PatchUserError,
   RequestPasswordResetError,
@@ -46,7 +47,8 @@ object UsersServiceStub extends Users {
     createApiKey: ZIO[Any, Nothing, ApiKey] = ZIO.succeed(ExampleApiKey),
     listApiKeys: ZIO[Any, Nothing, List[ApiKey]] = ZIO.succeed(List(ExampleApiKey)),
     deleteApiKey: ZIO[Any, DeleteApiKeyError, Unit] = ZIO.unit,
-    updateApiKey: ZIO[Any, UpdateApiKeyError, ApiKey] = ZIO.succeed(ExampleApiKey))
+    updateApiKey: ZIO[Any, UpdateApiKeyError, ApiKey] = ZIO.succeed(ExampleApiKey),
+    keyPair: ZIO[Any, Nothing, Option[KeyPair]] = ZIO.some(ExampleKeyPair))
 
   def withResponses(responses: UsersServiceResponses): ULayer[UsersService] =
     ZLayer.succeed(new UsersService.Service {
@@ -76,7 +78,10 @@ object UsersServiceStub extends Users {
 
       override def deleteApiKeyAs(userId: FUUID, keyId: FUUID): ZIO[Any, DeleteApiKeyError, Unit] = responses.deleteApiKey
 
-      override def updateApiKeyAs(userId: FUUID, keyId: FUUID, dto: UpdateApiKeyDataReq): ZIO[Any, UpdateApiKeyError, ApiKey] = responses.updateApiKey
+      override def updateApiKeyAs(userId: FUUID, keyId: FUUID, dto: UpdateApiKeyDataReq): ZIO[Any, UpdateApiKeyError, ApiKey] =
+        responses.updateApiKey
+
+      override def getKeyPairOf(userId: FUUID): ZIO[Any, Nothing, Option[KeyPair]] = responses.keyPair
 
     })
 

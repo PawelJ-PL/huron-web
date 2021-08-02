@@ -13,7 +13,7 @@ object ApiKeyDescription {
 
   private val validator: Validator[ApiKeyDescription] = (
     TapirValidators.nonEmptyString and
-      Validator.pattern("^[a-zA-Z0-9_ ]+$") and
+      Validator.pattern("^[\\p{L}0-9_ ]+$") and
       Validator.maxLength(80)
   ).contramap(_.value)
 

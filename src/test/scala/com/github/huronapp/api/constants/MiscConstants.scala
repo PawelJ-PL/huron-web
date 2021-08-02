@@ -14,4 +14,6 @@ trait MiscConstants {
 
   final val ExampleFuuid3 = FUUID.fuuid("20e7cc77-cd3e-4c30-8e69-6bf543669c96")
 
+  final val ExampleUuid1 = FUUID.fuuid("7a4a98ce-2578-4f4b-a97b-70a8c85be9c7")
+
 }

@@ -2,7 +2,7 @@ package com.github.huronapp.api.domain.users
 
 import com.github.huronapp.api.constants.{Config, MiscConstants, Users}
 import com.github.huronapp.api.domain.users.UsersService.UsersService
-import com.github.huronapp.api.domain.users.dto.fields.{ApiKeyDescription, Nickname, Password}
+import com.github.huronapp.api.domain.users.dto.fields.{ApiKeyDescription, Nickname, Password, PrivateKey, PublicKey, KeyPair => KeyPairDto}
 import com.github.huronapp.api.domain.users.dto.{
   NewPersonalApiKeyReq,
   NewUserReq,
@@ -73,11 +73,15 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       updateApiKey,
       updateApiKeyWithEmptyUpdatesSet,
       updateNonExistingApiKey,
-      updateApiKeyOwnedByAnotherUser
+      updateApiKeyOwnedByAnotherUser,
+      getKeyPair,
+      getKeyPairIfNotExists
     )
 
+  private val keyPairDto = KeyPairDto(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey), PrivateKey(ExamplePrivateKey))
+
   private val newUserDto =
-    NewUserReq(Nickname(ExampleUserNickName), ExampleUserEmail, Password(ExampleUserPassword), Some(ExampleUserLanguage))
+    NewUserReq(Nickname(ExampleUserNickName), ExampleUserEmail, Password(ExampleUserPassword), Some(ExampleUserLanguage), keyPairDto)
 
   private val createUser = testM("should successfully create a user") {
     for {
@@ -96,7 +100,8 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       assert(finalUsersRepoState.tokens)(hasSameElements(Set(TemporaryToken(expectedToken, FirstRandomFuuid, TokenType.Registration)))) &&
       assert(sentMessages)(
         hasSameElements(List(InternalMessage.UserRegistered(expectedUser, ExampleUserEmail, expectedToken, Some(Context.Empty))))
-      )
+      ) &&
+      assert(finalUsersRepoState.keyPairs)(hasSameElements(Set(ExampleKeyPair.copy(id = SecondRandomFuuid, userId = FirstRandomFuuid))))
   }
 
   private val createUserWithEmailConflict = testM("should not create user if email registered") {
@@ -309,13 +314,14 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val updatePassword = testM("should update user password") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
       initUsersRepoState = UsersRepoFake.UsersRepoState(
                              users = Set(ExampleUser),
-                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
+                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
+                             keyPairs = Set(KeyPair(ExampleUuid1, ExampleUserId, KeyAlgorithm.Rsa, "pub-key", "priv-key"))
                            )
       usersRepo           <- Ref.make(initUsersRepoState)
       _                   <- UsersService.updatePasswordForUser(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic))
@@ -326,16 +332,20 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
         hasSameElements(Set(UserAuth(ExampleUserId, "bcrypt(new-secret-password)", confirmed = true, enabled = true)))
       ) &&
       assert(finalUsersRepoState.tokens)(equalTo(initUsersRepoState.tokens)) &&
+      assert(finalUsersRepoState.keyPairs)(
+        hasSameElements(Set(KeyPair(ExampleUuid1, ExampleUserId, KeyAlgorithm.Rsa, ExamplePublicKey, ExamplePrivateKey)))
+      ) &&
       assert(sentMessages)(isEmpty)
   }
 
   private val updatePasswordWithMissingEmail = testM("should not update user password if emails is missing") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
       initUsersRepoState = UsersRepoFake.UsersRepoState(
-                             users = Set(ExampleUser)
+                             users = Set(ExampleUser),
+                             keyPairs = Set(KeyPair(ExampleUuid1, ExampleUserId, KeyAlgorithm.Rsa, "pub-key", "priv-key"))
                            )
       usersRepo           <- Ref.make(initUsersRepoState)
       result              <- UsersService.updatePasswordForUser(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
@@ -347,13 +357,14 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val updatePasswordWithInvalidCredentials = testM("should not update user password if current password is invalid") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, "invalid-password", Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, "invalid-password", Password("new-secret-password"), keyPairDto)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
       initUsersRepoState = UsersRepoFake.UsersRepoState(
                              users = Set(ExampleUser),
-                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
+                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
+                             keyPairs = Set(KeyPair(ExampleUuid1, ExampleUserId, KeyAlgorithm.Rsa, "pub-key", "priv-key"))
                            )
       usersRepo           <- Ref.make(initUsersRepoState)
       result              <- UsersService.updatePasswordForUser(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
@@ -365,13 +376,14 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val updatePasswordWithInvalidEmail = testM("should not update user password if email address does not match") {
-    val dto = UpdatePasswordReq(Email("other@example.org"), ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(Email("other@example.org"), ExampleUserPassword, Password("new-secret-password"), keyPairDto)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
       initUsersRepoState = UsersRepoFake.UsersRepoState(
                              users = Set(ExampleUser),
-                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
+                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
+                             keyPairs = Set(KeyPair(ExampleUuid1, ExampleUserId, KeyAlgorithm.Rsa, "pub-key", "priv-key"))
                            )
       usersRepo           <- Ref.make(initUsersRepoState)
       result              <- UsersService.updatePasswordForUser(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
@@ -383,13 +395,14 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val updatePasswordWithTheSameValue = testM("should not update user password if new password is equal previous one") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password(ExampleUserPassword))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password(ExampleUserPassword), keyPairDto)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
       initUsersRepoState = UsersRepoFake.UsersRepoState(
                              users = Set(ExampleUser),
-                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true))
+                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = true)),
+                             keyPairs = Set(KeyPair(ExampleUuid1, ExampleUserId, KeyAlgorithm.Rsa, "pub-key", "priv-key"))
                            )
       usersRepo           <- Ref.make(initUsersRepoState)
       result              <- UsersService.updatePasswordForUser(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
@@ -401,13 +414,14 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val updatePasswordForInactiveUser = testM("should not update password is user is inactive") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
       initUsersRepoState = UsersRepoFake.UsersRepoState(
                              users = Set(ExampleUser),
-                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = false))
+                             auth = Set(UserAuth(ExampleUserId, ExampleUserPasswordHash, confirmed = true, enabled = false)),
+                             keyPairs = Set(KeyPair(ExampleUuid1, ExampleUserId, KeyAlgorithm.Rsa, "pub-key", "priv-key"))
                            )
       usersRepo           <- Ref.make(initUsersRepoState)
       result              <- UsersService.updatePasswordForUser(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
@@ -419,7 +433,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val updatePasswordForNonExistingUser = testM("should nor update password if user not exists") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -484,7 +498,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val passwordResetWithToken = testM("should reset password") {
-    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail, keyPairDto)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -494,7 +508,8 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
                              tokens = Set(
                                TemporaryToken("abc", ExampleUserId, TokenType.PasswordReset),
                                TemporaryToken("xyz", ExampleUserId, TokenType.PasswordReset)
-                             )
+                             ),
+                             keyPairs = Set(KeyPair(ExampleUuid1, ExampleUserId, KeyAlgorithm.Rsa, "pub-key", "priv-key"))
                            )
       usersRepo           <- Ref.make(initUsersRepoState)
       _                   <- UsersService.passwordResetUsingToken("abc", dto).provideLayer(createUsersService(usersRepo, internalTopic))
@@ -505,11 +520,14 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
         hasSameElements(Set(UserAuth(ExampleUserId, "bcrypt(new-secret-password)", confirmed = true, enabled = true)))
       ) &&
       assert(finalUsersRepoState.tokens)(isEmpty) &&
+      assert(finalUsersRepoState.keyPairs)(
+        hasSameElements(Set(KeyPair(ExampleUuid1, ExampleUserId, KeyAlgorithm.Rsa, ExamplePublicKey, ExamplePrivateKey)))
+      ) &&
       assert(sentMessages)(isEmpty)
   }
 
   private val passwordResetWithTokenForInactiveUser = testM("should not reset password if user is not active") {
-    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail, keyPairDto)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -519,7 +537,8 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
                              tokens = Set(
                                TemporaryToken("abc", ExampleUserId, TokenType.PasswordReset),
                                TemporaryToken("xyz", ExampleUserId, TokenType.PasswordReset)
-                             )
+                             ),
+                             keyPairs = Set(KeyPair(ExampleUuid1, ExampleUserId, KeyAlgorithm.Rsa, "pub-key", "priv-key"))
                            )
       usersRepo           <- Ref.make(initUsersRepoState)
       result              <- UsersService.passwordResetUsingToken("abc", dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
@@ -533,7 +552,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   }
 
   private val passwordResetWithTokenForInvalidEmail = testM("should not reset password if email address does not match") {
-    val dto = PasswordResetReq(Password("new-secret-password"), Email("other@example.org"))
+    val dto = PasswordResetReq(Password("new-secret-password"), Email("other@example.org"), keyPairDto)
 
     for {
       internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
@@ -543,7 +562,8 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
                              tokens = Set(
                                TemporaryToken("abc", ExampleUserId, TokenType.PasswordReset),
                                TemporaryToken("xyz", ExampleUserId, TokenType.PasswordReset)
-                             )
+                             ),
+                             keyPairs = Set(KeyPair(ExampleUuid1, ExampleUserId, KeyAlgorithm.Rsa, "pub-key", "priv-key"))
                            )
       usersRepo           <- Ref.make(initUsersRepoState)
       result              <- UsersService.passwordResetUsingToken("abc", dto).provideLayer(createUsersService(usersRepo, internalTopic)).either
@@ -706,6 +726,34 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState <- usersRepo.get
       sentMessages        <- internalTopic.get
     } yield assert(result)(isLeft(equalTo(ApiKeyBelongsToAnotherUser(ExampleApiKeyId, ExampleUserId, ExampleFuuid3)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val getKeyPair = testM("should get keypair for user") {
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(keyPairs = Set(ExampleKeyPair))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo           <- Ref.make(initUsersRepoState)
+      result              <- UsersService.getKeyPairOf(ExampleUserId).provideLayer(createUsersService(usersRepo, internalTopic))
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(result)(isSome(equalTo(ExampleKeyPair))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val getKeyPairIfNotExists = testM("should try to get non existing keypair") {
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(keyPairs = Set.empty)
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo           <- Ref.make(initUsersRepoState)
+      result              <- UsersService.getKeyPairOf(ExampleUserId).provideLayer(createUsersService(usersRepo, internalTopic))
+      finalUsersRepoState <- usersRepo.get
+      sentMessages        <- internalTopic.get
+    } yield assert(result)(isNone) &&
       assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
       assert(sentMessages)(isEmpty)
   }

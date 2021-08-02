@@ -15,6 +15,7 @@ import com.github.huronapp.api.domain.users.dto.{
   UpdatePasswordReq,
   UserDataResp
 }
+import com.github.huronapp.api.domain.users.dto.fields.{KeyPair => KeyPairDto}
 import com.github.huronapp.api.http.{BaseRouter, ErrorResponse}
 import com.github.huronapp.api.http.EndpointSyntax._
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
@@ -198,6 +199,15 @@ object UsersRoutes {
                 }
             }
 
+          private val getUsersKeyPair: HttpRoutes[RouteEffect] =
+            UsersEndpoints.userKeypairEndpoint.toAuthenticatedRoutes[Unit](auth.asUser) {
+              case (user, _) =>
+                usersService
+                  .getKeyPairOf(user.userId)
+                  .someOrFail(ErrorResponse.NotFound("Key pair not found"))
+                  .map(_.transformInto[KeyPairDto])
+            }
+
           override val routes: HttpRoutes[RouteEffect] =
             registerUserRoutes <+>
               confirmRegistrationRoutes <+>
@@ -211,7 +221,8 @@ object UsersRoutes {
               createApiKeyRoutes <+>
               listApiKeyRoutes <+>
               deleteApiKeyRoutes <+>
-              updateApiKey
+              updateApiKey <+>
+              getUsersKeyPair
 
         }
     )
