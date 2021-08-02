@@ -67,6 +67,12 @@ object UsersRepository {
       validTo: Option[Option[Instant]]
     ): ZIO[Connection, DbException, Boolean]
 
+    def createKeyPair(keyPair: KeyPair): ZIO[Connection, DbException, KeyPair]
+
+    def getKeyPairFor(userId: FUUID): ZIO[Connection, DbException, Option[KeyPair]]
+
+    def updateKeypair(keyPair: KeyPair): ZIO[Connection, DbException, Option[KeyPair]]
+
   }
 
   val postgres: ZLayer[Clock, Nothing, UsersRepository] =
@@ -300,6 +306,31 @@ object UsersRepository {
                       )
           } yield result > 0
 
+        override def createKeyPair(keyPair: KeyPair): ZIO[Has[transactor.Transactor[Task]], DbException, KeyPair] =
+          for {
+            now <- clock.instant
+            keyPairEntity = keyPair.into[KeyPairEntity].withFieldConst(_.updatedAt, now).transform
+            _   <- tzio(run(quote(keyPairs.insert(lift(keyPairEntity)))))
+          } yield keyPairEntity.transformInto[KeyPair]
+
+        override def getKeyPairFor(userId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Option[KeyPair]] =
+          tzio(
+            run(
+              quote(
+                keyPairs.filter(_.userId == lift(userId))
+              )
+            ).map(_.headOption.transformInto[Option[KeyPair]])
+          )
+
+        override def updateKeypair(keyPair: KeyPair): ZIO[Has[transactor.Transactor[Task]], DbException, Option[KeyPair]] =
+          for {
+            now   <- clock.instant
+            entity = keyPair.into[KeyPairEntity].withFieldConst(_.updatedAt, now).transform
+            count <- tzio(run(quote(keyPairs.filter(_.userId == lift(entity.userId)).update(lift(entity)))))
+          } yield if (count > 0) Some(entity.transformInto[KeyPair]) else None
+
+        private implicit val keyPairUpdateMeta = updateMeta[KeyPairEntity](_.id, _.userId)
+
         private val users = quote {
           querySchema[UserEntity]("users")
         }
@@ -314,6 +345,10 @@ object UsersRepository {
 
         private val apiKeys = quote {
           querySchema[ApiKeyEntity]("api_keys")
+        }
+
+        private val keyPairs = quote {
+          querySchema[KeyPairEntity]("user_keypairs")
         }
       }
     }
@@ -341,4 +376,12 @@ private final case class ApiKeyEntity(
   enabled: Boolean,
   validTo: Option[Instant],
   createdAt: Instant,
+  updatedAt: Instant)
+
+private final case class KeyPairEntity(
+  id: FUUID,
+  userId: FUUID,
+  algorithm: KeyAlgorithm,
+  publicKey: String,
+  encryptedPrivateKey: String,
   updatedAt: Instant)

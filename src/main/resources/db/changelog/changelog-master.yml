@@ -196,3 +196,51 @@ databaseChangeLog:
             columns:
               - column:
                   name: user_id
+
+        - createTable:
+            tableName: user_keypairs
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_key_pair_user_id
+                    deleteCascade: true
+                    references: users(id)
+                    nullable: false
+                    unique: true
+              - column:
+                  name: algorithm
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: public_key
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encrypted_private_key
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+              - sql:
+                  dbms: postgresql
+                  sql: "ALTER TABLE user_keypairs ADD CONSTRAINT algorithm_check CHECK (algorithm IN ('Rsa'))"
+
+              - createIndex:
+                  tableName: user_keypairs
+                  columns:
+                    - column:
+                        name: user_id

@@ -20,6 +20,7 @@ import com.github.huronapp.api.utils.tracing.KamonTracing.KamonTracing
 import io.chrisdavenport.fuuid.FUUID
 import io.github.gaelrenoux.tranzactio.doobie
 import io.github.gaelrenoux.tranzactio.doobie.{Connection, Database}
+import io.scalaland.chimney.dsl._
 import zio.{Has, Hub, ZIO, ZLayer}
 import zio.logging.Logger
 import zio.macros.accessible
@@ -57,6 +58,8 @@ object UsersService {
 
     def updateApiKeyAs(userId: FUUID, keyId: FUUID, dto: UpdateApiKeyDataReq): ZIO[Any, UpdateApiKeyError, ApiKey]
 
+    def getKeyPairOf(userId: FUUID): ZIO[Any, Nothing, Option[KeyPair]]
+
   }
 
   val live: ZLayer[Has[Crypto.Service] with Has[UsersRepository.Service] with Has[doobie.Database.Service] with Has[
@@ -78,9 +81,12 @@ object UsersService {
                   user = User(userId, emailDigest, dto.nickName.value, dto.language.getOrElse(Language.En))
                   passwordHash <- crypto.bcryptGenerate(dto.password.value.getBytes).orDie
                   authData = UserAuth(userId, passwordHash, confirmed = false, enabled = true)
+                  keyPairId    <- random.randomFuuid
+                  keyPair = dto.keyPair.into[KeyPair].withFieldConst(_.id, keyPairId).withFieldConst(_.userId, userId).transform
                   _            <- logger.info(show"Registering new user with id $userId")
                   savedUser    <- usersRepo.create(user).orDie
                   _            <- usersRepo.setAuth(authData).orDie
+                  _            <- usersRepo.createKeyPair(keyPair).orDie
                   randomToken  <- random.secureBytesHex(24).map(_.toLowerCase).orDie
                   registrationToken = TemporaryToken(randomToken, userId, TokenType.Registration)
                   _            <- usersRepo.saveTemporaryToken(registrationToken).orDie
@@ -151,6 +157,8 @@ object UsersService {
                 (_, authData)       <- verifyCredentialsWithEmailDigest(user.emailHash, dto.currentPassword)
                 newPasswordHash     <- crypto.bcryptGenerate(dto.newPassword.value.getBytes).orDie
                 _                   <- usersRepo.updateUserAuth(authData.copy(passwordHash = newPasswordHash)).orDie
+                keypair = dto.keyPair.into[KeyPair].withFieldConst(_.userId, userId).withFieldConst(_.id, FUUID.NilUUID).transform
+                _                   <- usersRepo.updateKeypair(keypair).orDie
                 _                   <- logger.info(s"Updated password for user $userId")
               } yield ())
 
@@ -189,6 +197,8 @@ object UsersService {
                                        )
                 newPasswordHash     <- crypto.bcryptGenerate(dto.password.value.getBytes).orDie
                 _                   <- usersRepo.updateUserAuth(userAuth.copy(passwordHash = newPasswordHash)).orDie
+                keyPair = dto.keyPair.into[KeyPair].withFieldConst(_.userId, userData.id).withFieldConst(_.id, FUUID.NilUUID).transform
+                _                   <- usersRepo.updateKeypair(keyPair).orDie
                 _                   <- logger.info(s"Password has been reset for user ${userAuth.userId}")
                 _                   <- usersRepo.deleteTokensByTypeAndUserId(TokenType.PasswordReset, userAuth.userId).orDie
                 _                   <- logger.info(s"Deleted all password reset tokens for user ${userAuth.userId}")
@@ -237,6 +247,9 @@ object UsersService {
                 savedUser <- usersRepo.getApiKey(keyId).orDie.someOrFail(ApiKeyNotFound(keyId))
                 _         <- logger.info(s"Updated API key $keyId for user $userId")
               } yield savedUser)
+
+            override def getKeyPairOf(userId: FUUID): ZIO[Any, Nothing, Option[KeyPair]] =
+              db.transactionOrDie(usersRepo.getKeyPairFor(userId)).orDie
 
           }
       )

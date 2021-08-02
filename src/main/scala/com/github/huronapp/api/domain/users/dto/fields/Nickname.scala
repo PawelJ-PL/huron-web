@@ -13,7 +13,7 @@ object Nickname {
   private val validator: Validator[Nickname] = (
     Validator.minLength[String](3) and
       Validator.maxLength(30) and
-      Validator.pattern("^\\w+$")
+      Validator.pattern("^\\p{L}+$")
   ).contramap(_.value)
 
   implicit val tapirSchema: Schema[Nickname] = Schema.derived[Nickname].validate(validator)

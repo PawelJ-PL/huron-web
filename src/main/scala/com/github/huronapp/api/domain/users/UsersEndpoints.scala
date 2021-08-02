@@ -3,7 +3,7 @@ package com.github.huronapp.api.domain.users
 import cats.data.NonEmptyList
 import com.github.huronapp.api.authentication.AuthenticationInputs
 import com.github.huronapp.api.authentication.TapirAuthenticationInputs.authRequestParts
-import com.github.huronapp.api.domain.users.dto.fields.{Nickname, Password}
+import com.github.huronapp.api.domain.users.dto.fields.{Nickname, Password, PrivateKey, PublicKey, KeyPair => KeyPairDto}
 import com.github.huronapp.api.domain.users.dto.{
   ApiKeyDataResp,
   GeneratePasswordResetReq,
@@ -14,7 +14,8 @@ import com.github.huronapp.api.domain.users.dto.{
   PatchUserDataReq,
   UpdateApiKeyDataReq,
   UpdatePasswordReq,
-  UserDataResp
+  UserDataResp,
+  fields
 }
 import com.github.huronapp.api.http.{BaseEndpoint, ErrorResponse}
 import com.github.huronapp.api.utils.Implicits.fuuid._
@@ -30,11 +31,15 @@ object UsersEndpoints extends BaseEndpoint {
 
   private val usersEndpoint: ZEndpoint[Unit, Unit, Unit] = apiEndpoint.tag("users").in("users")
 
+  private val exampleKeypairInput = KeyPairDto(KeyAlgorithm.Rsa, PublicKey("rsa-public-key..."), PrivateKey("encrypted-rsa-private-key..."))
+
   val registerUserEndpoint: Endpoint[NewUserReq, ErrorResponse, Unit, Any] = usersEndpoint
     .summary("Register new user")
     .post
     .in(
-      jsonBody[NewUserReq].example(NewUserReq(Nickname("Alice"), Email("foo@example.org"), Password("secret-password"), Some(Language.En)))
+      jsonBody[NewUserReq].example(
+        NewUserReq(Nickname("Alice"), Email("foo@example.org"), Password("secret-password"), Some(Language.En), exampleKeypairInput)
+      )
     )
     .out(statusCode(StatusCode.Created))
     .errorOut(
@@ -226,6 +231,19 @@ object UsersEndpoints extends BaseEndpoint {
       )
     )
 
+  val userKeypairEndpoint: Endpoint[AuthenticationInputs, ErrorResponse, fields.KeyPair, Any] = usersEndpoint
+    .summary("Current users key pair")
+    .get
+    .prependIn(authRequestParts)
+    .in("me" / "keypair")
+    .out(jsonBody[KeyPairDto])
+    .errorOut(
+      oneOf[ErrorResponse](
+        unauthorized,
+        oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Keypair not found for user"))
+      )
+    )
+
   val endpoints: NonEmptyList[ZEndpoint[_, _, _]] =
     NonEmptyList.of(
       registerUserEndpoint,
@@ -240,7 +258,8 @@ object UsersEndpoints extends BaseEndpoint {
       createPersonalApiKeyEndpoint,
       listPersonalApiKeysEndpoint,
       deleteApiKeyEndpoint,
-      updateApiKeyEndpoint
+      updateApiKeyEndpoint,
+      userKeypairEndpoint
     )
 
 }

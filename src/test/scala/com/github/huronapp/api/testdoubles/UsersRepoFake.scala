@@ -2,7 +2,17 @@ package com.github.huronapp.api.testdoubles
 
 import cats.syntax.eq._
 import com.github.huronapp.api.domain.users.UsersRepository.UsersRepository
-import com.github.huronapp.api.domain.users.{ApiKey, ApiKeyType, Language, TemporaryToken, TokenType, User, UserAuth, UsersRepository}
+import com.github.huronapp.api.domain.users.{
+  ApiKey,
+  ApiKeyType,
+  KeyPair,
+  Language,
+  TemporaryToken,
+  TokenType,
+  User,
+  UserAuth,
+  UsersRepository
+}
 import doobie.util.transactor
 import io.chrisdavenport.fuuid.FUUID
 import io.github.gaelrenoux.tranzactio.DbException
@@ -19,7 +29,8 @@ object UsersRepoFake {
     users: Set[User] = Set.empty,
     auth: Set[UserAuth] = Set.empty,
     tokens: Set[TemporaryToken] = Set.empty,
-    apiKeys: Set[ApiKey] = Set.empty)
+    apiKeys: Set[ApiKey] = Set.empty,
+    keyPairs: Set[KeyPair] = Set.empty)
 
   def create(ref: Ref[UsersRepoState]): ULayer[UsersRepository] =
     ZLayer.succeed(new UsersRepository.Service {
@@ -184,6 +195,33 @@ object UsersRepoFake {
 
           }
           .flatMap(beforeUpdate => ref.get.map(state => state.apiKeys =!= beforeUpdate.apiKeys))
+
+      override def createKeyPair(keyPair: KeyPair): ZIO[Has[transactor.Transactor[Task]], DbException, KeyPair] =
+        ref
+          .update { prev =>
+            val updatedKeyPairs = prev.keyPairs + keyPair
+            prev.copy(keyPairs = updatedKeyPairs)
+          }
+          .as(keyPair)
+
+      override def getKeyPairFor(userId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Option[KeyPair]] =
+        ref.get.map(_.keyPairs.find(_.userId === userId))
+
+      override def updateKeypair(keyPair: KeyPair): ZIO[Has[transactor.Transactor[Task]], DbException, Option[KeyPair]] =
+        ref
+          .getAndUpdate { prev =>
+            val maybeKeyPair = prev.keyPairs.find(_.userId === keyPair.userId)
+            val updatedKeyPair = maybeKeyPair.map { k =>
+              k.copy(algorithm = keyPair.algorithm, publicKey = keyPair.publicKey, encryptedPrivateKey = keyPair.encryptedPrivateKey)
+            }
+            val updated = updatedKeyPair match {
+              case Some(k) => prev.keyPairs.filter(_.userId =!= keyPair.userId) + k
+              case None    => prev.keyPairs
+            }
+            prev.copy(keyPairs = updated)
+
+          }
+          .map(state => if (state.keyPairs.exists(_.userId === keyPair.userId)) Some(keyPair) else None)
 
     })
 

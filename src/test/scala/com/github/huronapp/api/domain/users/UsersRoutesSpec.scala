@@ -3,7 +3,7 @@ package com.github.huronapp.api.domain.users
 import cats.data.Chain
 import com.github.huronapp.api.constants.{Config, MiscConstants, Users}
 import com.github.huronapp.api.domain.users.UsersRoutes.UserRoutes
-import com.github.huronapp.api.domain.users.dto.fields.{ApiKeyDescription, Nickname, Password}
+import com.github.huronapp.api.domain.users.dto.fields.{ApiKeyDescription, Nickname, Password, PrivateKey, PublicKey, KeyPair => KeyPairDto}
 import com.github.huronapp.api.domain.users.dto.{
   ApiKeyDataResp,
   GeneratePasswordResetReq,
@@ -97,7 +97,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       updateApiKeyWithNoUpdates,
       updateNonExistingApiKey,
       updateApiKeyOwnedByAnotherUser,
-      updateApiKeyUnauthorized
+      updateApiKeyUnauthorized,
+      getKeyPairs,
+      getNonExistingKeyPairs,
+      getKeyPairsUnauthorized
     )
 
   private val exampleSession = UserSession(ExampleFuuid1, ExampleUserId, ExampleFuuid2, Instant.EPOCH)
@@ -118,8 +121,11 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       assert(body)(equalTo(ErrorResponse.BadRequest("Invalid request")))
   }
 
+  private val keyPairDto = KeyPairDto(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey), PrivateKey(ExamplePrivateKey))
+
   private val registerUser = testM("should generate response on registration success") {
-    val dto = NewUserReq(Nickname(ExampleUserNickName), ExampleUserEmail, Password(ExampleUserPassword), Some(ExampleUserLanguage))
+    val dto =
+      NewUserReq(Nickname(ExampleUserNickName), ExampleUserEmail, Password(ExampleUserPassword), Some(ExampleUserLanguage), keyPairDto)
 
     val responses = UsersServiceStub.UsersServiceResponses()
 
@@ -137,7 +143,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val registerUserWithConflict = testM("should generate response on registration conflict") {
-    val dto = NewUserReq(Nickname(ExampleUserNickName), ExampleUserEmail, Password(ExampleUserPassword), Some(ExampleUserLanguage))
+    val dto =
+      NewUserReq(Nickname(ExampleUserNickName), ExampleUserEmail, Password(ExampleUserPassword), Some(ExampleUserLanguage), keyPairDto)
 
     val responses = UsersServiceStub.UsersServiceResponses(createUser = ZIO.fail(EmailAlreadyRegistered(ExampleUserEmailDigest)))
 
@@ -525,7 +532,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePassword = testM("should generate response for password change") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
 
     val responses = UsersServiceStub.UsersServiceResponses()
 
@@ -543,7 +550,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordUserNotFound = testM("should generate response for password change if user not found") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
 
     val responses = UsersServiceStub.UsersServiceResponses(updatePassword = ZIO.fail(UserNotFound(ExampleUserId)))
 
@@ -561,7 +568,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordInvalidCredentials = testM("should generate response for password change if old password is incorrect") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
 
     val responses = UsersServiceStub.UsersServiceResponses(updatePassword = ZIO.fail(InvalidPassword(ExampleUserEmailDigest)))
 
@@ -581,9 +588,11 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordInvalidEmails = testM("should generate response for password change if email address is incorrect") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
 
-    val responses = UsersServiceStub.UsersServiceResponses(updatePassword = ZIO.fail(EmailDigestDoesNotMatch(ExampleUserId, ExampleUserEmailDigest, "digest(other)")))
+    val responses = UsersServiceStub.UsersServiceResponses(updatePassword =
+      ZIO.fail(EmailDigestDoesNotMatch(ExampleUserId, ExampleUserEmailDigest, "digest(other)"))
+    )
 
     val initSessionRepo = SessionRepoFake.SessionRepoState()
 
@@ -601,7 +610,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordPasswordsEqual = testM("should generate response for password change if old and new passwords are equal") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
 
     val responses = UsersServiceStub.UsersServiceResponses(updatePassword = ZIO.fail(PasswordsEqual(ExampleUserId)))
 
@@ -621,7 +630,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordUnauthorized = testM("should generate response for password change if user unathorized") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"))
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
 
     val responses = UsersServiceStub.UsersServiceResponses()
 
@@ -699,7 +708,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val resetPasswordWithToken = testM("should generate response for password reset") {
-    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail, keyPairDto)
 
     val responses = UsersServiceStub.UsersServiceResponses()
 
@@ -719,7 +728,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val resetPasswordWithTokenInvalid = testM("should generate response for password reset if token is invalid") {
-    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail, keyPairDto)
 
     val responses = UsersServiceStub.UsersServiceResponses(passwordReset = ZIO.fail(NoValidTokenFound("abc")))
 
@@ -739,7 +748,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val resetPasswordWithTokenInactiveUser = testM("should generate response for password reset if user is inactive") {
-    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail, keyPairDto)
 
     val responses = UsersServiceStub.UsersServiceResponses(passwordReset = ZIO.fail(UserIsNotActive(ExampleUserId)))
 
@@ -759,7 +768,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val resetPasswordWithInvalidEmail = testM("should generate response for password reset if email is incorrect") {
-    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail)
+    val dto = PasswordResetReq(Password("new-secret-password"), ExampleUserEmail, keyPairDto)
 
     val responses = UsersServiceStub.UsersServiceResponses(passwordReset =
       ZIO.fail(EmailDigestDoesNotMatch(ExampleUserId, ExampleUserEmailDigest, "otherDigest"))
@@ -1062,6 +1071,59 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.PATCH, uri = Uri.unsafeFromString(s"/api/v1/users/me/api-keys/$ExampleApiKeyId"))
               .withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val getKeyPairs = testM("should generate response with current users keypair") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/keypair").withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[KeyPairDto]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(equalTo(KeyPairDto(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey), PrivateKey(ExamplePrivateKey)))) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val getNonExistingKeyPairs = testM("should generate response if keypair not found for user") {
+    val responses = UsersServiceStub.UsersServiceResponses(keyPair = ZIO.none)
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/keypair").withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.NotFound)) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val getKeyPairsUnauthorized = testM("should generate response for current users keypair when unauthorized") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/keypair")
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
