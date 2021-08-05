@@ -1,8 +1,8 @@
 package com.github.huronapp.api.testdoubles
 
 import cats.syntax.eq._
-import com.github.huronapp.api.authentication.HttpAuthentication.HttpAuthentication
-import com.github.huronapp.api.authentication.{AuthenticatedUser, AuthenticationInputs}
+import com.github.huronapp.api.auth.authentication.HttpAuthentication.HttpAuthentication
+import com.github.huronapp.api.auth.authentication.{AuthenticatedUser, AuthenticationInputs}
 import com.github.huronapp.api.constants.{MiscConstants, Users}
 import com.github.huronapp.api.domain.users.{ApiKeyType, UserSession}
 import com.github.huronapp.api.http.ErrorResponse

@@ -1,6 +1,7 @@
 package com.github.huronapp.api.domain.users
 
 import cats.syntax.show._
+import com.github.huronapp.api.auth.authorization.{AuthorizationError => AuthError}
 import io.chrisdavenport.fuuid.FUUID
 
 sealed trait UserError {
@@ -26,6 +27,12 @@ sealed trait PasswordResetError extends UserError
 sealed trait DeleteApiKeyError extends UserError
 
 sealed trait UpdateApiKeyError extends UserError
+
+final case class AuthorizationError(error: AuthError) extends UpdatePasswordError {
+
+  override val logMessage: String = error.message
+
+}
 
 final case class EmailAlreadyRegistered(emailDigest: String) extends CreateUserError {
 
@@ -81,6 +88,21 @@ final case class UserNotFound(userId: FUUID) extends PatchUserError with UpdateP
 final case class PasswordsEqual(userId: FUUID) extends UpdatePasswordError {
 
   override val logMessage: String = s"New and old password for user $userId are equal"
+
+}
+
+final case class SomeEncryptionKeysMissingInUpdate(userId: FUUID, missingCollectionIds: Set[FUUID]) extends UpdatePasswordError {
+
+  override val logMessage: String =
+    s"Update doesn't contain encryption key for following collections: ${missingCollectionIds.mkString(", ")}"
+
+}
+
+final case class EncryptionKeyVersionMismatch(collectionId: FUUID, expectedVersion: FUUID, currentVersion: FUUID)
+    extends UpdatePasswordError {
+
+  override val logMessage: String =
+    s"Trying to update encryption key for collection $collectionId with version $expectedVersion, but current version is $currentVersion"
 
 }
 

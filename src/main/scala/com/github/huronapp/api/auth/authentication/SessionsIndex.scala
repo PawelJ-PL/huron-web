@@ -1,4 +1,4 @@
-package com.github.huronapp.api.authentication
+package com.github.huronapp.api.auth.authentication
 
 import com.github.huronapp.api.config.modules.SessionRepoConfig.RedisSessionRepo
 import io.chrisdavenport.fuuid.FUUID

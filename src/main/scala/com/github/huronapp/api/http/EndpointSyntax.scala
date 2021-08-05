@@ -1,6 +1,6 @@
 package com.github.huronapp.api.http
 
-import com.github.huronapp.api.authentication.{AuthenticatedUser, AuthenticationInputs}
+import com.github.huronapp.api.auth.authentication.{AuthenticatedUser, AuthenticationInputs}
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import org.http4s.HttpRoutes
 import sttp.tapir.server.http4s.Http4sServerOptions

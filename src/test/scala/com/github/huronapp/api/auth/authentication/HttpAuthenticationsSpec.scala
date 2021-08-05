@@ -1,8 +1,8 @@
-package com.github.huronapp.api.authentication
+package com.github.huronapp.api.auth.authentication
 
 import cats.data.Chain
-import com.github.huronapp.api.authentication.AuthenticatedUser.{ApiKeyUser, SessionAuthenticatedUser}
-import com.github.huronapp.api.authentication.HttpAuthentication.HttpAuthentication
+import com.github.huronapp.api.auth.authentication.AuthenticatedUser.{ApiKeyUser, SessionAuthenticatedUser}
+import com.github.huronapp.api.auth.authentication.HttpAuthentication.HttpAuthentication
 import com.github.huronapp.api.constants.{Config, MiscConstants, Users}
 import com.github.huronapp.api.domain.users.{ApiKeyType, UserAuth, UserSession}
 import com.github.huronapp.api.http.ErrorResponse.Unauthorized

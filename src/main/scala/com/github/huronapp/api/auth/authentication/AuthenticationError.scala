@@ -1,4 +1,4 @@
-package com.github.huronapp.api.authentication
+package com.github.huronapp.api.auth.authentication
 
 import io.chrisdavenport.fuuid.FUUID
 

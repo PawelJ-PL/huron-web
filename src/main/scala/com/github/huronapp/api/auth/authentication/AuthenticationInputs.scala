@@ -1,4 +1,4 @@
-package com.github.huronapp.api.authentication
+package com.github.huronapp.api.auth.authentication
 
 import cats.syntax.eq._
 import org.http4s.headers.Cookie

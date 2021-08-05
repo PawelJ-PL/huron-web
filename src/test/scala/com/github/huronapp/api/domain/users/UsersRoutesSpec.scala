@@ -1,7 +1,10 @@
 package com.github.huronapp.api.domain.users
 
 import cats.data.Chain
-import com.github.huronapp.api.constants.{Config, MiscConstants, Users}
+import com.github.huronapp.api.auth.authorization.types.Subject
+import com.github.huronapp.api.auth.authorization.{OperationNotPermitted, SetEncryptionKey}
+import com.github.huronapp.api.constants.{Collections, Config, MiscConstants, Users}
+import com.github.huronapp.api.domain.collections.dto.EncryptionKeyData
 import com.github.huronapp.api.domain.users.UsersRoutes.UserRoutes
 import com.github.huronapp.api.domain.users.dto.fields.{ApiKeyDescription, Nickname, Password, PrivateKey, PublicKey, KeyPair => KeyPairDto}
 import com.github.huronapp.api.domain.users.dto.{
@@ -35,7 +38,7 @@ import zio.test.{DefaultRunnableSpec, ZSpec, assert}
 
 import java.time.Instant
 
-object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with MiscConstants {
+object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with MiscConstants with Collections {
 
   private def routesLayer(
     sessionRepo: Ref[SessionRepoFake.SessionRepoState],
@@ -78,6 +81,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       changePasswordInvalidEmails,
       changePasswordPasswordsEqual,
       changePasswordUnauthorized,
+      changePasswordWithMissingEncryptionKey,
+      changePasswordForbidden,
+      changePasswordWithInvalidKeyVersion,
       resetPasswordRequest,
       resetPasswordRequestEmailNotFound,
       resetPasswordRequestInactiveUser,
@@ -122,6 +128,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val keyPairDto = KeyPairDto(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey), PrivateKey(ExamplePrivateKey))
+
+  private val encryptionKeyData = EncryptionKeyData(ExampleCollectionId, ExampleEncryptionKey, ExampleEncryptionKeyVersion)
 
   private val registerUser = testM("should generate response on registration success") {
     val dto =
@@ -532,7 +540,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePassword = testM("should generate response for password change") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto, List(encryptionKeyData))
 
     val responses = UsersServiceStub.UsersServiceResponses()
 
@@ -550,7 +558,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordUserNotFound = testM("should generate response for password change if user not found") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto, List(encryptionKeyData))
 
     val responses = UsersServiceStub.UsersServiceResponses(updatePassword = ZIO.fail(UserNotFound(ExampleUserId)))
 
@@ -568,7 +576,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordInvalidCredentials = testM("should generate response for password change if old password is incorrect") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto, List(encryptionKeyData))
 
     val responses = UsersServiceStub.UsersServiceResponses(updatePassword = ZIO.fail(InvalidPassword(ExampleUserEmailDigest)))
 
@@ -588,7 +596,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordInvalidEmails = testM("should generate response for password change if email address is incorrect") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto, List(encryptionKeyData))
 
     val responses = UsersServiceStub.UsersServiceResponses(updatePassword =
       ZIO.fail(EmailDigestDoesNotMatch(ExampleUserId, ExampleUserEmailDigest, "digest(other)"))
@@ -610,7 +618,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordPasswordsEqual = testM("should generate response for password change if old and new passwords are equal") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto, List(encryptionKeyData))
 
     val responses = UsersServiceStub.UsersServiceResponses(updatePassword = ZIO.fail(PasswordsEqual(ExampleUserId)))
 
@@ -630,7 +638,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
   }
 
   private val changePasswordUnauthorized = testM("should generate response for password change if user unathorized") {
-    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto)
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto, List(encryptionKeyData))
 
     val responses = UsersServiceStub.UsersServiceResponses()
 
@@ -644,6 +652,88 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val changePasswordWithMissingEncryptionKey =
+    testM("should generate response for password change if encryption key is missing for some collections") {
+      val dto =
+        UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto, List(encryptionKeyData))
+
+      val responses = UsersServiceStub.UsersServiceResponses(updatePassword =
+        ZIO.fail(SomeEncryptionKeysMissingInUpdate(ExampleUserId, Set(ExampleFuuid1, ExampleFuuid2)))
+      )
+
+      val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+      for {
+        sessionRepo      <- Ref.make(initSessionRepo)
+        logs             <- Ref.make(Chain.empty[String])
+        routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+        req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withHeaders(validAuthHeader).withEntity(dto)
+        result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+        body             <- result.as[ErrorResponse.PreconditionFailed]
+        finalSessionRepo <- sessionRepo.get
+      } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
+        assert(body)(
+          equalTo(
+            ErrorResponse.PreconditionFailed(
+              s"Missing encryption key for collections: $ExampleFuuid1, $ExampleFuuid2",
+              Some("MissingEncryptionKeys")
+            )
+          )
+        ) &&
+        assert(finalSessionRepo)(equalTo(initSessionRepo))
+    }
+
+  private val changePasswordForbidden = testM("should generate response for not allowed action") {
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto, List(encryptionKeyData))
+
+    val responses = UsersServiceStub.UsersServiceResponses(updatePassword =
+      ZIO.fail(AuthorizationError(OperationNotPermitted(SetEncryptionKey(Subject(ExampleUserId), ExampleCollectionId, ExampleUserId))))
+    )
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withHeaders(validAuthHeader).withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.Forbidden]
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.Forbidden)) &&
+      assert(body)(equalTo(ErrorResponse.Forbidden("Action not allowed"))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val changePasswordWithInvalidKeyVersion = testM("should generate response for password change if key version is invalid") {
+    val dto = UpdatePasswordReq(ExampleUserEmail, ExampleUserPassword, Password("new-secret-password"), keyPairDto, List(encryptionKeyData))
+
+    val responses = UsersServiceStub.UsersServiceResponses(updatePassword =
+      ZIO.fail(EncryptionKeyVersionMismatch(ExampleCollectionId, ExampleEncryptionKeyVersion, ExampleFuuid1))
+    )
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withHeaders(validAuthHeader).withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.PreconditionFailed]
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
+      assert(body)(
+        equalTo(
+          ErrorResponse.PreconditionFailed(
+            s"Key version for collection $ExampleCollectionId should be $ExampleFuuid1",
+            Some("KeyVersionMismatch")
+          )
+        )
+      ) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }
 

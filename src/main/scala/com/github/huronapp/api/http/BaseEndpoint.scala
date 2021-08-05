@@ -15,4 +15,7 @@ trait BaseEndpoint {
   protected val unauthorized: EndpointOutput.OneOfMapping[ErrorResponse.Unauthorized] =
     oneOfMapping(StatusCode.Unauthorized, jsonBody[ErrorResponse.Unauthorized].description("User not authenticated"))
 
+  protected val forbidden: EndpointOutput.OneOfMapping[ErrorResponse.Forbidden] =
+    oneOfMapping(StatusCode.Forbidden, jsonBody[ErrorResponse.Forbidden].description("Operation not permitted"))
+
 }

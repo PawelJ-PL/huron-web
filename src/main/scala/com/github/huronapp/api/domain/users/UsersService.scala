@@ -2,7 +2,14 @@ package com.github.huronapp.api.domain.users
 
 import cats.syntax.eq._
 import cats.syntax.show._
+import com.github.huronapp.api.auth.authorization.{AuthorizationKernel, SetEncryptionKey}
+import com.github.huronapp.api.auth.authorization.AuthorizationKernel.AuthorizationKernel
+import com.github.huronapp.api.auth.authorization.types.Subject
 import com.github.huronapp.api.config.SecurityConfig
+import com.github.huronapp.api.domain.collections.CollectionsRepository
+import com.github.huronapp.api.domain.collections.CollectionsRepository.CollectionsRepository
+import com.github.huronapp.api.domain.collections.dto.EncryptionKeyData
+import com.github.huronapp.api.domain.users.UsersRepository.UsersRepository
 import com.github.huronapp.api.domain.users.dto.{
   NewPersonalApiKeyReq,
   NewUserReq,
@@ -14,7 +21,9 @@ import com.github.huronapp.api.domain.users.dto.{
 import com.github.huronapp.api.messagebus.InternalMessage
 import com.github.huronapp.api.messagebus.InternalMessage.{PasswordResetRequested, UserRegistered}
 import com.github.huronapp.api.utils.RandomUtils
+import com.github.huronapp.api.utils.RandomUtils.RandomUtils
 import com.github.huronapp.api.utils.crypto.Crypto
+import com.github.huronapp.api.utils.crypto.Crypto.Crypto
 import com.github.huronapp.api.utils.tracing.KamonTracing
 import com.github.huronapp.api.utils.tracing.KamonTracing.KamonTracing
 import io.chrisdavenport.fuuid.FUUID
@@ -62,14 +71,14 @@ object UsersService {
 
   }
 
-  val live: ZLayer[Has[Crypto.Service] with Has[UsersRepository.Service] with Has[doobie.Database.Service] with Has[
-    RandomUtils.Service
-  ] with Has[Logger[String]] with Has[Hub[InternalMessage]] with Has[SecurityConfig] with KamonTracing, Nothing, Has[Service]] =
+  val live: ZLayer[Crypto with UsersRepository with doobie.Database.Database with RandomUtils with Has[Logger[String]] with Has[
+    Hub[InternalMessage]
+  ] with Has[SecurityConfig] with KamonTracing with CollectionsRepository with AuthorizationKernel, Nothing, UsersService] =
     ZLayer
       .fromServices[Crypto.Service, UsersRepository.Service, Database.Service, RandomUtils.Service, Logger[String], Hub[
         InternalMessage
-      ], SecurityConfig, KamonTracing.Service, UsersService.Service](
-        (crypto, usersRepo, db, random, logger, messageBus, securityConfig, tracing) =>
+      ], SecurityConfig, KamonTracing.Service, CollectionsRepository.Service, AuthorizationKernel.Service, UsersService.Service](
+        (crypto, usersRepo, db, random, logger, messageBus, securityConfig, tracing, collectionsRepo, authKernel) =>
           new Service {
 
             override def createUser(dto: NewUserReq): ZIO[Any, CreateUserError, User] =
@@ -155,12 +164,49 @@ object UsersService {
                 _                   <-
                   ZIO.cond(providedEmailDigest === user.emailHash, (), EmailDigestDoesNotMatch(userId, providedEmailDigest, user.emailHash))
                 (_, authData)       <- verifyCredentialsWithEmailDigest(user.emailHash, dto.currentPassword)
+                _                   <- checkIfUpdateContainsAllEncryptionKeys(userId, dto.collectionEncryptionKeys)
                 newPasswordHash     <- crypto.bcryptGenerate(dto.newPassword.value.getBytes).orDie
                 _                   <- usersRepo.updateUserAuth(authData.copy(passwordHash = newPasswordHash)).orDie
                 keypair = dto.keyPair.into[KeyPair].withFieldConst(_.userId, userId).withFieldConst(_.id, FUUID.NilUUID).transform
+                _                   <- logger.info(s"Updated keypair for user $userId")
                 _                   <- usersRepo.updateKeypair(keypair).orDie
+                _                   <- ZIO.foreachParN_(5)(dto.collectionEncryptionKeys)(keyData =>
+                                         updateEncryptionKey(keyData.collectionId, userId, keyData.key, keyData.version)
+                                       )
                 _                   <- logger.info(s"Updated password for user $userId")
               } yield ())
+
+            private def checkIfUpdateContainsAllEncryptionKeys(
+              userId: FUUID,
+              keys: List[EncryptionKeyData]
+            ): ZIO[Connection, SomeEncryptionKeysMissingInUpdate, Unit] = {
+              val collectionIds = keys.map(_.collectionId).toSet
+              for {
+                allCollectionKeysOfUser <- collectionsRepo.getAllCollectionKeysOfUser(userId).orDie
+                collectionIdsWithKeyAssigned = allCollectionKeysOfUser.map(_.collectionId).toSet
+                missingCollections = collectionIdsWithKeyAssigned -- collectionIds
+                _                       <- ZIO.cond(missingCollections.isEmpty, (), SomeEncryptionKeysMissingInUpdate(userId, missingCollections))
+              } yield ()
+            }
+
+            private def updateEncryptionKey(
+              collectionId: FUUID,
+              userId: FUUID,
+              newKey: String,
+              keyVersion: FUUID
+            ): ZIO[Connection, UpdatePasswordError, Unit] =
+              for {
+                _                 <- authKernel.authorizeOperation(SetEncryptionKey(Subject(userId), collectionId, userId)).mapError(AuthorizationError)
+                currentKeyVersion <- collectionsRepo
+                                       .getCollectionDetails(collectionId)
+                                       .someOrFail(new RuntimeException(s"Collection $collectionId not found"))
+                                       .orDie
+                                       .map(_.encryptionKeyVersion)
+                _                 <-
+                  ZIO.cond(currentKeyVersion === keyVersion, (), EncryptionKeyVersionMismatch(collectionId, keyVersion, currentKeyVersion))
+                _                 <- collectionsRepo.updateUsersKeyForCollection(userId, collectionId, newKey, keyVersion).orDie
+                _                 <- logger.info(s"Updated encryption key for collection $collectionId user $userId")
+              } yield ()
 
             override def requestPasswordResetForUser(email: Email): ZIO[Any, RequestPasswordResetError, TemporaryToken] =
               db.transactionOrDie(for {
@@ -198,6 +244,7 @@ object UsersService {
                 newPasswordHash     <- crypto.bcryptGenerate(dto.password.value.getBytes).orDie
                 _                   <- usersRepo.updateUserAuth(userAuth.copy(passwordHash = newPasswordHash)).orDie
                 keyPair = dto.keyPair.into[KeyPair].withFieldConst(_.userId, userData.id).withFieldConst(_.id, FUUID.NilUUID).transform
+                _                   <- collectionsRepo.deleteUserKeyFromAllCollections(userData.id).orDie
                 _                   <- usersRepo.updateKeypair(keyPair).orDie
                 _                   <- logger.info(s"Password has been reset for user ${userAuth.userId}")
                 _                   <- usersRepo.deleteTokensByTypeAndUserId(TokenType.PasswordReset, userAuth.userId).orDie

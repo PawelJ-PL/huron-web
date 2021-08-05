@@ -115,11 +115,15 @@ val dependencies = {
     "io.kamon" %% "kamon-http4s" % Versions.kamonHttp4s
   )
 
+  val newType = Seq(
+    "io.estatico" %% "newtype" % Versions.newType
+  )
+
   val tests = Seq(
     "org.scalatest" %% "scalatest" % Versions.scalaTest % Test
   )
 
-  libraryDependencies ++= plugins ++ zio ++ http4s ++ logger ++ ciris ++ tapir ++ circe ++ cats ++ semver ++ database ++ doobie ++ chimney ++ fuuid ++ crypt ++ enumeratum ++ templating ++ scalaCache ++ kamon ++ tests
+  libraryDependencies ++= plugins ++ zio ++ http4s ++ logger ++ ciris ++ tapir ++ circe ++ cats ++ semver ++ database ++ doobie ++ chimney ++ fuuid ++ crypt ++ enumeratum ++ templating ++ scalaCache ++ kamon ++ newType ++ tests
 }
 
 val compilerOptions = scalacOptions ~= (_.filterNot(Set("-Xfatal-warnings")).+:("-Ymacro-annotations"))
