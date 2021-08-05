@@ -3,6 +3,7 @@ package com.github.huronapp.api
 import cats.syntax.semigroupk._
 import com.github.huronapp.api.Environment.AppEnvironment
 import com.github.huronapp.api.config.AppConfig
+import com.github.huronapp.api.domain.collections.CollectionsRoutes
 import com.github.huronapp.api.domain.devices.DevicesRoutes
 import com.github.huronapp.api.domain.users.UsersRoutes
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
@@ -18,10 +19,11 @@ import zio.interop.catz.implicits._
 object HttpServer {
 
   private val httpRoutes = for {
-    swaggerRoutes <- ApiDocRoutes.routes
-    devicesRoutes <- DevicesRoutes.routes
-    userRoutes    <- UsersRoutes.routes
-  } yield swaggerRoutes <+> devicesRoutes <+> userRoutes
+    swaggerRoutes     <- ApiDocRoutes.routes
+    devicesRoutes     <- DevicesRoutes.routes
+    usersRoutes       <- UsersRoutes.routes
+    collectionsRoutes <- CollectionsRoutes.routes
+  } yield swaggerRoutes <+> devicesRoutes <+> usersRoutes <+> collectionsRoutes
 
   val create: ZManaged[ZEnv with AppEnvironment, Throwable, Server[RouteEffect]] = for {
     implicit0(runtime: Runtime[ZEnv]) <- ZManaged.runtime[ZEnv]

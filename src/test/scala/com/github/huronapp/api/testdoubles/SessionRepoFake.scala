@@ -1,7 +1,7 @@
 package com.github.huronapp.api.testdoubles
 
 import cats.syntax.eq._
-import com.github.huronapp.api.authentication.SessionRepository
+import com.github.huronapp.api.auth.authentication.SessionRepository
 import com.github.huronapp.api.domain.users.UserSession
 import com.github.huronapp.api.utils.RandomUtils
 import com.github.huronapp.api.utils.RandomUtils.RandomUtils

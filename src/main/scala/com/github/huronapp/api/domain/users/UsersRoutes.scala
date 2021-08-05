@@ -2,10 +2,10 @@ package com.github.huronapp.api.domain.users
 
 import cats.syntax.semigroupk._
 import cats.syntax.show._
-import com.github.huronapp.api.authentication.HttpAuthentication.HttpAuthentication
-import com.github.huronapp.api.authentication.{AuthenticatedUser, HttpAuthentication, SessionRepository}
+import com.github.huronapp.api.auth.authentication.HttpAuthentication.HttpAuthentication
+import com.github.huronapp.api.auth.authentication.{AuthenticatedUser, HttpAuthentication, SessionRepository}
 import com.github.huronapp.api.config.SecurityConfig
-import com.github.huronapp.api.authentication.SessionRepository.SessionRepository
+import com.github.huronapp.api.auth.authentication.SessionRepository.SessionRepository
 import com.github.huronapp.api.domain.users.UsersService.UsersService
 import com.github.huronapp.api.domain.users.dto.{
   ApiKeyDataResp,

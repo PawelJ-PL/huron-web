@@ -1,8 +1,8 @@
-package com.github.huronapp.api.authentication
+package com.github.huronapp.api.auth.authentication
 
 import cats.syntax.eq._
-import com.github.huronapp.api.authentication.AuthenticatedUser.{ApiKeyUser, SessionAuthenticatedUser}
-import com.github.huronapp.api.authentication.SessionRepository.SessionRepository
+import com.github.huronapp.api.auth.authentication.AuthenticatedUser.{ApiKeyUser, SessionAuthenticatedUser}
+import com.github.huronapp.api.auth.authentication.SessionRepository.SessionRepository
 import com.github.huronapp.api.config.SecurityConfig
 import com.github.huronapp.api.domain.users.UsersRepository.UsersRepository
 import com.github.huronapp.api.domain.users.{UserSession, UsersRepository}

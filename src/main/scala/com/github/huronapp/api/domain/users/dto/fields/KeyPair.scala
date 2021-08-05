@@ -1,6 +1,7 @@
 package com.github.huronapp.api.domain.users.dto.fields
 
 import com.github.huronapp.api.domain.users.KeyAlgorithm
+import com.github.huronapp.api.utils.crypto.EncryptedStringPattern
 import io.circe.Codec
 import io.circe.generic.extras.semiauto.deriveUnwrappedCodec
 import io.circe.generic.semiauto.deriveCodec
@@ -41,7 +42,7 @@ object PrivateKey {
 
   private val validator: Validator[PrivateKey] = (
     Validator.maxLength[String](8000) and
-      Validator.pattern("^AES-CBC:\\d{2}:\\d{2}:[0-9a-zA-Z]+:[0-9a-zA-Z]+$")
+      Validator.pattern(EncryptedStringPattern)
   ).contramap(_.value)
 
   implicit val tapirSchema: Schema[PrivateKey] = Schema.derived[PrivateKey].validate(validator)

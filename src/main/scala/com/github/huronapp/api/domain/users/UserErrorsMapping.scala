@@ -30,10 +30,15 @@ object UserErrorsMapping {
 
   def updatePasswordError(error: UpdatePasswordError): ErrorResponse =
     error match {
-      case _: CredentialsVerificationError => UsersEndpoints.Responses.updatePasswordInvalidCredentials
-      case _: EmailDigestDoesNotMatch      => UsersEndpoints.Responses.updatePasswordInvalidEmail
-      case _: UserNotFound                 => ErrorResponse.NotFound("User not found")
-      case _: PasswordsEqual               => UsersEndpoints.Responses.updatePasswordPasswordsEquals
+      case _: CredentialsVerificationError                               => UsersEndpoints.Responses.updatePasswordInvalidCredentials
+      case _: EmailDigestDoesNotMatch                                    => UsersEndpoints.Responses.updatePasswordInvalidEmail
+      case _: UserNotFound                                               => ErrorResponse.NotFound("User not found")
+      case _: PasswordsEqual                                             => UsersEndpoints.Responses.updatePasswordPasswordsEquals
+      case SomeEncryptionKeysMissingInUpdate(_, missingCollectionIds)    =>
+        UsersEndpoints.Responses.updatePasswordMissingEncryptionKeys(missingCollectionIds)
+      case _: AuthorizationError                                         => ErrorResponse.Forbidden("Action not allowed")
+      case EncryptionKeyVersionMismatch(collectionId, _, currentVersion) =>
+        UsersEndpoints.Responses.updatePasswordKeyVersionMismatch(collectionId, currentVersion)
     }
 
   def deleteApiKeyError(error: DeleteApiKeyError): ErrorResponse =

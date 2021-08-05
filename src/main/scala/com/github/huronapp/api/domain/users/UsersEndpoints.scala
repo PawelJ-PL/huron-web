@@ -1,8 +1,8 @@
 package com.github.huronapp.api.domain.users
 
 import cats.data.NonEmptyList
-import com.github.huronapp.api.authentication.AuthenticationInputs
-import com.github.huronapp.api.authentication.TapirAuthenticationInputs.authRequestParts
+import com.github.huronapp.api.auth.authentication.AuthenticationInputs
+import com.github.huronapp.api.auth.authentication.TapirAuthenticationInputs.authRequestParts
 import com.github.huronapp.api.domain.users.dto.fields.{Nickname, Password, PrivateKey, PublicKey, KeyPair => KeyPairDto}
 import com.github.huronapp.api.domain.users.dto.{
   ApiKeyDataResp,
@@ -132,6 +132,23 @@ object UsersEndpoints extends BaseEndpoint {
     Responses.updatePasswordInvalidEmail.reason
   )
 
+  private val updatePasswordMissingKeys = Example(
+    Responses.updatePasswordMissingEncryptionKeys(
+      Set(FUUID.fuuid("8ad2e9e8-1eb3-4c7c-b4c3-c14626ba4c73"), FUUID.fuuid("b41f8838-4903-405c-82f4-d5d157bccf19"))
+    ),
+    Responses.updatePasswordMissingEncryptionKeys(Set.empty).reason,
+    Responses.updatePasswordMissingEncryptionKeys(Set.empty).reason
+  )
+
+  private val updatePasswordKeyVersionMismatch = {
+    val exampleResponse = Responses.updatePasswordKeyVersionMismatch(
+      FUUID.fuuid("8ad2e9e8-1eb3-4c7c-b4c3-c14626ba4c73"),
+      FUUID.fuuid("b41f8838-4903-405c-82f4-d5d157bccf19")
+    )
+
+    Example(exampleResponse, exampleResponse.reason, exampleResponse.reason)
+  }
+
   val updateUserPasswordEndpoint: Endpoint[(AuthenticationInputs, UpdatePasswordReq), ErrorResponse, Unit, Any] = usersEndpoint
     .summary("Change password")
     .post
@@ -143,11 +160,20 @@ object UsersEndpoints extends BaseEndpoint {
       oneOf[ErrorResponse](
         unauthorized,
         badRequest,
+        oneOfMapping(StatusCode.Forbidden, jsonBody[ErrorResponse.Forbidden]),
         oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User not found")),
         oneOfMapping(
           StatusCode.PreconditionFailed,
           jsonBody[ErrorResponse.PreconditionFailed]
-            .examples(List(updatePasswordPasswordsEqualsExample, updatePasswordInvalidCredentials, updatePasswordInvalidEmail))
+            .examples(
+              List(
+                updatePasswordPasswordsEqualsExample,
+                updatePasswordInvalidCredentials,
+                updatePasswordInvalidEmail,
+                updatePasswordMissingKeys,
+                updatePasswordKeyVersionMismatch
+              )
+            )
         )
       )
     )
@@ -180,6 +206,18 @@ object UsersEndpoints extends BaseEndpoint {
 
     val updatePasswordInvalidEmail: ErrorResponse.PreconditionFailed =
       ErrorResponse.PreconditionFailed("Email is incorrect", Some("InvalidEmail"))
+
+    def updatePasswordMissingEncryptionKeys(collectionId: Set[FUUID]): ErrorResponse.PreconditionFailed =
+      ErrorResponse.PreconditionFailed(
+        s"Missing encryption key for collections: ${collectionId.mkString(", ")}",
+        Some("MissingEncryptionKeys")
+      )
+
+    def updatePasswordKeyVersionMismatch(collectionId: FUUID, currentVersion: FUUID): ErrorResponse.PreconditionFailed =
+      ErrorResponse.PreconditionFailed(
+        s"Key version for collection $collectionId should be $currentVersion",
+        Some("KeyVersionMismatch")
+      )
 
   }
 

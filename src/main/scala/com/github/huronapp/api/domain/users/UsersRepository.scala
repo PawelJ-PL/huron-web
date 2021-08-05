@@ -3,6 +3,7 @@ package com.github.huronapp.api.domain.users
 import com.github.huronapp.api.database.BasePostgresRepository
 import doobie.util.transactor
 import io.chrisdavenport.fuuid.FUUID
+import io.getquill.Ord
 import io.github.gaelrenoux.tranzactio.DbException
 import io.github.gaelrenoux.tranzactio.doobie._
 import zio.clock.Clock
@@ -244,7 +245,7 @@ object UsersRepository {
           tzio(
             run(
               quote(
-                apiKeys.filter(k => k.userId == lift(userId) && k.keyType == lift(apiKeyType))
+                apiKeys.filter(k => k.userId == lift(userId) && k.keyType == lift(apiKeyType)).sortBy(_.createdAt)(Ord.desc)
               )
             )
           ).map(_.transformInto[List[ApiKey]])

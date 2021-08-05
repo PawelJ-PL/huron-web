@@ -244,3 +244,126 @@ databaseChangeLog:
                   columns:
                     - column:
                         name: user_id
+
+        - createTable:
+            tableName: collections
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: name
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_key_version
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+        - createTable:
+            tableName: collection_permissions
+            columns:
+              - column:
+                  name: collection_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_key_permissions_collection_id
+                    deleteCascade: true
+                    references: collections(id)
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_key_permissions_user_id
+                    deleteCascade: true
+                    references: users(id)
+                    nullable: false
+              - column:
+                  name: permission
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+        - sql:
+            dbms: postgresql
+            sql: "ALTER TABLE collection_permissions ADD CONSTRAINT permission_check CHECK (permission IN ('ManageCollection', 'WriteFile', 'ReadFile', 'ReadFileMetadata'))"
+
+        - addPrimaryKey:
+            columnNames: collection_id, user_id, permission
+            constraintName: pk_collection_permissions
+            tableName: collection_permissions
+
+        - createIndex:
+            tableName: collection_permissions
+            columns:
+              - column:
+                  name: collection_id
+              - column:
+                  name: user_id
+
+        - createTable:
+            tableName: user_collections
+            columns:
+              - column:
+                  name: user_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_user_collection_user_id
+                    deleteCascade: true
+                    references: users(id)
+                    nullable: false
+              - column:
+                  name: collection_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_user_collection_collection_id
+                    deleteCascade: true
+                    references: collections(id)
+                    nullable: false
+              - column:
+                  name: encrypted_key
+                  type: varchar
+              - column:
+                  name: key_version
+                  type: uuid
+              - column:
+                  name: accepted
+                  type: boolean
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+        - addPrimaryKey:
+            columnNames: collection_id, user_id
+            constraintName: pk_user_collection
+            tableName: user_collections
+
+        - createIndex:
+            tableName: user_collections
+            columns:
+              - column:
+                  name: user_id

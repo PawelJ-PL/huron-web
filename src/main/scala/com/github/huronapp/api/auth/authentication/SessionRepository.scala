@@ -1,4 +1,4 @@
-package com.github.huronapp.api.authentication
+package com.github.huronapp.api.auth.authentication
 
 import cats.effect.{Clock => CEClock}
 import com.github.huronapp.api.config.SecurityConfig
