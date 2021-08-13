@@ -11,11 +11,11 @@ import capitalize from "lodash/capitalize"
 import { Button } from "@chakra-ui/button"
 import { AppState } from "../../../../application/store"
 import { Dispatch } from "redux"
-import { ChangePasswordData } from "../../api/UsersApi"
-import { changePasswordAction, resetChangePasswordStatusAction } from "../../store/Actions"
+import { changePasswordAction, ChangePasswordInputData, resetChangePasswordStatusAction } from "../../store/Actions"
 import { connect } from "react-redux"
 import { InvalidCredentials, InvalidEmail } from "../../api/errors"
 import AlertBox from "../../../../application/components/common/AlertBox"
+import { AsymmetricDecryptionFailed, SymmetricDecryptionFailed } from "../../../../application/cryptography/api/errors"
 
 type Props = Pick<WithTranslation, "t"> & ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps>
 
@@ -72,6 +72,9 @@ const ChangePasswordForm: React.FC<Props> = ({ t, changePasswordResult, resetRes
         } else if (error instanceof InvalidEmail) {
             status = "warning"
             title = t("profile-page:password-change.invalid-email-error")
+        } else if (error instanceof SymmetricDecryptionFailed || error instanceof AsymmetricDecryptionFailed) {
+            status = "warning"
+            title = t("profile-page:password-change.decrypt-failed-check-email-and-password")
         } else {
             status = "error"
             title = capitalize(t("common:unexpected-error"))
@@ -171,7 +174,7 @@ const mapStateToProps = (state: AppState) => ({
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
-    changePassword: (data: ChangePasswordData) => dispatch(changePasswordAction.started(data)),
+    changePassword: (data: ChangePasswordInputData) => dispatch(changePasswordAction.started(data)),
     resetResult: () => dispatch(resetChangePasswordStatusAction()),
 })
 

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import React from "react"
-import { exampleUserId, exampleUserNickname } from "../../../../testutils/constants/user"
+import { exampleHashedEmail, exampleUserId, exampleUserNickname } from "../../../../testutils/constants/user"
 import { tFunctionMock } from "../../../../testutils/mocks/i18n-mock"
 import { UserProfileView } from "./UserProfileView"
 
@@ -22,7 +22,12 @@ describe("User profile view", () => {
     it("should show user profile form on mount", () => {
         render(
             <UserProfileView
-                userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                userData={{
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                }}
                 t={tFunctionMock}
             />
         )
@@ -32,7 +37,12 @@ describe("User profile view", () => {
     it("should switch view to password change", () => {
         render(
             <UserProfileView
-                userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                userData={{
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                }}
                 t={tFunctionMock}
             />
         )
@@ -44,7 +54,12 @@ describe("User profile view", () => {
     it("should switch view to api keys", () => {
         render(
             <UserProfileView
-                userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                userData={{
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                }}
                 t={tFunctionMock}
             />
         )
@@ -56,7 +71,12 @@ describe("User profile view", () => {
     it("should switch view to user profile form", () => {
         render(
             <UserProfileView
-                userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                userData={{
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                }}
                 t={tFunctionMock}
             />
         )

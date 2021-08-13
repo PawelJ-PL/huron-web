@@ -41,7 +41,7 @@ object PrivateKey {
   implicit val codec: Codec[PrivateKey] = deriveUnwrappedCodec[PrivateKey]
 
   private val validator: Validator[PrivateKey] = (
-    Validator.maxLength[String](8000) and
+    Validator.maxLength[String](16000) and
       Validator.pattern(EncryptedStringPattern)
   ).contramap(_.value)
 

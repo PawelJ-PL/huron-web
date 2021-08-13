@@ -235,7 +235,7 @@ const DescriptionField: React.FC<{ description: string; onChange: (value: string
             onChange={handleChange}
             onSubmit={onChange}
         >
-            <EditablePreview maxWidth={["100%", null, null, "12ch", null, "35ch"]} />
+            <EditablePreview maxWidth={["100%", null, null, "12ch", null, "35ch"]} cursor="pointer" />
             <EditableInput />
         </Editable>
     )

@@ -1,8 +1,17 @@
+import {
+    exampleCollectionId,
+    exampleEncryptedCollectionKey,
+    exampleEncryptionKey,
+    exampleEncryptionKeyVersion,
+} from "./../../../testutils/constants/collection"
 import { NotLoggedIn, NoUpdatesProvides } from "./../../../application/api/ApiError"
 import { usersEpics } from "./Epics"
 import {
     exampleApiKey,
+    exampleEncryptedKeypair,
+    exampleEncryptedPrivateKey,
     exampleHashedEmail,
+    examplePublicKey,
     exampleUserEmail,
     exampleUserId,
     exampleUserNickname,
@@ -12,6 +21,7 @@ import {
     apiLogoutAction,
     changePasswordAction,
     computeMasterKeyAction,
+    fetchAndDecryptKeyPairAction,
     fetchCurrentUserAction,
     localLogoutAction,
     loginAction,
@@ -26,6 +36,7 @@ import UsersApi from "../api/UsersApi"
 import CryptoApi from "../../../application/cryptography/api/CryptoApi"
 import actionCreatorFactory from "typescript-fsa"
 import { Unauthorized } from "../../../application/api/ApiError"
+import CollectionsApi from "../../collection/api/CollectionsApi"
 
 const defaultState = {} as AppState
 
@@ -37,6 +48,30 @@ describe("User epics", () => {
     beforeEach(() => {
         jest.spyOn(CryptoApi, "deriveKey").mockImplementation((password, salt) =>
             Promise.resolve(`derivedKey(${password}, ${salt})`)
+        )
+
+        jest.spyOn(CryptoApi, "encrypt").mockImplementation((input, keyHex) =>
+            Promise.resolve(`encrypted(${input}, ${keyHex})`)
+        )
+
+        jest.spyOn(CryptoApi, "decrypt").mockImplementation((encryptedInput: string, keyHex: string) =>
+            Promise.resolve(`decrypted(${encryptedInput}, ${keyHex})`)
+        )
+
+        jest.spyOn(CryptoApi, "deriveKey").mockImplementation((password, salt) =>
+            Promise.resolve(`derivedKey(${password}, ${salt})`)
+        )
+
+        jest.spyOn(CryptoApi, "generateKeyPair").mockImplementation((length) =>
+            Promise.resolve({ privateKey: `new-private-key: ${length}`, publicKey: "new-public-key" })
+        )
+
+        jest.spyOn(CryptoApi, "asymmetricDecrypt").mockImplementation((encryptedInput: string, privateKeyPem: string) =>
+            Promise.resolve(`decryptedAsym(${encryptedInput} : ${privateKeyPem})`)
+        )
+
+        jest.spyOn(CryptoApi, "asymmetricEncrypt").mockImplementation((input: string, publicKeyPem: string) =>
+            Promise.resolve(`encryptedAsym(${input} : ${publicKeyPem})`)
         )
     })
 
@@ -94,13 +129,28 @@ describe("User epics", () => {
                 result: void 0,
             })
         )
-        expect(loginSpy).toHaveBeenCalledWith(exampleUserNickname, exampleUserEmail, exampleDerivedLoginPassword, "Pl")
+        expect(loginSpy).toHaveBeenCalledWith(
+            exampleUserNickname,
+            exampleUserEmail,
+            exampleDerivedLoginPassword,
+            {
+                algorithm: "Rsa",
+                publicKey: "new-public-key",
+                encryptedPrivateKey: `encrypted(new-private-key: 4096, derivedKey(secret-password, ${exampleHashedEmail}))`,
+            },
+            "Pl"
+        )
     })
 
     it("should set master password after successful login", () => {
         const resultData = {
             csrfToken: "ABC",
-            userData: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+            userData: {
+                id: exampleUserId,
+                nickName: exampleUserNickname,
+                language: "Pl",
+                emailHash: exampleHashedEmail,
+            },
         }
         const trigger = loginAction.done({
             params: { password: exampleUserPassword, email: exampleUserEmail },
@@ -111,7 +161,7 @@ describe("User epics", () => {
             usersEpics,
             defaultState,
             computeMasterKeyAction.done({
-                params: exampleUserPassword,
+                params: { password: exampleUserPassword, emailHash: exampleHashedEmail },
                 result: `derivedKey(${exampleUserPassword}, ${exampleHashedEmail})`,
             })
         )
@@ -122,7 +172,12 @@ describe("User epics", () => {
         jest.spyOn(CryptoApi, "deriveKey").mockImplementation(() => Promise.reject(new Error("Unknown error")))
         const resultData = {
             csrfToken: "ABC",
-            userData: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+            userData: {
+                id: exampleUserId,
+                nickName: exampleUserNickname,
+                language: "Pl",
+                emailHash: exampleHashedEmail,
+            },
         }
         const trigger = loginAction.done({
             params: { password: exampleUserPassword, email: exampleUserEmail },
@@ -133,7 +188,7 @@ describe("User epics", () => {
             usersEpics,
             defaultState,
             computeMasterKeyAction.failed({
-                params: exampleUserPassword,
+                params: { password: exampleUserPassword, emailHash: exampleHashedEmail },
                 error: new Error("Unknown error"),
             })
         )
@@ -166,6 +221,11 @@ describe("User epics", () => {
         expect(passwordResetSpy).toHaveBeenCalledWith(
             "A-B-C",
             `derivedKey(derivedKey(${"updated-password"}, ${exampleHashedEmail}), ${exampleHashedEmail})`,
+            {
+                algorithm: "Rsa",
+                publicKey: "new-public-key",
+                encryptedPrivateKey: `encrypted(new-private-key: 4096, derivedKey(updated-password, ${exampleHashedEmail}))`,
+            },
             exampleUserEmail
         )
     })
@@ -175,6 +235,7 @@ describe("User epics", () => {
             id: exampleUserId,
             nickName: "newNickname",
             language: "Pl",
+            emailHash: exampleHashedEmail,
         })
         const trigger = updateUserDataAction.started({ nickName: "newNickname" })
         await verifyAsyncEpic(
@@ -183,7 +244,7 @@ describe("User epics", () => {
             defaultState,
             updateUserDataAction.done({
                 params: { nickName: "newNickname" },
-                result: { id: exampleUserId, nickName: "newNickname", language: "Pl" },
+                result: { id: exampleUserId, nickName: "newNickname", language: "Pl", emailHash: exampleHashedEmail },
             })
         )
     })
@@ -238,6 +299,9 @@ describe("User epics", () => {
 
     it("should trigger password change with derived passwords", async () => {
         const changePasswordSpy = jest.spyOn(UsersApi, "changePassword").mockResolvedValue(void 0)
+        jest.spyOn(CollectionsApi, "fetchAllEncryptionKeys").mockResolvedValue([exampleEncryptionKey])
+        jest.spyOn(UsersApi, "fetchKeyPair").mockResolvedValue(exampleEncryptedKeypair)
+
         const trigger = changePasswordAction.started({
             email: exampleUserEmail,
             currentPassword: exampleUserPassword,
@@ -255,7 +319,53 @@ describe("User epics", () => {
         expect(changePasswordSpy).toHaveBeenCalledWith({
             currentPassword: exampleDerivedLoginPassword,
             email: exampleUserEmail,
+            keyPair: {
+                algorithm: "Rsa",
+                publicKey: "new-public-key",
+                encryptedPrivateKey: `encrypted(new-private-key: 4096, derivedKey(new-password, ${exampleHashedEmail}))`,
+            },
             newPassword: `derivedKey(derivedKey(${"new-password"}, ${exampleHashedEmail}), ${exampleHashedEmail})`,
+            collectionEncryptionKeys: [
+                {
+                    collectionId: exampleCollectionId,
+                    version: exampleEncryptionKeyVersion,
+                    key: `encryptedAsym(decryptedAsym(${exampleEncryptedCollectionKey} : decrypted(${exampleEncryptedPrivateKey}, derivedKey(secret-password, ${exampleHashedEmail}))) : new-public-key)`,
+                },
+            ],
+        })
+    })
+
+    it("should trigger key pair fetch and decrypt", async () => {
+        jest.spyOn(UsersApi, "fetchKeyPair").mockResolvedValue({
+            algorithm: "Rsa",
+            publicKey: examplePublicKey,
+            encryptedPrivateKey: exampleEncryptedPrivateKey,
+        })
+        const keyHex = "12aabbccddff"
+        const trigger = fetchAndDecryptKeyPairAction.started(keyHex)
+        await verifyAsyncEpic(
+            trigger,
+            usersEpics,
+            defaultState,
+            fetchAndDecryptKeyPairAction.done({
+                params: keyHex,
+                result: {
+                    privateKey: `decrypted(${exampleEncryptedPrivateKey}, ${keyHex})`,
+                    publicKey: examplePublicKey,
+                },
+            })
+        )
+    })
+
+    it("should trigger key pair fetch and decrypt on master key set", () => {
+        const masterKey = "12aabbccddff"
+        const trigger = computeMasterKeyAction.done({
+            params: { password: exampleUserPassword, emailHash: exampleHashedEmail },
+            result: masterKey,
+        })
+        verifyEpic(trigger, usersEpics, defaultState, {
+            marbles: "-a",
+            values: { a: fetchAndDecryptKeyPairAction.started(masterKey) },
         })
     })
 })

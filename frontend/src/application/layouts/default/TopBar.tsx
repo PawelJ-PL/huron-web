@@ -14,6 +14,8 @@ import { FiLogOut } from "react-icons/fi"
 import { Dispatch } from "redux"
 import { apiLogoutAction, resetApiLogoutStatusAction } from "../../../domain/user/store/Actions"
 import { useToast } from "@chakra-ui/toast"
+import UnlockKeyButton from "./unlock_key/UnlockKeyButton"
+import SelectCollectionButton from "./SelectCollectionButton"
 
 type Props = ReturnType<typeof mapStateToProps> &
     ReturnType<typeof mapDispatchToProps> &
@@ -40,6 +42,8 @@ export const TopBar: React.FC<Props> = ({ userData, t, history, logout, clearLog
         }
     }, [clearLogoutStatus, logoutStatus, t, toast])
 
+    const homeLinkHeight = useBreakpointValue({ base: "2rem", sm: "4rem" })
+
     return (
         <Box
             height="5rem"
@@ -55,14 +59,21 @@ export const TopBar: React.FC<Props> = ({ userData, t, history, logout, clearLog
             <Box marginX="2rem" display="flex" alignItems="center">
                 <Box height="5rem" display="flex" alignItems="center">
                     <RouterLink to="/">
-                        <Image src={Logo} height="4rem" verticalAlign="middle" />
+                        <Image src={Logo} height={homeLinkHeight} verticalAlign="middle" />
                     </RouterLink>
                 </Box>
                 <Box marginLeft="auto" display="flex" alignItems="center">
+                <SelectCollectionButton />
+                    {userData && (
+                        <UnlockKeyButton
+                            containerProps={{ marginRight: ["0.8em", "1.5em"] }}
+                            userEmailHash={userData.emailHash}
+                        />
+                    )}
                     <LanguagePicker />
                     <Menu autoSelect={false}>
                         <MenuButton>
-                            <Box display="flex" alignItems="center" marginLeft="1.5em">
+                            <Box display="flex" alignItems="center" marginLeft={["0.8em", "1.5em"]}>
                                 <Avatar background="brand.200" size="sm" />
                                 {showUserName && (
                                     <Text fontSize="sm" marginLeft="0.3em">

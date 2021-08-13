@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import React from "react"
 import { UserData } from "../domain/user/types/UserData"
-import { exampleUserId, exampleUserNickname } from "../testutils/constants/user"
+import { exampleHashedEmail, exampleUserId, exampleUserNickname } from "../testutils/constants/user"
 import { i18nMock, tFunctionMock } from "../testutils/mocks/i18n-mock"
 import { NotLoggedIn } from "./api/ApiError"
 import { AuthDecisionContainer } from "./AuthDecisionContainer"
@@ -109,7 +109,12 @@ describe("Auth decision container", () => {
             const userData: AsyncOperationResult<void, UserData, Error> = {
                 status: "FINISHED",
                 params: void 0,
-                data: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                data: {
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                },
             }
             const fetchUser = jest.fn()
             const clearPasswords = jest.fn()

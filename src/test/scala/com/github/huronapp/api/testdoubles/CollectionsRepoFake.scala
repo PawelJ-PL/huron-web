@@ -48,7 +48,8 @@ object CollectionsRepoFake {
       override def getEncryptedKeyFor(
         collectionId: FUUID,
         userId: FUUID
-      ): ZIO[Has[transactor.Transactor[Task]], DbException, Option[EncryptionKey]] = ???
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Option[EncryptionKey]] =
+        ref.get.map(_.collectionKeys.find(k => k.collectionId === collectionId && k.userId === userId))
 
       override def getAllCollectionKeysOfUser(
         userId: FUUID

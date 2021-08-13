@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import React from "react"
-import { exampleUserId, exampleUserNickname } from "../../../../testutils/constants/user"
+import { exampleHashedEmail, exampleUserId, exampleUserNickname } from "../../../../testutils/constants/user"
 import { tFunctionMock } from "../../../../testutils/mocks/i18n-mock"
 import { UPDATE_PROFILE_LANGUAGE_SELECT } from "./testids"
 import { UpdateProfileForm } from "./UpdateProfileForm"
@@ -10,7 +10,12 @@ describe("User profile form", () => {
         it("should be rendered", () => {
             render(
                 <UpdateProfileForm
-                    currentData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                    currentData={{
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    }}
                     t={tFunctionMock}
                     updateProfile={jest.fn()}
                     updateResult={{ status: "NOT_STARTED" }}
@@ -27,7 +32,12 @@ describe("User profile form", () => {
     it("should reset nickname to default value", () => {
         render(
             <UpdateProfileForm
-                currentData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                currentData={{
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                }}
                 t={tFunctionMock}
                 updateProfile={jest.fn()}
                 updateResult={{ status: "NOT_STARTED" }}
@@ -46,7 +56,12 @@ describe("User profile form", () => {
     it("should reset language to default value", () => {
         render(
             <UpdateProfileForm
-                currentData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                currentData={{
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                }}
                 t={tFunctionMock}
                 updateProfile={jest.fn()}
                 updateResult={{ status: "NOT_STARTED" }}
@@ -66,13 +81,23 @@ describe("User profile form", () => {
     it("should update default value for nickname after success action", () => {
         render(
             <UpdateProfileForm
-                currentData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                currentData={{
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                }}
                 t={tFunctionMock}
                 updateProfile={jest.fn()}
                 updateResult={{
                     status: "FINISHED",
                     params: { nickName: "updated-nick-name" },
-                    data: { id: exampleUserId, nickName: "updated-nick-name", language: "Pl" },
+                    data: {
+                        id: exampleUserId,
+                        nickName: "updated-nick-name",
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    },
                 }}
                 resetUpdateStatus={jest.fn()}
             />
@@ -88,13 +113,23 @@ describe("User profile form", () => {
     it("should update default value for language after success action", () => {
         render(
             <UpdateProfileForm
-                currentData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                currentData={{
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                }}
                 t={tFunctionMock}
                 updateProfile={jest.fn()}
                 updateResult={{
                     status: "FINISHED",
                     params: { language: "En" },
-                    data: { id: exampleUserId, nickName: "updated-nick-name", language: "En" },
+                    data: {
+                        id: exampleUserId,
+                        nickName: "updated-nick-name",
+                        language: "En",
+                        emailHash: exampleHashedEmail,
+                    },
                 }}
                 resetUpdateStatus={jest.fn()}
             />

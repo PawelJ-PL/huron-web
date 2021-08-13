@@ -1,3 +1,5 @@
+import { EncryptedKeyPair } from "../../domain/user/types/EncryptedKeyPair"
+
 export const exampleUserEmail = "some@example.org"
 export const exampleHashedEmail = "5976339c501ef0e78639242776736f5229e841dae232e16eee01d584ccdc01b1"
 export const exampleUserPassword = "secret-password"
@@ -12,3 +14,17 @@ export const exampleApiKey = {
     createdAt: "2021-07-02T21:02:38.475Z",
     updatedAt: "2021-07-02T21:02:38.475Z",
 }
+
+export const examplePublicKey = "examplePublicKey"
+
+export const examplePrivateKey = "examplePrivateKey"
+
+export const exampleEncryptedPrivateKey = "exampleEncryptedPrivateKey"
+
+export const exampleEncryptedKeypair: EncryptedKeyPair = {
+    algorithm: "Rsa",
+    publicKey: examplePublicKey,
+    encryptedPrivateKey: exampleEncryptedPrivateKey,
+}
+
+export const exampleMasterKey = "12d424724067e66bbfc80f0df651695792a42307e9507b2725600016c8dbc337"

@@ -1,7 +1,7 @@
 package com.github.huronapp.api.domain.collections
 
 import cats.syntax.show._
-import com.github.huronapp.api.auth.authorization.{AuthorizationKernel, GetCollectionDetails}
+import com.github.huronapp.api.auth.authorization.{AuthorizationKernel, GetCollectionDetails, GetEncryptionKey}
 import com.github.huronapp.api.auth.authorization.AuthorizationKernel.AuthorizationKernel
 import com.github.huronapp.api.auth.authorization.types.Subject
 import com.github.huronapp.api.domain.collections.CollectionsRepository.CollectionsRepository
@@ -26,6 +26,10 @@ object CollectionsService {
     def getCollectionDetailsAs(userId: FUUID, collectionId: FUUID): ZIO[Any, GetCollectionDetailsError, Collection]
 
     def createCollectionAs(userId: FUUID, dto: NewCollectionReq): ZIO[Any, Nothing, Collection]
+
+    def getEncryptionKeyAs(userId: FUUID, collectionId: FUUID): ZIO[Any, GetEncryptionKeyError, Option[EncryptionKey]]
+
+    def getEncryptionKeysForAllCollectionsOfUser(userId: FUUID): ZIO[Any, Nothing, List[EncryptionKey]]
 
   }
 
@@ -61,6 +65,17 @@ object CollectionsService {
               _            <- logger.info(show"User $userId created collection $collectionId")
             } yield saved
           )
+
+        override def getEncryptionKeyAs(userId: FUUID, collectionId: FUUID): ZIO[Any, GetEncryptionKeyError, Option[EncryptionKey]] =
+          db.transactionOrDie(
+            for {
+              _             <- authKernel.authorizeOperation(GetEncryptionKey(Subject(userId), collectionId)).mapError(AuthorizationError)
+              encryptionKey <- collectionsRepo.getEncryptedKeyFor(collectionId, userId).orDie
+            } yield encryptionKey
+          )
+
+        override def getEncryptionKeysForAllCollectionsOfUser(userId: FUUID): ZIO[Any, Nothing, List[EncryptionKey]] =
+          db.transactionOrDie(collectionsRepo.getAllCollectionKeysOfUser(userId).orDie)
       }
     }
 

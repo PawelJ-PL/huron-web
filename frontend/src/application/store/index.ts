@@ -3,12 +3,14 @@ import { usersEpics } from "./../../domain/user/store/Epics"
 import { usersReducer } from "./../../domain/user/store/Reducers"
 import { Action, applyMiddleware, combineReducers, compose, createStore } from "redux"
 import { combineEpics, createEpicMiddleware } from "redux-observable"
+import { collectionsEpics } from "../../domain/collection/store/Epics"
+import { collectionsReducer } from "../../domain/collection/store/Reducers"
 
-const rootReducer = combineReducers({ users: usersReducer })
+const rootReducer = combineReducers({ users: usersReducer, collections: collectionsReducer })
 
 export type AppState = ReturnType<typeof rootReducer>
 
-const rootEpic = combineEpics(usersEpics)
+const rootEpic = combineEpics(usersEpics, collectionsEpics)
 
 function configure() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

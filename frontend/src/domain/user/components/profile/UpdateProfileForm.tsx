@@ -28,7 +28,13 @@ type Props = { currentData: UserData } & Pick<WithTranslation, "t"> &
     ReturnType<typeof mapStateToProps> &
     ReturnType<typeof mapDispatchToProps>
 
-export const UpdateProfileForm: React.FC<Props> = ({ t, currentData, resetUpdateStatus, updateProfile, updateResult }) => {
+export const UpdateProfileForm: React.FC<Props> = ({
+    t,
+    currentData,
+    resetUpdateStatus,
+    updateProfile,
+    updateResult,
+}) => {
     useEffect(() => {
         resetUpdateStatus()
         return () => {

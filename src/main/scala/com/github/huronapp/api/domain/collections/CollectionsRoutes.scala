@@ -1,11 +1,12 @@
 package com.github.huronapp.api.domain.collections
 
+import cats.syntax.show._
 import cats.syntax.semigroupk._
 import com.github.huronapp.api.auth.authentication.HttpAuthentication
 import com.github.huronapp.api.auth.authentication.HttpAuthentication.HttpAuthentication
 import com.github.huronapp.api.domain.collections.CollectionsService.CollectionsService
-import com.github.huronapp.api.domain.collections.dto.{CollectionData, NewCollectionReq}
-import com.github.huronapp.api.http.BaseRouter
+import com.github.huronapp.api.domain.collections.dto.{CollectionData, EncryptionKeyData, NewCollectionReq}
+import com.github.huronapp.api.http.{BaseRouter, ErrorResponse}
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import com.github.huronapp.api.http.EndpointSyntax._
 import io.chrisdavenport.fuuid.FUUID
@@ -49,12 +50,29 @@ object CollectionsRoutes {
                   .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.getCollectionDetailsError(error)))
             }
 
-          private val createCollection: HttpRoutes[RouteEffect] =
+          private val createCollectionRoute: HttpRoutes[RouteEffect] =
             CollectionsEndpoints.createCollectionEndpoint.toAuthenticatedRoutes[NewCollectionReq](auth.asUser) {
               case (user, dto) => collectionService.createCollectionAs(user.userId, dto).map(_.transformInto[CollectionData])
             }
 
-          override val routes: HttpRoutes[RouteEffect] = listCollectionsRoute <+> getCollectionDetailsRoute <+> createCollection
+          private val getCollectionKeyRoute =
+            CollectionsEndpoints.getSingleCollectionKeyEndpoint.toAuthenticatedRoutes[FUUID](auth.asUser) {
+              case (user, collectionId) =>
+                collectionService
+                  .getEncryptionKeyAs(user.userId, collectionId)
+                  .map(_.transformInto[Option[EncryptionKeyData]])
+                  .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.getEncryptionKeyError(error)))
+                  .someOrFail(ErrorResponse.NotFound(show"Encryption key not found for collection $collectionId"))
+            }
+
+          private val getAllCollectionsKeysRoute =
+            CollectionsEndpoints.getEncryptionKeysForAllCollectionsEndpoint.toAuthenticatedRoutes[Unit](auth.asUser) {
+              case (user, _) =>
+                collectionService.getEncryptionKeysForAllCollectionsOfUser(user.userId).map(_.transformInto[List[EncryptionKeyData]])
+            }
+
+          override val routes: HttpRoutes[RouteEffect] =
+            getAllCollectionsKeysRoute <+> listCollectionsRoute <+> getCollectionDetailsRoute <+> createCollectionRoute <+> getCollectionKeyRoute
 
         }
     )

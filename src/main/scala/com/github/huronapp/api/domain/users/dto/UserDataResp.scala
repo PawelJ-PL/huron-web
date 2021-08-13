@@ -9,7 +9,7 @@ import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.Schema
 import sttp.tapir.codec.enumeratum.TapirCodecEnumeratum
 
-final case class UserDataResp(id: FUUID, nickName: String, language: Language)
+final case class UserDataResp(id: FUUID, nickName: String, language: Language, emailHash: String)
 
 object UserDataResp extends TapirCodecEnumeratum {
 

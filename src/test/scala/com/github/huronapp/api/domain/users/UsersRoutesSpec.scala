@@ -129,7 +129,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
 
   private val keyPairDto = KeyPairDto(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey), PrivateKey(ExamplePrivateKey))
 
-  private val encryptionKeyData = EncryptionKeyData(ExampleCollectionId, ExampleEncryptionKey, ExampleEncryptionKeyVersion)
+  private val encryptionKeyData = EncryptionKeyData(ExampleCollectionId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion)
 
   private val registerUser = testM("should generate response on registration success") {
     val dto =
@@ -241,7 +241,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage))) &&
+      assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest))) &&
       assert(result.headers.get(CaseInsensitiveString("set-cookie")))(
         isSome(
           equalTo(
@@ -405,7 +405,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Ok)) &&
       assert(result.headers.get(CaseInsensitiveString("X-Csrf-Token")))(isSome(equalTo(Header("X-Csrf-Token", ExampleFuuid2.show)))) &&
-      assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage))) &&
+      assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest))) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }
 
@@ -425,7 +425,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Ok)) &&
       assert(result.headers.get(CaseInsensitiveString("X-Csrf-Token")))(isNone) &&
-      assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage))) &&
+      assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest))) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }
 
@@ -477,7 +477,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[UserDataResp]
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(equalTo(UserDataResp(ExampleUserId, "NewName", ExampleUserLanguage))) &&
+      assert(body)(equalTo(UserDataResp(ExampleUserId, "NewName", ExampleUserLanguage, ExampleUserEmailDigest))) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }
 

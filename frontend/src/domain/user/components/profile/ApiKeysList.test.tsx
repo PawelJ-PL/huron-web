@@ -12,7 +12,9 @@ jest.mock("../../../../application/components/common/EmptyPlaceholder", () => ()
 ))
 
 // eslint-disable-next-line react/display-name
-jest.mock("../../../../application/components/common/responsive_table/ResponsiveTable", () => () => <div data-testid="keys-list"></div>)
+jest.mock("../../../../application/components/common/responsive_table/ResponsiveTable", () => () => (
+    <div data-testid="keys-list"></div>
+))
 
 // eslint-disable-next-line react/display-name
 jest.mock("../../../../application/components/common/Confirmation", () => () => <div></div>)

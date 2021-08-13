@@ -31,6 +31,8 @@ import {
     resetChangePasswordStatusAction,
     createApiKeyAction,
     resetCreateApiKeyStatusAction,
+    fetchAndDecryptKeyPairAction,
+    resetKeyPairAction,
 } from "./Actions"
 import { AsyncOperationResult } from "./../../../application/store/async/AsyncOperationResult"
 import { reducerWithInitialState } from "typescript-fsa-reducers"
@@ -81,7 +83,9 @@ const registerUserReducer = createReducer(registerNewUserAction, resetRegistrati
 
 const activationReducer = createReducer(activateAccountAction, resetActivationStatusAction).build()
 
-const masterKeyReducer = createReducer(computeMasterKeyAction, clearMasterKeyAction, { params: () => "" })
+const masterKeyReducer = createReducer(computeMasterKeyAction, clearMasterKeyAction, {
+    params: ({ emailHash }) => ({ emailHash, password: "" }),
+})
     .case(localLogoutAction, () => ({ status: "NOT_STARTED" }))
     .case(changePasswordAction.done, () => ({ status: "NOT_STARTED" }))
     .build()
@@ -145,6 +149,15 @@ const changePasswordReducer = createReducer(changePasswordAction, resetChangePas
 
 const createApiKeyReducer = createReducer(createApiKeyAction, resetCreateApiKeyStatusAction).build()
 
+const fetchAndDecryptKeyPairReducer = createReducer(fetchAndDecryptKeyPairAction, resetKeyPairAction, {
+    params: (masterKey) => "",
+})
+    .cases(
+        [localLogoutAction, computeMasterKeyAction.failed, computeMasterKeyAction.started, clearMasterKeyAction],
+        () => ({ status: "NOT_STARTED" })
+    )
+    .build()
+
 export const usersReducer = combineReducers({
     loginStatus: loginReducer,
     userData: userDataReducer,
@@ -162,4 +175,5 @@ export const usersReducer = combineReducers({
     deleteApiKeyStatus: deleteApiKeyReducer,
     logoutStatus: apiLogoutReducer,
     changePassword: changePasswordReducer,
+    keyPair: fetchAndDecryptKeyPairReducer,
 })

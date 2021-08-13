@@ -1,5 +1,8 @@
 import { InvalidCredentials, InvalidEmail, PasswordsAreEqual, UserAlreadyRegistered } from "./errors"
 import {
+    exampleEncryptedPrivateKey,
+    exampleHashedEmail,
+    examplePublicKey,
     exampleUserEmail,
     exampleUserId,
     exampleUserNickname,
@@ -16,7 +19,12 @@ describe("Users api", () => {
             const server = setupServer(
                 rest.post("http://127.0.0.1:8080/api/v1/users/auth/login", (_, res, ctx) => {
                     return res(
-                        ctx.json({ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }),
+                        ctx.json({
+                            id: exampleUserId,
+                            nickName: exampleUserNickname,
+                            language: "Pl",
+                            emailHash: exampleHashedEmail,
+                        }),
                         ctx.set("X-Csrf-Token", "ABCDEFGHIJK")
                     )
                 })
@@ -26,7 +34,12 @@ describe("Users api", () => {
             const result = UsersApi.login(exampleUserEmail, exampleUserPassword)
             await expect(result).resolves.toEqual({
                 csrfToken: "ABCDEFGHIJK",
-                userData: { id: exampleUserId, language: "Pl", nickName: exampleUserNickname },
+                userData: {
+                    id: exampleUserId,
+                    language: "Pl",
+                    nickName: exampleUserNickname,
+                    emailHash: exampleHashedEmail,
+                },
             })
 
             server.close()
@@ -84,7 +97,13 @@ describe("Users api", () => {
             )
             server.listen()
 
-            const result = UsersApi.registerUser(exampleUserNickname, exampleUserEmail, exampleUserPassword, "Pl")
+            const result = UsersApi.registerUser(
+                exampleUserNickname,
+                exampleUserEmail,
+                exampleUserPassword,
+                { algorithm: "Rsa", publicKey: examplePublicKey, encryptedPrivateKey: exampleEncryptedPrivateKey },
+                "Pl"
+            )
             await expect(result).resolves.toBe(undefined)
 
             server.close()
@@ -98,7 +117,13 @@ describe("Users api", () => {
             )
             server.listen()
 
-            const result = UsersApi.registerUser(exampleUserNickname, exampleUserEmail, exampleUserPassword, "Pl")
+            const result = UsersApi.registerUser(
+                exampleUserNickname,
+                exampleUserEmail,
+                exampleUserPassword,
+                { algorithm: "Rsa", publicKey: examplePublicKey, encryptedPrivateKey: exampleEncryptedPrivateKey },
+                "Pl"
+            )
             await expect(result).rejects.toEqual(new UserAlreadyRegistered(exampleUserEmail))
 
             server.close()
@@ -112,7 +137,13 @@ describe("Users api", () => {
             )
             server.listen()
 
-            const result = UsersApi.registerUser(exampleUserNickname, exampleUserEmail, exampleUserPassword, "Pl")
+            const result = UsersApi.registerUser(
+                exampleUserNickname,
+                exampleUserEmail,
+                exampleUserPassword,
+                { algorithm: "Rsa", publicKey: examplePublicKey, encryptedPrivateKey: exampleEncryptedPrivateKey },
+                "Pl"
+            )
             await assertHttpErrorWithStatusCode(result, 500)
             server.close()
         })
@@ -171,7 +202,12 @@ describe("Users api", () => {
             )
             server.listen()
 
-            const result = UsersApi.resetPassword("X-Y-Z", "newPassword", exampleUserEmail)
+            const result = UsersApi.resetPassword(
+                "X-Y-Z",
+                "newPassword",
+                { algorithm: "Rsa", publicKey: examplePublicKey, encryptedPrivateKey: exampleEncryptedPrivateKey },
+                exampleUserEmail
+            )
             await expect(result).resolves.toBe(true)
 
             server.close()
@@ -185,7 +221,12 @@ describe("Users api", () => {
             )
             server.listen()
 
-            const result = UsersApi.resetPassword("X-Y-Z", "newPassword", exampleUserEmail)
+            const result = UsersApi.resetPassword(
+                "X-Y-Z",
+                "newPassword",
+                { algorithm: "Rsa", publicKey: examplePublicKey, encryptedPrivateKey: exampleEncryptedPrivateKey },
+                exampleUserEmail
+            )
             await expect(result).resolves.toBe(false)
 
             server.close()
@@ -199,7 +240,12 @@ describe("Users api", () => {
             )
             server.listen()
 
-            const result = UsersApi.resetPassword("X-Y-Z", "newPassword", exampleUserEmail)
+            const result = UsersApi.resetPassword(
+                "X-Y-Z",
+                "newPassword",
+                { algorithm: "Rsa", publicKey: examplePublicKey, encryptedPrivateKey: exampleEncryptedPrivateKey },
+                exampleUserEmail
+            )
             await assertHttpErrorWithStatusCode(result, 500)
 
             server.close()
@@ -219,6 +265,12 @@ describe("Users api", () => {
                 email: exampleUserEmail,
                 currentPassword: exampleUserPassword,
                 newPassword: "newPassword",
+                keyPair: {
+                    algorithm: "Rsa",
+                    publicKey: examplePublicKey,
+                    encryptedPrivateKey: exampleEncryptedPrivateKey,
+                },
+                collectionEncryptionKeys: [],
             })
             await expect(result).resolves.toBe(undefined)
 
@@ -237,6 +289,12 @@ describe("Users api", () => {
                 email: exampleUserEmail,
                 currentPassword: exampleUserPassword,
                 newPassword: exampleUserPassword,
+                keyPair: {
+                    algorithm: "Rsa",
+                    publicKey: examplePublicKey,
+                    encryptedPrivateKey: exampleEncryptedPrivateKey,
+                },
+                collectionEncryptionKeys: [],
             })
             await expect(result).rejects.toEqual(new PasswordsAreEqual())
 
@@ -255,6 +313,12 @@ describe("Users api", () => {
                 email: exampleUserEmail,
                 currentPassword: exampleUserPassword,
                 newPassword: exampleUserPassword,
+                keyPair: {
+                    algorithm: "Rsa",
+                    publicKey: examplePublicKey,
+                    encryptedPrivateKey: exampleEncryptedPrivateKey,
+                },
+                collectionEncryptionKeys: [],
             })
             await expect(result).rejects.toEqual(new InvalidCredentials())
 
@@ -273,6 +337,12 @@ describe("Users api", () => {
                 email: exampleUserEmail,
                 currentPassword: exampleUserPassword,
                 newPassword: exampleUserPassword,
+                keyPair: {
+                    algorithm: "Rsa",
+                    publicKey: examplePublicKey,
+                    encryptedPrivateKey: exampleEncryptedPrivateKey,
+                },
+                collectionEncryptionKeys: [],
             })
             await expect(result).rejects.toEqual(new InvalidEmail())
 
@@ -291,6 +361,12 @@ describe("Users api", () => {
                 email: exampleUserEmail,
                 currentPassword: exampleUserPassword,
                 newPassword: "newPassword",
+                keyPair: {
+                    algorithm: "Rsa",
+                    publicKey: examplePublicKey,
+                    encryptedPrivateKey: exampleEncryptedPrivateKey,
+                },
+                collectionEncryptionKeys: [],
             })
             await assertHttpErrorWithStatusCode(result, 500)
 

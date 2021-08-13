@@ -12,7 +12,9 @@ sealed trait CollectionError {
 
 sealed trait GetCollectionDetailsError extends CollectionError
 
-final case class AuthorizationError(error: AuthError) extends GetCollectionDetailsError {
+sealed trait GetEncryptionKeyError extends CollectionError
+
+final case class AuthorizationError(error: AuthError) extends GetCollectionDetailsError with GetEncryptionKeyError {
 
   override val logMessage: String = error.message
 
