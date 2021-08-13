@@ -1,3 +1,4 @@
+import { KeyPair } from "./../../../application/cryptography/types/KeyPair"
 import { ApiKeyDescription } from "./../types/ApiKey"
 import { UserData } from "./../types/UserData"
 import actionCreatorFactory from "typescript-fsa"
@@ -18,6 +19,8 @@ export type ResetPasswordParams = {
     email: string
 }
 
+export type ChangePasswordInputData = Omit<ChangePasswordData, "keyPair" | "collectionEncryptionKeys">
+
 export const loginAction = actionCreator.async<{ email: string; password: string }, UserDataWithToken | null, Error>(
     "LOGIN"
 )
@@ -27,7 +30,9 @@ export const registerNewUserAction = actionCreator.async<RegistrationParams, voi
 export const resetRegistrationStatusAction = actionCreator("RESET_REGISTRATION_STATUS")
 export const activateAccountAction = actionCreator.async<string, boolean, Error>("ACTIVATE_USER")
 export const resetActivationStatusAction = actionCreator("RESET_ACTIVATION_STATUS")
-export const computeMasterKeyAction = actionCreator.async<string, string, Error>("COMPUTE_MASTER_KEY")
+export const computeMasterKeyAction = actionCreator.async<{ password: string; emailHash: string }, string, Error>(
+    "COMPUTE_MASTER_KEY"
+)
 export const clearMasterKeyAction = actionCreator("CLEAR_MASTER_KEY")
 export const requestPasswordResetAction = actionCreator.async<string, void, Error>("REQUEST_PASSWORD_RESET")
 export const clearPasswordResetRequestStatusAction = actionCreator("CLEAR_PASSWORD_RESET_REQUEST")
@@ -54,7 +59,7 @@ export const deleteApiKeyAction = actionCreator.async<string, void, Error>("DELE
 export const resetDeleteApiKeyStatusAction = actionCreator("RESET_DELETE_API_KEY_STATUS")
 export const apiLogoutAction = actionCreator.async<void, void, Error>("API_LOGOUT")
 export const resetApiLogoutStatusAction = actionCreator("RESET_API_LOGOUT_STATUS")
-export const changePasswordAction = actionCreator.async<ChangePasswordData, void, Error>("CHANGE_PASSWORD")
+export const changePasswordAction = actionCreator.async<ChangePasswordInputData, void, Error>("CHANGE_PASSWORD")
 export const resetChangePasswordStatusAction = actionCreator("RESET_CHANGE_PASSWORD_STATUS")
 export const createApiKeyAction = actionCreator.async<
     { description: string; validTo?: string },
@@ -62,3 +67,5 @@ export const createApiKeyAction = actionCreator.async<
     Error
 >("CREATE_API_KEY")
 export const resetCreateApiKeyStatusAction = actionCreator("RESET_CREATE_API_KEY_STATUS")
+export const fetchAndDecryptKeyPairAction = actionCreator.async<string, KeyPair, Error>("FETCH_KEYPAIR")
+export const resetKeyPairAction = actionCreator("RESET_KEYPAIR")

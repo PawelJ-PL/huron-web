@@ -4,6 +4,7 @@ export const UserDataSchema = z.object({
     id: z.string(),
     nickName: z.string(),
     language: z.string(),
+    emailHash: z.string(),
 })
 
 export type UserData = z.infer<typeof UserDataSchema>

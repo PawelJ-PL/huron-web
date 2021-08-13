@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import React from "react"
-import { exampleUserId, exampleUserNickname } from "../../../../testutils/constants/user"
+import { exampleHashedEmail, exampleUserId, exampleUserNickname } from "../../../../testutils/constants/user"
 import { tFunctionMock } from "../../../../testutils/mocks/i18n-mock"
 import { UserProfilePage } from "./UserProfilePage"
 import * as chakraToast from "@chakra-ui/toast"
@@ -20,7 +20,12 @@ describe("User profile page", () => {
                     resetRefreshStatus={resetRefreshStatus}
                     t={tFunctionMock}
                     refreshDataStatus={"FINISHED"}
-                    userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                    userData={{
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    }}
                 />
             )
             expect(resetRefreshStatus).toHaveBeenCalledTimes(1)
@@ -35,7 +40,12 @@ describe("User profile page", () => {
                     resetRefreshStatus={jest.fn()}
                     t={tFunctionMock}
                     refreshDataStatus={"FINISHED"}
-                    userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                    userData={{
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    }}
                 />
             )
             expect(resetUpdateStatus).toHaveBeenCalledTimes(1)
@@ -50,7 +60,12 @@ describe("User profile page", () => {
                     resetRefreshStatus={jest.fn()}
                     t={tFunctionMock}
                     refreshDataStatus={"FINISHED"}
-                    userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                    userData={{
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    }}
                 />
             )
             expect(refreshData).toHaveBeenCalledTimes(1)
@@ -65,7 +80,12 @@ describe("User profile page", () => {
                     resetRefreshStatus={resetRefreshStatus}
                     t={tFunctionMock}
                     refreshDataStatus={"FINISHED"}
-                    userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                    userData={{
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    }}
                 />
             )
             element.unmount()
@@ -85,11 +105,23 @@ describe("User profile page", () => {
                     resetRefreshStatus={jest.fn()}
                     t={tFunctionMock}
                     refreshDataStatus={"FAILED"}
-                    userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                    userData={{
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    }}
                 />
             )
             expect(toast).toHaveBeenCalledTimes(1)
-            expect(toast).toHaveBeenCalledWith({isClosable: true, duration: 7000, id: "refresh-data-failed", status: "warning", title: "profile-page:refresh-failed-toast.title", description: "profile-page:refresh-failed-toast.description"})
+            expect(toast).toHaveBeenCalledWith({
+                isClosable: true,
+                duration: 7000,
+                id: "refresh-data-failed",
+                status: "warning",
+                title: "profile-page:refresh-failed-toast.title",
+                description: "profile-page:refresh-failed-toast.description",
+            })
 
             useToastMock.mockRestore()
         })
@@ -104,7 +136,12 @@ describe("User profile page", () => {
                     resetRefreshStatus={jest.fn()}
                     t={tFunctionMock}
                     refreshDataStatus={"PENDING"}
-                    userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                    userData={{
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    }}
                 />
             )
             screen.getByText("profile-page:loading-user-data")
@@ -118,7 +155,12 @@ describe("User profile page", () => {
                     resetRefreshStatus={jest.fn()}
                     t={tFunctionMock}
                     refreshDataStatus={"FINISHED"}
-                    userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                    userData={{
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    }}
                 />
             )
             screen.getByTestId("user-profile-view")
@@ -132,7 +174,12 @@ describe("User profile page", () => {
                     resetRefreshStatus={jest.fn()}
                     t={tFunctionMock}
                     refreshDataStatus={"FAILED"}
-                    userData={{ id: exampleUserId, nickName: exampleUserNickname, language: "Pl" }}
+                    userData={{
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    }}
                 />
             )
             screen.getByTestId("user-profile-view")

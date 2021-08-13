@@ -11,6 +11,7 @@
         "field-max-length": "Maksymalna ilość znaków wynosi {{maxChars}}",
         "field-word-regex": "Dopuszczalne znaki to litery, cyfry oraz symbol podkreślenia",
         "field-non-empty": "Pole nie może być puste",
+        "field-letters-only": "Pole może zawierać wyłącznie litery",
         "form-save": "zapisz",
         "form-reset": "reset",
         "copy-imperative": "kopiuj",
@@ -77,7 +78,22 @@
             "profile": "Profil użytkownika",
             "logout": "Wyloguj"
         },
-        "logout-failed-message": "Wylogowanie nie powiodło się"
+        "logout-failed-message": "Wylogowanie nie powiodło się",
+        "unlock-key-button": {
+            "key-locked-label": "Klucz szyfrujący zablokowany",
+            "key-unlocked-label": "Klucz szyfrujący odblokowany",
+            "key-error-label": "Problem z odblokowaniem klucza szyfrującego",
+            "key-pending-label": "Klucz szyfrujący w trakcie odblokowywania",
+            "key-locked-tooltip": "Klucz szyfrujący zablokowany. Kliknij aby odblokować",
+            "key-unlocked-tooltip": "Klucz szyfrujący odblokowany. Kliknij aby zablokować",
+            "key-error-tooltip": "Problem z odblokowaniem klucza szyfrującego. Kliknij aby spróbowanć ponownie",
+            "key-pending-tooltip": "Klucz szyfrujący w trakcie odblokowywania",
+            "enter-password-header": "Wprowadź swoje hasło",
+            "enter-password-confirmation-button-label": "Odblokuj"
+        },
+        "select-collection": {
+            "aria-label": "Wybór kolekcji"
+        }
     },
     "profile-page": {
         "refresh-failed-toast": {
@@ -124,7 +140,23 @@
             "submit-button": "Zmień hasło",
             "invalid-credentials-error": "Wprowadzone aktualne hasło jest nieprawidłowe.",
             "invalid-email-error": "Wprowadzony adres email jest nieprawidłowy.",
-            "password-changed-message": "Hasło zostało zmienione."
+            "password-changed-message": "Hasło zostało zmienione.",
+            "decrypt-failed-check-email-and-password": "Nie można odszyfrować klucza użytkownika. Upewnij się, że wprowadziłeś poprawne bieżące hasło oraz adres email"
         }
+    },
+    "collections-view": {
+        "loader-title": "Wczytywanie kolekcji",
+        "load-error-title": "Nie udało się wczytać listy kolekcji",
+        "auto-create-collection-modal": {
+            "header": "Stwórz kolekcję",
+            "collection-name-input-field": "Nazwa kolekcji"
+        },
+        "select-collection-modal": {
+            "header": "Wybierz kolekcję"
+        }
+    },
+    "single-collection-view": {
+        "loading-collection-data": "Wczytywanie danych kolekcji",
+        "fetching-details-error-message": "Nie można wczytać danych kolekcji"
     }
 }

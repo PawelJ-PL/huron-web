@@ -2,10 +2,10 @@ package com.github.huronapp.api.domain.collections
 
 import cats.data.Chain
 import com.github.huronapp.api.auth.authorization.types.Subject
-import com.github.huronapp.api.auth.authorization.{GetCollectionDetails, OperationNotPermitted}
+import com.github.huronapp.api.auth.authorization.{GetCollectionDetails, GetEncryptionKey, OperationNotPermitted}
 import com.github.huronapp.api.constants.{Collections, Users}
 import com.github.huronapp.api.domain.collections.dto.fields.{CollectionName, EncryptedCollectionKey}
-import com.github.huronapp.api.domain.collections.dto.{CollectionData, NewCollectionReq}
+import com.github.huronapp.api.domain.collections.dto.{CollectionData, EncryptionKeyData, NewCollectionReq}
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import com.github.huronapp.api.http.ErrorResponse
 import com.github.huronapp.api.testdoubles.HttpAuthenticationFake.validAuthHeader
@@ -31,7 +31,13 @@ object CollectionsRoutesSpec extends DefaultRunnableSpec with Collections with U
       getCollectionNotFound,
       getCollectionUnauthorized,
       createCollection,
-      createCollectionUnauthorized
+      createCollectionUnauthorized,
+      getEncryptionKey,
+      getEncryptionKeyNotFound,
+      getEncryptionKeyForbidden,
+      getEncryptionKeyNotAuthorized,
+      getAllEncryptionKeys,
+      getAllEncryptionKeysUnauthorized
     )
 
   def createRoutes(
@@ -42,7 +48,7 @@ object CollectionsRoutesSpec extends DefaultRunnableSpec with Collections with U
       logs
     ) ++ HttpAuthenticationFake.create >>> CollectionsRoutes.live
 
-  private val encryptedKey = "AES-CBC:1af4:16:32:1bae4c:89ae32ef"
+  private val encryptedKey = "1bae4c89ae32ef"
 
   private val createCollectionDto = NewCollectionReq(CollectionName(ExampleCollectionName), EncryptedCollectionKey(encryptedKey))
 
@@ -162,5 +168,101 @@ object CollectionsRoutesSpec extends DefaultRunnableSpec with Collections with U
     } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
       assert(body)(equalTo(ErrorResponse.Unauthorized("Invalid credentials")))
   }
+
+  private val getEncryptionKey = testM("should generate response for get encryption key request") {
+    val collectionServicesResponses = CollectionsServiceStub.CollectionsServiceResponses()
+
+    for {
+      logs   <- Ref.make(Chain.empty[String])
+      routes <- CollectionsRoutes.routes.provideLayer(createRoutes(collectionServicesResponses, logs)).map(_.orNotFound)
+      req = Request[RouteEffect](
+              method = Method.GET,
+              Uri.unsafeFromString(s"/api/v1/collections/${ExampleCollectionId.toString()}/encryption-key")
+            )
+              .withHeaders(validAuthHeader)
+      result <- routes.run(req)
+      body   <- result.as[EncryptionKeyData]
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(equalTo(EncryptionKeyData(ExampleCollectionId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion)))
+  }
+
+  private val getEncryptionKeyNotFound = testM("should generate response for get encryption key request if key not set") {
+    val collectionServicesResponses = CollectionsServiceStub.CollectionsServiceResponses(getEncryptionKey = ZIO.none)
+
+    for {
+      logs   <- Ref.make(Chain.empty[String])
+      routes <- CollectionsRoutes.routes.provideLayer(createRoutes(collectionServicesResponses, logs)).map(_.orNotFound)
+      req = Request[RouteEffect](
+              method = Method.GET,
+              Uri.unsafeFromString(s"/api/v1/collections/${ExampleCollectionId.toString()}/encryption-key")
+            )
+              .withHeaders(validAuthHeader)
+      result <- routes.run(req)
+      body   <- result.as[ErrorResponse.NotFound]
+    } yield assert(result.status)(equalTo(Status.NotFound)) &&
+      assert(body)(equalTo(ErrorResponse.NotFound(s"Encryption key not found for collection $ExampleCollectionId")))
+  }
+
+  private val getEncryptionKeyForbidden = testM("should generate response for get encryption key request if user not allowed") {
+    val collectionServicesResponses = CollectionsServiceStub.CollectionsServiceResponses(getEncryptionKey =
+      ZIO.fail(AuthorizationError(OperationNotPermitted(GetEncryptionKey(Subject(ExampleUserId), ExampleCollectionId))))
+    )
+
+    for {
+      logs   <- Ref.make(Chain.empty[String])
+      routes <- CollectionsRoutes.routes.provideLayer(createRoutes(collectionServicesResponses, logs)).map(_.orNotFound)
+      req = Request[RouteEffect](
+              method = Method.GET,
+              Uri.unsafeFromString(s"/api/v1/collections/${ExampleCollectionId.toString()}/encryption-key")
+            )
+              .withHeaders(validAuthHeader)
+      result <- routes.run(req)
+      body   <- result.as[ErrorResponse.Forbidden]
+    } yield assert(result.status)(equalTo(Status.Forbidden)) &&
+      assert(body)(equalTo(ErrorResponse.Forbidden("Operation not permitted")))
+  }
+
+  private val getEncryptionKeyNotAuthorized = testM("should generate response for get encryption key request if user not logged in") {
+    val collectionServicesResponses = CollectionsServiceStub.CollectionsServiceResponses()
+
+    for {
+      logs   <- Ref.make(Chain.empty[String])
+      routes <- CollectionsRoutes.routes.provideLayer(createRoutes(collectionServicesResponses, logs)).map(_.orNotFound)
+      req = Request[RouteEffect](
+              method = Method.GET,
+              Uri.unsafeFromString(s"/api/v1/collections/${ExampleCollectionId.toString()}/encryption-key")
+            )
+      result <- routes.run(req)
+      body   <- result.as[ErrorResponse.Unauthorized]
+    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+      assert(body)(equalTo(ErrorResponse.Unauthorized("Invalid credentials")))
+  }
+
+  private val getAllEncryptionKeys = testM("should generate response for get all encryption keys request") {
+    val collectionServicesResponses = CollectionsServiceStub.CollectionsServiceResponses()
+
+    for {
+      logs   <- Ref.make(Chain.empty[String])
+      routes <- CollectionsRoutes.routes.provideLayer(createRoutes(collectionServicesResponses, logs)).map(_.orNotFound)
+      req = Request[RouteEffect](method = Method.GET, uri"/api/v1/collections/encryption-key").withHeaders(validAuthHeader)
+      result <- routes.run(req)
+      body   <- result.as[List[EncryptionKeyData]]
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(equalTo(List(EncryptionKeyData(ExampleCollectionId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion))))
+  }
+
+  private val getAllEncryptionKeysUnauthorized =
+    testM("should generate response for get all encryption keys request if user not logged in") {
+      val collectionServicesResponses = CollectionsServiceStub.CollectionsServiceResponses()
+
+      for {
+        logs   <- Ref.make(Chain.empty[String])
+        routes <- CollectionsRoutes.routes.provideLayer(createRoutes(collectionServicesResponses, logs)).map(_.orNotFound)
+        req = Request[RouteEffect](method = Method.GET, uri"/api/v1/collections/encryption-key")
+        result <- routes.run(req)
+        body   <- result.as[ErrorResponse.Unauthorized]
+      } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+        assert(body)(equalTo(ErrorResponse.Unauthorized("Invalid credentials")))
+    }
 
 }

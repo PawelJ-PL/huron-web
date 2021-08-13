@@ -103,7 +103,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   private val newUserDto =
     NewUserReq(Nickname(ExampleUserNickName), ExampleUserEmail, Password(ExampleUserPassword), Some(ExampleUserLanguage), keyPairDto)
 
-  private val encryptionKeyData = EncryptionKeyData(ExampleCollectionId, ExampleEncryptionKey, ExampleEncryptionKeyVersion)
+  private val encryptionKeyData = EncryptionKeyData(ExampleCollectionId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion)
 
   private val createUser = testM("should successfully create a user") {
     for {
@@ -399,7 +399,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       usersRepo             <- Ref.make(initUsersRepoState)
       initialCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
                                       collectionKeys = Set(
-                                        EncryptionKey(ExampleCollectionId, ExampleUserId, ExampleEncryptionKey, ExampleEncryptionKeyVersion)
+                                        EncryptionKey(ExampleCollectionId, ExampleUserId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion)
                                       ),
                                       collections = Set(ExampleCollection),
                                       userCollections = Set(UserCollection(ExampleCollectionId, ExampleUserId, accepted = true))
@@ -592,7 +592,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       usersRepo             <- Ref.make(initUsersRepoState)
       initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
                                    collectionKeys = Set(
-                                     EncryptionKey(ExampleCollectionId, ExampleUserId, ExampleEncryptionKey, ExampleEncryptionKeyVersion),
+                                     EncryptionKey(ExampleCollectionId, ExampleUserId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion),
                                      EncryptionKey(ExampleFuuid1, ExampleUserId, "FooBar", ExampleFuuid2)
                                    )
                                  )
@@ -633,7 +633,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
                                           EncryptionKey(
                                             ExampleCollectionId,
                                             ExampleUserId,
-                                            ExampleEncryptionKey,
+                                            ExampleEncryptionKeyValue,
                                             ExampleEncryptionKeyVersion
                                           )
                                         ),
@@ -677,7 +677,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
                                           EncryptionKey(
                                             ExampleCollectionId,
                                             ExampleUserId,
-                                            ExampleEncryptionKey,
+                                            ExampleEncryptionKeyValue,
                                             ExampleEncryptionKeyVersion
                                           )
                                         ),

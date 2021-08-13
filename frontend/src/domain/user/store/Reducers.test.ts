@@ -2,6 +2,9 @@ import { ApiKeyDescription } from "./../types/ApiKey"
 import { NotLoggedIn } from "../../../application/api/ApiError"
 import {
     exampleApiKey,
+    exampleHashedEmail,
+    examplePrivateKey,
+    examplePublicKey,
     exampleUserEmail,
     exampleUserId,
     exampleUserNickname,
@@ -9,9 +12,11 @@ import {
 } from "./../../../testutils/constants/user"
 import {
     changePasswordAction,
+    clearMasterKeyAction,
     computeMasterKeyAction,
     createApiKeyAction,
     deleteApiKeyAction,
+    fetchAndDecryptKeyPairAction,
     fetchCurrentUserAction,
     localLogoutAction,
     loginAction,
@@ -39,7 +44,12 @@ describe("User reducers", () => {
                 params: { email: exampleUserEmail, password: exampleUserPassword },
                 result: {
                     csrfToken: "A-B-C",
-                    userData: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                    userData: {
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    },
                 },
             })
             const result = usersReducer(defaultState, action)
@@ -87,14 +97,24 @@ describe("User reducers", () => {
                 params: void 0,
                 result: {
                     csrfToken: "A-B-C",
-                    userData: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                    userData: {
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    },
                 },
             })
             const result = usersReducer(defaultState, action)
             expect(result.userData).toStrictEqual({
                 status: "FINISHED",
                 params: void 0,
-                data: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                data: {
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                },
             })
         })
 
@@ -116,27 +136,47 @@ describe("User reducers", () => {
                 params: { email: exampleUserEmail, password: exampleUserPassword },
                 result: {
                     csrfToken: "A-B-C",
-                    userData: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                    userData: {
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    },
                 },
             })
             const result = usersReducer(defaultState, action)
             expect(result.userData).toStrictEqual({
                 status: "FINISHED",
                 params: void 0,
-                data: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                data: {
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                },
             })
         })
 
         it("should set status to finished on update user data success", () => {
             const action = updateUserDataAction.done({
                 params: { nickName: exampleUserNickname },
-                result: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                result: {
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                },
             })
             const result = usersReducer(defaultState, action)
             expect(result.userData).toStrictEqual({
                 status: "FINISHED",
                 params: void 0,
-                data: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                data: {
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                },
             })
         })
 
@@ -155,14 +195,24 @@ describe("User reducers", () => {
                 params: void 0,
                 result: {
                     csrfToken: "A-B-C",
-                    userData: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                    userData: {
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    },
                 },
             })
             const result = usersReducer(defaultState, action)
             expect(result.userData).toStrictEqual({
                 status: "FINISHED",
                 params: void 0,
-                data: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                data: {
+                    id: exampleUserId,
+                    nickName: exampleUserNickname,
+                    language: "Pl",
+                    emailHash: exampleHashedEmail,
+                },
             })
         })
     })
@@ -173,7 +223,12 @@ describe("User reducers", () => {
                 params: { email: exampleUserEmail, password: exampleUserPassword },
                 result: {
                     csrfToken: "A-B-C",
-                    userData: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                    userData: {
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    },
                 },
             })
             const state = { ...defaultState, csrfToken: "X-Y-Z" }
@@ -196,7 +251,12 @@ describe("User reducers", () => {
                 params: void 0,
                 result: {
                     csrfToken: "A-B-C",
-                    userData: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                    userData: {
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    },
                 },
             })
             const state = { ...defaultState, csrfToken: "X-Y-Z" }
@@ -209,7 +269,12 @@ describe("User reducers", () => {
                 params: void 0,
                 result: {
                     csrfToken: "A-B-C",
-                    userData: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                    userData: {
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    },
                 },
             })
             const state = { ...defaultState, csrfToken: "X-Y-Z" }
@@ -247,16 +312,27 @@ describe("User reducers", () => {
 
     describe("Master key reducer", () => {
         it("should drop password param on compute", () => {
-            const action = computeMasterKeyAction.done({ params: exampleUserPassword, result: "ABCD" })
+            const action = computeMasterKeyAction.done({
+                params: { password: exampleUserPassword, emailHash: exampleHashedEmail },
+                result: "ABCD",
+            })
             const result = usersReducer(defaultState, action)
-            expect(result.masterKey).toStrictEqual({ status: "FINISHED", params: "", data: "ABCD" })
+            expect(result.masterKey).toStrictEqual({
+                status: "FINISHED",
+                params: { password: "", emailHash: exampleHashedEmail },
+                data: "ABCD",
+            })
         })
 
         it("should set status to not started on local logout", () => {
             const action = localLogoutAction()
             const state: ReturnType<typeof usersReducer> = {
                 ...defaultState,
-                masterKey: { status: "FINISHED", params: "", data: "ABCD" },
+                masterKey: {
+                    status: "FINISHED",
+                    params: { password: exampleUserPassword, emailHash: exampleHashedEmail },
+                    data: "ABCD",
+                },
             }
             const result = usersReducer(state, action)
             expect(result.masterKey).toStrictEqual({ status: "NOT_STARTED" })
@@ -269,7 +345,11 @@ describe("User reducers", () => {
             })
             const state: ReturnType<typeof usersReducer> = {
                 ...defaultState,
-                masterKey: { status: "FINISHED", params: "", data: "ABCD" },
+                masterKey: {
+                    status: "FINISHED",
+                    params: { password: exampleUserPassword, emailHash: exampleHashedEmail },
+                    data: "ABCD",
+                },
             }
             const result = usersReducer(state, action)
             expect(result.masterKey).toStrictEqual({ status: "NOT_STARTED" })
@@ -303,7 +383,12 @@ describe("User reducers", () => {
                 params: void 0,
                 result: {
                     csrfToken: "A-B-C",
-                    userData: { id: exampleUserId, nickName: exampleUserNickname, language: "Pl" },
+                    userData: {
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        language: "Pl",
+                        emailHash: exampleHashedEmail,
+                    },
                 },
             })
             const result = usersReducer(defaultState, action)
@@ -431,6 +516,83 @@ describe("User reducers", () => {
                 params: { email: exampleUserEmail, currentPassword: "", newPassword: "" },
                 data: void 0,
             })
+        })
+    })
+
+    describe("Fetch and decrypt key pair reducer", () => {
+        it("should drop password param on finish", () => {
+            const action = fetchAndDecryptKeyPairAction.done({
+                params: "secret-password",
+                result: { publicKey: examplePublicKey, privateKey: examplePrivateKey },
+            })
+            const result = usersReducer(defaultState, action)
+            expect(result.keyPair).toStrictEqual({
+                status: "FINISHED",
+                params: "",
+                data: { privateKey: examplePrivateKey, publicKey: examplePublicKey },
+            })
+        })
+
+        it("should reset key pair on local logout", () => {
+            const action = localLogoutAction()
+            const state: ReturnType<typeof usersReducer> = {
+                ...defaultState,
+                keyPair: {
+                    status: "FINISHED",
+                    params: "",
+                    data: { publicKey: examplePublicKey, privateKey: examplePrivateKey },
+                },
+            }
+            const result = usersReducer(state, action)
+            expect(result.keyPair).toStrictEqual({ status: "NOT_STARTED" })
+        })
+
+        it("should reset key pair on master key compute start", () => {
+            const action = computeMasterKeyAction.started({
+                password: exampleUserPassword,
+                emailHash: exampleHashedEmail,
+            })
+            const state: ReturnType<typeof usersReducer> = {
+                ...defaultState,
+                keyPair: {
+                    status: "FINISHED",
+                    params: "",
+                    data: { publicKey: examplePublicKey, privateKey: examplePrivateKey },
+                },
+            }
+            const result = usersReducer(state, action)
+            expect(result.keyPair).toStrictEqual({ status: "NOT_STARTED" })
+        })
+
+        it("should reset key pair on master key compute failure", () => {
+            const action = computeMasterKeyAction.failed({
+                params: { password: exampleUserPassword, emailHash: exampleHashedEmail },
+                error: new Error("Some error"),
+            })
+            const state: ReturnType<typeof usersReducer> = {
+                ...defaultState,
+                keyPair: {
+                    status: "FINISHED",
+                    params: "",
+                    data: { publicKey: examplePublicKey, privateKey: examplePrivateKey },
+                },
+            }
+            const result = usersReducer(state, action)
+            expect(result.keyPair).toStrictEqual({ status: "NOT_STARTED" })
+        })
+
+        it("should reset key pair on master key compute reset", () => {
+            const action = clearMasterKeyAction()
+            const state: ReturnType<typeof usersReducer> = {
+                ...defaultState,
+                keyPair: {
+                    status: "FINISHED",
+                    params: "",
+                    data: { publicKey: examplePublicKey, privateKey: examplePrivateKey },
+                },
+            }
+            const result = usersReducer(state, action)
+            expect(result.keyPair).toStrictEqual({ status: "NOT_STARTED" })
         })
     })
 })

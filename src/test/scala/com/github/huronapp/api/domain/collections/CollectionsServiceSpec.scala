@@ -1,7 +1,7 @@
 package com.github.huronapp.api.domain.collections
 
 import com.github.huronapp.api.auth.authorization.types.Subject
-import com.github.huronapp.api.auth.authorization.{AuthorizationKernel, GetCollectionDetails, OperationNotPermitted}
+import com.github.huronapp.api.auth.authorization.{AuthorizationKernel, GetCollectionDetails, GetEncryptionKey, OperationNotPermitted}
 import com.github.huronapp.api.constants.{Collections, MiscConstants, Users}
 import com.github.huronapp.api.domain.collections.dto.NewCollectionReq
 import com.github.huronapp.api.domain.collections.dto.fields.{CollectionName, EncryptedCollectionKey}
@@ -12,7 +12,7 @@ import zio.logging.slf4j.Slf4jLogger
 import zio.test.environment.TestEnvironment
 import zio.test.{DefaultRunnableSpec, ZSpec}
 import zio.test.assert
-import zio.test.Assertion.{equalTo, hasSameElements, isLeft}
+import zio.test.Assertion.{equalTo, hasSameElements, isLeft, isNone, isSome}
 
 object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with Users with MiscConstants {
 
@@ -22,7 +22,11 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
       getOnlyAcceptedCollections,
       getCollectionDetails,
       getCollectionDetailsNotPermitted,
-      createCollection
+      createCollection,
+      readEncryptionKey,
+      readEncryptionKeyNotFound,
+      readEncryptionKeyNotPermitted,
+      readAllEncryptionKeysOfUser
     )
 
   private def createService(
@@ -34,7 +38,7 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
   }
 
   val crateCollectionDto: NewCollectionReq =
-    NewCollectionReq(CollectionName(ExampleCollectionName), EncryptedCollectionKey(ExampleEncryptionKey))
+    NewCollectionReq(CollectionName(ExampleCollectionName), EncryptedCollectionKey(ExampleEncryptionKeyValue))
 
   private val getCollections = testM("should list all collections of user") {
     val collection1 = ExampleCollection
@@ -95,7 +99,7 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
     } yield assert(result)(equalTo(ExampleCollection))
   }
 
-  private val getCollectionDetailsNotPermitted = testM("should read collection if user has no rights") {
+  private val getCollectionDetailsNotPermitted = testM("should not read collection if user has no rights") {
     val userCollection = CollectionsRepoFake.UserCollection(ExampleCollection.id, ExampleFuuid1, accepted = true)
 
     val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
@@ -134,6 +138,75 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
           )
         )
       )
+  }
+
+  private val readEncryptionKey = testM("should read encryption key of collection") {
+    val expectedKey = EncryptionKey(ExampleCollectionId, ExampleUserId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion)
+
+    val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+      userCollections = Set(
+        CollectionsRepoFake.UserCollection(ExampleCollectionId, ExampleUserId, accepted = true)
+      ),
+      collectionKeys = Set(expectedKey)
+    )
+    for {
+      collectionsRepo          <- Ref.make(initCollectionsRepoState)
+      result                   <- CollectionsService.getEncryptionKeyAs(ExampleUserId, ExampleCollectionId).provideLayer(createService(collectionsRepo))
+      finalCollectionRepoState <- collectionsRepo.get
+    } yield assert(result)(isSome(equalTo(expectedKey))) &&
+      assert(finalCollectionRepoState)(equalTo(initCollectionsRepoState))
+  }
+
+  private val readEncryptionKeyNotFound = testM("should not read encryption key of collection if key not exist") {
+    val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+      userCollections = Set(
+        CollectionsRepoFake.UserCollection(ExampleCollectionId, ExampleUserId, accepted = true)
+      )
+    )
+    for {
+      collectionsRepo          <- Ref.make(initCollectionsRepoState)
+      result                   <- CollectionsService.getEncryptionKeyAs(ExampleUserId, ExampleCollectionId).provideLayer(createService(collectionsRepo))
+      finalCollectionRepoState <- collectionsRepo.get
+    } yield assert(result)(isNone) &&
+      assert(finalCollectionRepoState)(equalTo(initCollectionsRepoState))
+  }
+
+  private val readEncryptionKeyNotPermitted = testM("should  not read encryption key of collection if user not allowed") {
+    val key = EncryptionKey(ExampleCollectionId, ExampleUserId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion)
+
+    val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+      userCollections = Set(
+        CollectionsRepoFake.UserCollection(ExampleCollectionId, ExampleFuuid1, accepted = true)
+      ),
+      collectionKeys = Set(key)
+    )
+    for {
+      collectionsRepo          <- Ref.make(initCollectionsRepoState)
+      result                   <-
+        CollectionsService.getEncryptionKeyAs(ExampleUserId, ExampleCollectionId).provideLayer(createService(collectionsRepo)).either
+      finalCollectionRepoState <- collectionsRepo.get
+    } yield assert(result)(
+      isLeft(equalTo(AuthorizationError(OperationNotPermitted(GetEncryptionKey(Subject(ExampleUserId), ExampleCollectionId)))))
+    ) &&
+      assert(finalCollectionRepoState)(equalTo(initCollectionsRepoState))
+  }
+
+  private val readAllEncryptionKeysOfUser = testM("should read all encryption key of user") {
+    val key1 = EncryptionKey(ExampleCollectionId, ExampleUserId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion)
+    val key2 = EncryptionKey(ExampleCollectionId, ExampleFuuid1, "foo", ExampleEncryptionKeyVersion)
+    val key3 = EncryptionKey(ExampleFuuid2, ExampleUserId, "bar", ExampleEncryptionKeyVersion)
+    val key4 = EncryptionKey(ExampleFuuid2, ExampleFuuid1, "baz", ExampleEncryptionKeyVersion)
+    val key5 = EncryptionKey(ExampleFuuid3, ExampleFuuid1, "qux", ExampleEncryptionKeyVersion)
+
+    val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+      collectionKeys = Set(key1, key2, key3, key4, key5)
+    )
+    for {
+      collectionsRepo          <- Ref.make(initCollectionsRepoState)
+      result                   <- CollectionsService.getEncryptionKeysForAllCollectionsOfUser(ExampleUserId).provideLayer(createService(collectionsRepo))
+      finalCollectionRepoState <- collectionsRepo.get
+    } yield assert(result)(hasSameElements(Set(key1, key3))) &&
+      assert(finalCollectionRepoState)(equalTo(initCollectionsRepoState))
   }
 
 }

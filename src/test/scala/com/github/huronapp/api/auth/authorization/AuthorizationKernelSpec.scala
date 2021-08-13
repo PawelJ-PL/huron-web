@@ -20,7 +20,9 @@ object AuthorizationKernelSpec extends DefaultRunnableSpec with Users with Colle
       getCollectionDetailsIfCollectionNotAssignedToUser,
       setEncryptionKeyByKeyOwner,
       setEncryptionKeyByCollectionAdmin,
-      setEncryptionKeyIfCollectionNotAssigned
+      setEncryptionKeyIfCollectionNotAssigned,
+      getEncryptionKey,
+      getEncryptionKeyIfCollectionNotAssignedToUser
     )
 
   private def authKernel(
@@ -33,6 +35,8 @@ object AuthorizationKernelSpec extends DefaultRunnableSpec with Users with Colle
   val GetCollectionDetailsOperation: GetCollectionDetails = GetCollectionDetails(ExampleSubject, ExampleCollectionId)
 
   val SetEncryptionKeyOperation: SetEncryptionKey = SetEncryptionKey(ExampleSubject, ExampleCollectionId, ExampleFuuid1)
+
+  val GetEncryptionKeyOperation: GetEncryptionKey = GetEncryptionKey(ExampleSubject, ExampleCollectionId)
 
   private val getCollectionDetails = testM("should allow to get collection details") {
     val collectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
@@ -92,6 +96,29 @@ object AuthorizationKernelSpec extends DefaultRunnableSpec with Users with Colle
         collectionsRepo <- Ref.make(collectionsRepoState)
         result          <- AuthorizationKernel.authorizeOperation(operation).provideLayer(authKernel(collectionsRepo)).either
       } yield assert(result)(isLeft(equalTo(OperationNotPermitted(operation))))
+    }
+
+  private val getEncryptionKey = testM("should allow to get encryption key of collection") {
+    val collectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+      userCollections = Set(UserCollection(ExampleCollectionId, ExampleUserId, accepted = true))
+    )
+
+    for {
+      collectionsRepo <- Ref.make(collectionsRepoState)
+      result          <- AuthorizationKernel.authorizeOperation(GetEncryptionKeyOperation).provideLayer(authKernel(collectionsRepo)).either
+    } yield assert(result)(isRight(equalTo(())))
+  }
+
+  private val getEncryptionKeyIfCollectionNotAssignedToUser =
+    testM("should not allow to get encryption key of collection if collection not assigned to user") {
+      val collectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+        userCollections = Set(UserCollection(ExampleCollectionId, ExampleFuuid1, accepted = true))
+      )
+
+      for {
+        collectionsRepo <- Ref.make(collectionsRepoState)
+        result          <- AuthorizationKernel.authorizeOperation(GetEncryptionKeyOperation).provideLayer(authKernel(collectionsRepo)).either
+      } yield assert(result)(isLeft(equalTo(OperationNotPermitted(GetEncryptionKeyOperation))))
     }
 
 }

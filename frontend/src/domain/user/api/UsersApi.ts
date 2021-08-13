@@ -1,3 +1,5 @@
+import { EncryptionKey } from "./../../collection/types/EncryptionKey"
+import { EncryptedKeyPair, EncryptedKeyPairSchema } from "./../types/EncryptedKeyPair"
 import { OptionalValue } from "./../../../application/api/OptionalValue"
 import { ApiKeyDescription, ApiKeyDescriptionSchema } from "./../types/ApiKey"
 import { errorResponseReasonToError, errorResponseToData, validatedResponse } from "./../../../application/api/helpers"
@@ -22,6 +24,8 @@ export type ChangePasswordData = {
     email: string
     currentPassword: string
     newPassword: string
+    keyPair: EncryptedKeyPair
+    collectionEncryptionKeys: EncryptionKey[]
 }
 
 const csrfTokenSchema = z.string().min(10)
@@ -50,9 +54,15 @@ const api = {
     fetchCurrentUserData(): Promise<UserDataWithToken> {
         return client.get("users/me/data").then(extractUserData)
     },
-    registerUser(nickName: string, email: string, password: string, language?: string): Promise<void> {
+    registerUser(
+        nickName: string,
+        email: string,
+        password: string,
+        keyPair: EncryptedKeyPair,
+        language?: string
+    ): Promise<void> {
         return client
-            .post("users", { json: { nickName, email, password, language } })
+            .post("users", { json: { nickName, email, password, language, keyPair } })
             .then(() => void 0)
             .catch((err) => {
                 if (err instanceof HTTPError && err.response.status === 409) {
@@ -71,9 +81,9 @@ const api = {
     requestPasswordReset(email: string): Promise<void> {
         return client.post("users/password", { json: { email } }).then(() => void 0)
     },
-    resetPassword(resetToken: string, newPassword: string, email: string): Promise<boolean> {
+    resetPassword(resetToken: string, newPassword: string, keyPair: EncryptedKeyPair, email: string): Promise<boolean> {
         return client
-            .put(`users/password/${resetToken}`, { json: { password: newPassword, email } })
+            .put(`users/password/${resetToken}`, { json: { password: newPassword, email, keyPair } })
             .then(() => true)
             .catch((err) => errorResponseToData(err, false, 404))
     },
@@ -106,6 +116,9 @@ const api = {
             .catch((e) => errorResponseReasonToError(e, new PasswordsAreEqual(), 412, "PasswordsEqual"))
             .catch((e) => errorResponseReasonToError(e, new InvalidCredentials(), 412, "InvalidCurrentPassword"))
             .catch((e) => errorResponseReasonToError(e, new InvalidEmail(), 412, "InvalidEmail"))
+    },
+    fetchKeyPair(): Promise<EncryptedKeyPair> {
+        return client.get("users/me/keypair").then((resp) => validatedResponse(resp, EncryptedKeyPairSchema))
     },
 }
 

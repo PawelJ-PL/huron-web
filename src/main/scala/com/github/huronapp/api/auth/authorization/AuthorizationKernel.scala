@@ -45,6 +45,14 @@ object AuthorizationKernel {
                   _                          <- ZIO.cond(canSetKey, (), OperationNotPermitted(operation))
                 } yield ()
               )
+
+            case operation @ GetEncryptionKey(subject, collectionId)         =>
+              db.transactionOrDie(
+                collectionsRepo
+                  .isCollectionAssignedToUser(collectionId, subject.userId)
+                  .orDie
+                  .flatMap(isAssigned => ZIO.cond(isAssigned, (), OperationNotPermitted(operation)))
+              )
           }
 
       }

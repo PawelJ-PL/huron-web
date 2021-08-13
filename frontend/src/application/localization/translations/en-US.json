@@ -11,6 +11,7 @@
         "field-max-length": "the maximum number of characters is {{maxChars}}",
         "field-word-regex": "The only acceptable characters are letters, numbers and the underscore",
         "field-non-empty": "Field cannot be empty",
+        "field-letters-only": "Only letters are allowed in this field",
         "form-save": "save",
         "form-reset": "reset",
         "copy-imperative": "copy",
@@ -77,7 +78,22 @@
             "profile": "User profile",
             "logout": "Logout"
         },
-        "logout-failed-message": "Logout failed"
+        "logout-failed-message": "Logout failed",
+        "unlock-key-button": {
+            "key-locked-label": "The encryption key is locked",
+            "key-unlocked-label": "The encryption key is unlocked",
+            "key-error-label": "Problem with unlocking the encryption key",
+            "key-pending-label": "The encryption key is in the process of being unlocked",
+            "key-locked-tooltip": "The encryption key is locked. Click to unlock.",
+            "key-unlocked-tooltip": "The encryption key is unlocked. Click to lock",
+            "key-error-tooltip": "Problem with unlocking the encryption key. Click to try again.",
+            "key-pending-tooltip": "he encryption key is in the process of being unlocked",
+            "enter-password-header": "Enter your password",
+            "enter-password-confirmation-button-label": "Unlock"
+        },
+        "select-collection": {
+            "aria-label": "Select collection"
+        }
     },
     "profile-page": {
         "refresh-failed-toast": {
@@ -124,7 +140,23 @@
             "submit-button": "Change password",
             "invalid-credentials-error": "The current password you entered is incorrect.",
             "invalid-email-error": "The email address you entered is incorrect.",
-            "password-changed-message": "The password has been changed."
+            "password-changed-message": "The password has been changed.",
+            "decrypt-failed-check-email-and-password": "Unable to decrypt the user key. Make sure you have entered the correct current password and email address"
         }
+    },
+    "collections-view": {
+        "loader-title": "Loading collections",
+        "load-error-title": "Loading collections list failed",
+        "auto-create-collection-modal": {
+            "header": "Create collection",
+            "collection-name-input-field": "Collection name"
+        },
+        "select-collection-modal": {
+            "header": "Select collection"
+        }
+    },
+    "single-collection-view": {
+        "loading-collection-data": "Loading collection data",
+        "fetching-details-error-message": "Unable to load collection data"
     }
 }

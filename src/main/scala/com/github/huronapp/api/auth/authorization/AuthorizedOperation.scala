@@ -37,3 +37,9 @@ final case class SetEncryptionKey(subject: Subject, collectionId: FUUID, userId:
     show"Subject $subject not authorized to set encryption key for collection $collectionId of user $userId"
 
 }
+
+final case class GetEncryptionKey(subject: Subject, collectionId: FUUID) extends AuthorizedOperation {
+
+  override val failureMessage: String = show"Subject $subject not authorized to read encryption key of collection $collectionId"
+
+}

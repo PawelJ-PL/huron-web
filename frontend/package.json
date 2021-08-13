@@ -3,15 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "devDependencies": {
+        "@types/redux-mock-store": "^1.0.3",
         "@typescript-eslint/parser": "^4.26.0",
         "eslint-config-prettier": "^8.3.0",
         "http-proxy-middleware": "^2.0.0",
         "msw": "^0.30.1",
-        "prettier": "^2.3.1"
+        "prettier": "^2.3.1",
+        "redux-mock-store": "^1.5.4"
     },
     "dependencies": {
-        "@chakra-ui/react": "^1.6.3",
-        "@emotion/react": "^11.4.0",
+        "@chakra-ui/react": "^1.6.6",
+        "@emotion/react": "^11.4.1",
         "@emotion/styled": "^11.3.0",
         "@hookform/resolvers": "^2.5.2",
         "@testing-library/jest-dom": "^5.13.0",
@@ -19,7 +21,7 @@
         "@testing-library/user-event": "^12.8.3",
         "@types/jest": "^26.0.23",
         "@types/node": "^12.20.14",
-        "@types/node-forge": "^0.10.0",
+        "@types/node-forge": "^0.10.3",
         "@types/react": "^17.0.9",
         "@types/react-datepicker": "^3.1.8",
         "@types/react-dom": "^17.0.6",
@@ -57,7 +59,8 @@
         "test": "react-scripts test",
         "eject": "react-scripts eject",
         "lint": "./node_modules/eslint/bin/eslint.js --ext .js --ext .jsx --ext .ts --ext .tsx src/",
-        "formatter-check": "./node_modules/prettier/bin-prettier.js --check 'src/**/*.{ts,tsx,js,jsx,json}'"
+        "formatter-check": "./node_modules/prettier/bin-prettier.js --check 'src/**/*.{ts,tsx,js,jsx,json}'",
+        "compile-only": "tsc --noEmit"
     },
     "browserslist": {
         "production": [

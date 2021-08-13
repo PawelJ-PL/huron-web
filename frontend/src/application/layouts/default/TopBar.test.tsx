@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import React from "react"
 import { MemoryRouter } from "react-router"
-import { exampleUserId, exampleUserNickname } from "../../../testutils/constants/user"
+import { exampleHashedEmail, exampleUserId, exampleUserNickname } from "../../../testutils/constants/user"
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { historyMock } from "../../../testutils/mocks/router-mock"
 import { TopBar } from "./TopBar"
@@ -14,7 +14,13 @@ jest.mock("@chakra-ui/media-query", () => ({
 // eslint-disable-next-line react/display-name
 jest.mock("./LanguagePicker", () => () => <div></div>)
 
-const userData = { nickName: exampleUserNickname, id: exampleUserId, language: "Pl" }
+// eslint-disable-next-line react/display-name
+jest.mock("./unlock_key/UnlockKeyButton", () => () => <div></div>)
+
+// eslint-disable-next-line react/display-name
+jest.mock("./SelectCollectionButton", () => () => <div></div>)
+
+const userData = { nickName: exampleUserNickname, id: exampleUserId, language: "Pl", emailHash: exampleHashedEmail }
 
 describe("Top bar", () => {
     describe("logout", () => {
