@@ -82,7 +82,7 @@ object CollectionsRepoFake {
                 prevState.userCollections + CollectionsRepoFake.UserCollection(collection.id, creator, accepted = true)
               val updatedPermissions = prevState.permissions ++ Set(
                 CollectionsRepoFake.PermissionEntry(collection.id, creator, CollectionPermission.ManageCollection),
-                CollectionsRepoFake.PermissionEntry(collection.id, creator, CollectionPermission.WriteFile),
+                CollectionsRepoFake.PermissionEntry(collection.id, creator, CollectionPermission.CreateFile),
                 CollectionsRepoFake.PermissionEntry(collection.id, creator, CollectionPermission.ReadFile),
                 CollectionsRepoFake.PermissionEntry(collection.id, creator, CollectionPermission.ReadFileMetadata)
               )

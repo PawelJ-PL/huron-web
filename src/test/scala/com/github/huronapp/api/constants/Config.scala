@@ -1,18 +1,21 @@
 package com.github.huronapp.api.constants
 
 import ciris.Secret
+import com.github.huronapp.api.config.modules.FileSystemConfig.LocalFsConfig
 import com.github.huronapp.api.config.{
   AppConfig,
   DatabaseConfig,
   MobileAppConfig,
+  OutboxTasksConfig,
   RegistrationCleanupConfig,
   SchedulersConfig,
   SecurityConfig,
   ServerConfig
 }
-import com.github.huronapp.api.config.modules.SessionRepoConfig
+import com.github.huronapp.api.config.modules.{FileSystemConfig, SessionRepoConfig}
 import com.vdurmont.semver4j.Semver
 import org.http4s.implicits._
+import zio.nio.core.file.Path
 
 import scala.concurrent.duration._
 
@@ -39,7 +42,19 @@ trait Config {
     RegistrationCleanupConfig(java.time.Duration.ofMinutes(10))
   )
 
+  final val ExampleFsConfig: FileSystemConfig = LocalFsConfig(Path("/tmp/foo"), createMissingRoot = false)
+
+  final val ExampleOutboxConfig: OutboxTasksConfig = OutboxTasksConfig(16, java.time.Duration.ofMinutes(2), java.time.Duration.ofHours(2))
+
   final val ExampleAppConfig =
-    AppConfig(ExampleServerConfig, ExampleMobileAppConfig, ExampleDatabaseConfig, ExampleSecurityConfig, ExampleSchedulerConfig)
+    AppConfig(
+      ExampleServerConfig,
+      ExampleMobileAppConfig,
+      ExampleDatabaseConfig,
+      ExampleSecurityConfig,
+      ExampleSchedulerConfig,
+      ExampleFsConfig,
+      ExampleOutboxConfig
+    )
 
 }

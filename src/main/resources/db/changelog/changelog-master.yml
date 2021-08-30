@@ -264,6 +264,14 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
+                  name: owner
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_collection_owner
+                    deleteCascade: false
+                    references: users(id)
+                    nullable: false
+              - column:
                   name: created_at
                   type: timestamptz
                   constraints:
@@ -306,7 +314,7 @@ databaseChangeLog:
 
         - sql:
             dbms: postgresql
-            sql: "ALTER TABLE collection_permissions ADD CONSTRAINT permission_check CHECK (permission IN ('ManageCollection', 'WriteFile', 'ReadFile', 'ReadFileMetadata'))"
+            sql: "ALTER TABLE collection_permissions ADD CONSTRAINT permission_check CHECK (permission IN ('ManageCollection', 'CreateFile', 'ModifyFile', 'ReadFile', 'ReadFileMetadata'))"
 
         - addPrimaryKey:
             columnNames: collection_id, user_id, permission
@@ -367,3 +375,238 @@ databaseChangeLog:
             columns:
               - column:
                   name: user_id
+
+        - createTable:
+            tableName: files_metadata
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: type
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: collection_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_file_collection_id
+                    deleteCascade: false
+                    references: collections(id)
+                    nullable: false
+              - column:
+                  name: parent_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_file_parent_id
+                    deleteCascade: true
+                    references: files_metadata(id)
+                    nullable: true
+              - column:
+                  name: file_name
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+        - sql:
+            dbms: postgresql
+            sql: "ALTER TABLE files_metadata ADD CONSTRAINT type_check CHECK (type IN ('Directory', 'File'))"
+
+        - createIndex:
+            tableName: files_metadata
+            columns:
+              - column:
+                  name: collection_id
+
+        - createIndex:
+            tableName: files_metadata
+            columns:
+              - column:
+                  name: collection_id
+              - column:
+                  name: parent_id
+
+        - createIndex:
+            tableName: files_metadata
+            columns:
+              - column:
+                  name: collection_id
+              - column:
+                  name: id
+
+        - createTable:
+            tableName: file_versions
+            columns:
+              - column:
+                  name: version_id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: file_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_version_file_id
+                    deleteCascade: true
+                    references: files_metadata(id)
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: uuid
+              - column:
+                  name: size
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: mime_type
+                  type: varchar
+              - column:
+                  name: original_digest
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encrypted_digest
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_algorithm
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_iv
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_key_version
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+              - addForeignKeyConstraint:
+                  baseColumnNames: created_by
+                  baseTableName: file_versions
+                  constraintName: fk_file_version_creator_id
+                  onDelete: SET NULL
+                  onUpdate: CASCADE
+                  referencedColumnNames: id
+                  referencedTableName: users
+
+              - createIndex:
+                  tableName: file_versions
+                  columns:
+                    - column:
+                        name: file_id
+
+              - createIndex:
+                  tableName: file_versions
+                  columns:
+                    - column:
+                        name: file_id
+                    - column:
+                        name: version_id
+
+        - createTable:
+            tableName: files_latest_versions
+            columns:
+              - column:
+                  name: file_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_latest_file_id
+                    deleteCascade: true
+                    references: files_metadata(id)
+                    nullable: false
+              - column:
+                  name: version_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_latest_version_id
+                    deleteCascade: false
+                    references: file_versions(version_id)
+                    nullable: false
+
+        - addPrimaryKey:
+            columnNames: file_id, version_id
+            constraintName: pk_latest_file_version
+            tableName: files_latest_versions
+
+        - createTable:
+            tableName: outbox_commands
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: trace_id
+                  type: varchar
+                  constraints:
+                    nullable: true
+              - column:
+                  name: command
+                  type: varchar
+                  constraints:
+                    nullable: false
+              - column:
+                  name: assigned_at
+                  type: timestamptz
+                  constraints:
+                    nullable: true
+              - column:
+                  name: attempts
+                  type: int
+                  constraints:
+                    nullable: false
+              - column:
+                  name: last_attempt_at
+                  type: timestamptz
+                  constraints:
+                    nullable: true
+              - column:
+                  name: last_attempt_error_message
+                  type: varchar
+                  constraints:
+                    nullable: true
+              - column:
+                  name: finished_at
+                  type: timestamptz
+                  constraints:
+                    nullable: true
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+        - createIndex:
+            tableName: outbox_commands
+            columns:
+              - column:
+                  name: assigned_at
+              - column:
+                  name: finished_at
+              - column:
+                  name: attempts
+              - column:
+                  name: last_attempt_at
+              - column:
+                  name: created_at

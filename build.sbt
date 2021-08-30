@@ -17,7 +17,9 @@ val dependencies = {
   ) ++ Seq(
     "dev.zio" %% "zio-logging",
     "dev.zio" %% "zio-logging-slf4j"
-  ).map(_ % Versions.zioLogging)
+  ).map(_ % Versions.zioLogging) ++ Seq(
+    "dev.zio" %% "zio-nio" % Versions.zioNio
+  )
 
   val http4s = Seq(
     "org.http4s" %% "http4s-core",
@@ -40,7 +42,8 @@ val dependencies = {
     "com.softwaremill.sttp.tapir" %% "tapir-openapi-docs",
     "com.softwaremill.sttp.tapir" %% "tapir-openapi-circe-yaml",
     "com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-http4s",
-    "com.softwaremill.sttp.tapir" %% "tapir-enumeratum"
+    "com.softwaremill.sttp.tapir" %% "tapir-enumeratum",
+    "com.softwaremill.sttp.tapir" %% "tapir-refined"
   ).map(_ % Versions.tapir)
 
   val circe = Seq(
@@ -49,7 +52,7 @@ val dependencies = {
     "io.circe" %% "circe-shapes",
     "io.circe" %% "circe-generic-extras"
   ).map(_ % Versions.circe) ++ Seq(
-    "io.circe" %% "circe-literal" % Versions.circe,
+    "io.circe" %% "circe-literal" % Versions.circe
   )
 
   val cats = Seq(
@@ -119,14 +122,21 @@ val dependencies = {
     "io.estatico" %% "newtype" % Versions.newType
   )
 
+  val refined = Seq(
+    "eu.timepit" %% "refined" % Versions.refined
+  )
+
   val tests = Seq(
     "org.scalatest" %% "scalatest" % Versions.scalaTest % Test
   )
 
-  libraryDependencies ++= plugins ++ zio ++ http4s ++ logger ++ ciris ++ tapir ++ circe ++ cats ++ semver ++ database ++ doobie ++ chimney ++ fuuid ++ crypt ++ enumeratum ++ templating ++ scalaCache ++ kamon ++ newType ++ tests
+  libraryDependencies ++= plugins ++ zio ++ http4s ++ logger ++ ciris ++ tapir ++ circe ++ cats ++ semver ++ database ++ doobie ++ chimney ++ fuuid ++ crypt ++ enumeratum ++ templating ++ scalaCache ++ kamon ++ newType ++ refined ++ tests
 }
 
-val compilerOptions = scalacOptions ~= (_.filterNot(Set("-Xfatal-warnings")).+:("-Ymacro-annotations"))
+val ciOptionsFilter =
+  if (!sys.env.contains("CI")) (options: Seq[String]) => options.filterNot(Set("-Xfatal-warnings")) else (options: Seq[String]) => options
+
+val compilerOptions = scalacOptions ~= ciOptionsFilter.andThen(_ :+ "-Ymacro-annotations")
 
 val root = (project in file("."))
   .settings(

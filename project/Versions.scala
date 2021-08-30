@@ -10,6 +10,8 @@ object Versions {
 
   val zioLogging = "0.5.8"
 
+  val zioNio = "1.0.0-RC11"
+
   val http4s = "0.21.22"
 
   val logback = "1.2.3"
@@ -49,6 +51,8 @@ object Versions {
   val kamonHttp4s = "2.0.1"
 
   val newType =  "0.4.4"
+
+  val refined = "0.9.27"
 
   val scalaTest = "3.2.8"
 

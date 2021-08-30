@@ -13,7 +13,7 @@ trait Collections extends Users {
 
   final val ExampleCollectionName = "My collection"
 
-  final val ExampleCollection = Collection(ExampleCollectionId, ExampleCollectionName, ExampleEncryptionKeyVersion)
+  final val ExampleCollection = Collection(ExampleCollectionId, ExampleCollectionName, ExampleEncryptionKeyVersion, ExampleUserId)
 
   final val ExampleEncryptionKey = EncryptionKey(ExampleCollectionId, ExampleUserId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion)
 

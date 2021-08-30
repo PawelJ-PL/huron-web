@@ -2,6 +2,8 @@ package com.github.huronapp.api.utils
 
 import cats.syntax.either._
 import ciris.{ConfigDecoder, ConfigError}
+import com.github.huronapp.api.domain.collections.CollectionId
+import com.github.huronapp.api.domain.files.{FileId, FileVersionId}
 import com.vdurmont.semver4j.Semver
 import io.chrisdavenport.fuuid.FUUID
 import io.circe.{Decoder, Encoder}
@@ -37,6 +39,23 @@ object Implicits {
         }
       )(_.show)
 
+  }
+
+  object collectionId {
+
+    implicit val collectionIdTapirTextPlainCodec: Codec[String, CollectionId, CodecFormat.TextPlain] =
+      fuuid.fuuidTapirTextPlainCodec.map(CollectionId(_))(_.id)
+
+  }
+
+  object fileId {
+
+    implicit val fileIdTapirTextPlainCodec: Codec[String, FileId, CodecFormat.TextPlain] = fuuid.fuuidTapirTextPlainCodec.map(FileId(_))(_.id)
+
+  }
+
+  object versionId {
+    implicit val versionIdTapirTextPlainCodec: Codec[String, FileVersionId, CodecFormat.TextPlain] = fuuid.fuuidTapirTextPlainCodec.map(FileVersionId(_))(_.id)
   }
 
 }

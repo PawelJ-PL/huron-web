@@ -20,6 +20,8 @@ object Crypto {
 
     def digest[A <: DigestAlgo](plainText: String, algorithm: A): UIO[String]
 
+    def digest[A <: DigestAlgo](bytes: Array[Byte], algorithm: A): UIO[String]
+
     def bcryptGenerate(password: Array[Byte]): Task[String]
 
     def verifyBcryptPassword(hash: String, password: Array[Byte]): Task[Boolean]
@@ -30,9 +32,11 @@ object Crypto {
     ZLayer.fromServices[RandomUtils.Service, SecurityConfig, KamonTracing.Service, Service]((random, config, tracing) =>
       new Service {
 
-        override def digest[A <: DigestAlgo](plainText: String, algorithm: A): UIO[String] = {
-          val bytes = algorithm.instance.digest(plainText.getBytes)
-          ZIO.succeed(DatatypeConverter.printHexBinary(bytes))
+        override def digest[A <: DigestAlgo](plainText: String, algorithm: A): UIO[String] = digest(plainText.getBytes, algorithm)
+
+        override def digest[A <: DigestAlgo](bytes: Array[Byte], algorithm: A): UIO[String] = {
+          val digestBytes = algorithm.instance.digest(bytes)
+          ZIO.succeed(DatatypeConverter.printHexBinary(digestBytes))
         }
 
         override def bcryptGenerate(password: Array[Byte]): Task[String] =

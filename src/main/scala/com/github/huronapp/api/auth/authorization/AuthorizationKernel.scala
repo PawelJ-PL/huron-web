@@ -1,7 +1,8 @@
 package com.github.huronapp.api.auth.authorization
 
 import cats.syntax.eq._
-import com.github.huronapp.api.domain.collections.{CollectionPermission, CollectionsRepository}
+import com.github.huronapp.api.auth.authorization.types.Subject
+import com.github.huronapp.api.domain.collections.{CollectionId, CollectionPermission, CollectionsRepository}
 import com.github.huronapp.api.domain.collections.CollectionsRepository.CollectionsRepository
 import io.github.gaelrenoux.tranzactio.doobie.Database
 import zio.{Has, ZIO, ZLayer}
@@ -53,7 +54,55 @@ object AuthorizationKernel {
                   .orDie
                   .flatMap(isAssigned => ZIO.cond(isAssigned, (), OperationNotPermitted(operation)))
               )
+
+            case operation @ CreateFile(subject, collectionId)               =>
+              validateCollectionPermission(
+                subject,
+                collectionId,
+                Set(CollectionPermission.CreateFile, CollectionPermission.ReadFileMetadata),
+                operation
+              )
+
+            case operation @ ReadMetadata(subject, collectionId)             =>
+              validateCollectionPermission(subject, collectionId, Set(CollectionPermission.ReadFileMetadata), operation)
+
+            case operation @ ReadContent(subject, collectionId)              =>
+              validateCollectionPermission(
+                subject,
+                collectionId,
+                Set(CollectionPermission.ReadFile, CollectionPermission.ReadFileMetadata),
+                operation
+              )
+
+            case operation @ ModifyFile(subject, collectionId)               =>
+              validateCollectionPermission(
+                subject,
+                collectionId,
+                Set(CollectionPermission.ModifyFile, CollectionPermission.ReadFileMetadata),
+                operation
+              )
+
+            case operation @ DeleteFile(subject, collectionId)               =>
+              validateCollectionPermission(
+                subject,
+                collectionId,
+                Set(CollectionPermission.ModifyFile, CollectionPermission.ReadFileMetadata),
+                operation
+              )
           }
+
+        private def validateCollectionPermission(
+          subject: Subject,
+          collectionId: CollectionId,
+          requiredPermission: Set[CollectionPermission],
+          operation: AuthorizedOperation
+        ): ZIO[Any, OperationNotPermitted, Unit] =
+          db.transactionOrDie(
+            for {
+              permissions <- collectionsRepo.getUserPermissionsFor(collectionId.id, subject.userId).orDie
+              _           <- ZIO.cond(requiredPermission.subsetOf(permissions.toSet), (), OperationNotPermitted(operation))
+            } yield ()
+          )
 
       }
     )

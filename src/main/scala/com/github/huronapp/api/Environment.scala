@@ -3,7 +3,7 @@ package com.github.huronapp.api
 import cats.syntax.semigroupk._
 import com.github.huronapp.api.auth.authentication.{HttpAuthentication, SessionCache, SessionRepository, SessionsIndex}
 import com.github.huronapp.api.config.{AppConfig, SecurityConfig}
-import com.github.huronapp.api.config.modules.SessionRepoConfig
+import com.github.huronapp.api.config.modules.{FileSystemConfig, SessionRepoConfig}
 import com.github.huronapp.api.database.{DataSources, Database}
 import com.github.huronapp.api.database.Database.Database
 import com.github.huronapp.api.domain.devices.{DevicesEndpoints, DevicesRoutes}
@@ -12,16 +12,22 @@ import com.github.huronapp.api.auth.authentication.SessionsIndex.SessionsIndex
 import com.github.huronapp.api.auth.authorization.AuthorizationKernel
 import com.github.huronapp.api.domain.collections.CollectionsRoutes.CollectionsRoutes
 import com.github.huronapp.api.domain.collections.{CollectionsEndpoints, CollectionsRepository, CollectionsRoutes, CollectionsService}
+import com.github.huronapp.api.domain.files.{FilesEndpoints, FilesMetadataRepository, FilesRoutes, FilesService}
+import com.github.huronapp.api.domain.files.FilesRoutes.FilesRoutes
 import com.github.huronapp.api.domain.users.UsersRoutes.UserRoutes
 import com.github.huronapp.api.domain.users.{UserSession, UsersEndpoints, UsersRepository, UsersRoutes, UsersService}
 import com.github.huronapp.api.http.ApiDocRoutes
 import com.github.huronapp.api.http.ApiDocRoutes.ApiDocRoutes
 import com.github.huronapp.api.messagebus.{InternalMessage, InternalMessageBus}
-import com.github.huronapp.api.scheduler.RegistrationCleaner
+import com.github.huronapp.api.scheduler.OutboxTasksDispatcher.OutboxTasksDispatcher
+import com.github.huronapp.api.scheduler.{OutboxTasksDispatcher, RegistrationCleaner}
 import com.github.huronapp.api.scheduler.RegistrationCleaner.RegistrationCleaner
 import com.github.huronapp.api.utils.EmailService.EmailService
-import com.github.huronapp.api.utils.{EmailService, RandomUtils}
+import com.github.huronapp.api.utils.FileSystemService.FileSystemService
+import com.github.huronapp.api.utils.{EmailService, FileSystemService, RandomUtils}
 import com.github.huronapp.api.utils.crypto.Crypto
+import com.github.huronapp.api.utils.outbox.OutboxService.OutboxService
+import com.github.huronapp.api.utils.outbox.{OutboxRepository, OutboxService, OutboxTaskProcessingQueue}
 import com.github.huronapp.api.utils.templates.TemplateService
 import com.github.huronapp.api.utils.templates.TemplateService.TemplateService
 import com.github.huronapp.api.utils.tracing.KamonTracing
@@ -32,9 +38,10 @@ import izumi.reflect.Tag
 import scalacache.Cache
 import zio.blocking.Blocking
 import zio.clock.Clock
-import zio.{Has, Hub, Task, ULayer, ZEnv, ZLayer}
+import zio.{Has, Hub, Queue, Task, ULayer, ZEnv, ZLayer}
 import zio.logging.Logging
 import zio.logging.slf4j.Slf4jLogger
+import com.github.huronapp.api.utils.outbox.{Task => OutboxTask}
 
 import java.time.Duration
 
@@ -58,6 +65,11 @@ object Environment {
     with RegistrationCleaner
     with KamonTracing
     with CollectionsRoutes
+    with FilesRoutes
+    with OutboxTasksDispatcher
+    with Has[Queue[OutboxTask]]
+    with OutboxService
+    with FileSystemService
 
   def live(config: AppConfig): ZLayer[ZEnv, Throwable, AppEnvironment] = {
     val configLayer = ZLayer.succeed(config)
@@ -65,8 +77,10 @@ object Environment {
     val tracing = KamonTracing.live
     val internalMessageBus: ZLayer[Any, Nothing, Has[Hub[InternalMessage]]] = InternalMessageBus.live
     val devicesRoutes = configLayer.narrow(_.mobileApp) >>> DevicesRoutes.live
-    val swaggerRoutes = ApiDocRoutes.live(DevicesEndpoints.endpoints <+> UsersEndpoints.endpoints <+> CollectionsEndpoints.endpoints)
-    val database = configLayer.narrow(_.database) ++ Blocking.any >>> Database.live
+    val swaggerRoutes = ApiDocRoutes.live(
+      DevicesEndpoints.endpoints <+> UsersEndpoints.endpoints <+> CollectionsEndpoints.endpoints <+> FilesEndpoints.endpoints
+    )
+    val database = configLayer.narrow(_.database) ++ Blocking.any ++ tracing >>> Database.live
     val random = Blocking.any ++ tracing >>> RandomUtils.live
     val crypto = random ++ configLayer.narrow(_.security) ++ tracing >>> Crypto.live
     val dataSource = Blocking.any ++ configLayer.narrow(_.database) >>> DataSources.hikari
@@ -93,7 +107,18 @@ object Environment {
     }
     val collectionsService = db ++ collectionsRepo ++ authKernel ++ random ++ logging >>> CollectionsService.live
     val collectionsRoutes = collectionsService ++ logging ++ httpAuth >>> CollectionsRoutes.live
-    configLayer ++ devicesRoutes ++ swaggerRoutes ++ database ++ userRoutes ++ internalMessageBus ++ emailService ++ logging ++ templateService ++ registrationCleaner ++ tracing ++ collectionsRoutes
+    val filesRepo = Clock.any >>> FilesMetadataRepository.postgres
+    val fs = Blocking.any ++ tracing >>> conditionalFsService(config.filesystemConfig)
+    val outboxRepo = Clock.any >>> OutboxRepository.postgres
+    val outboxService = outboxRepo ++ random ++ tracing ++ db >>> OutboxService.live
+    val filesService =
+      db ++ filesRepo ++ authKernel ++ random ++ logging ++ crypto ++ fs ++ collectionsRepo ++ outboxService >>> FilesService.live
+    val filesRoutes = filesService ++ logging ++ httpAuth >>> FilesRoutes.live
+    val outboxConfig = configLayer.narrow(_.outboxTasksConfig)
+    val outboxTasksQueue = outboxConfig >>> OutboxTaskProcessingQueue.live
+    val outboxTasksDispatcher =
+      outboxTasksQueue ++ logging ++ outboxConfig ++ Clock.any ++ db ++ outboxRepo ++ tracing >>> OutboxTasksDispatcher.live
+    configLayer ++ devicesRoutes ++ swaggerRoutes ++ database ++ userRoutes ++ internalMessageBus ++ emailService ++ logging ++ templateService ++ registrationCleaner ++ tracing ++ collectionsRoutes ++ filesRoutes ++ outboxTasksDispatcher ++ outboxTasksQueue ++ outboxService ++ fs
   }
 
   private def conditionalSessionIndex(config: SessionRepoConfig): ZLayer[Any, Nothing, SessionsIndex] =
@@ -106,6 +131,11 @@ object Environment {
     config match {
       case SessionRepoConfig.InMemorySessionRepo      => SessionCache.inMemory
       case config: SessionRepoConfig.RedisSessionRepo => SessionCache.redis(config)
+    }
+
+  private def conditionalFsService(config: FileSystemConfig): ZLayer[Blocking with KamonTracing, Throwable, FileSystemService] =
+    config match {
+      case FileSystemConfig.LocalFsConfig(root, createMissingRoot) => FileSystemService.localFs(root, createMissingRoot)
     }
 
 }

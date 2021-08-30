@@ -5,6 +5,7 @@ import com.github.huronapp.api.Environment.AppEnvironment
 import com.github.huronapp.api.config.AppConfig
 import com.github.huronapp.api.domain.collections.CollectionsRoutes
 import com.github.huronapp.api.domain.devices.DevicesRoutes
+import com.github.huronapp.api.domain.files.FilesRoutes
 import com.github.huronapp.api.domain.users.UsersRoutes
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import com.github.huronapp.api.http.ApiDocRoutes
@@ -23,7 +24,8 @@ object HttpServer {
     devicesRoutes     <- DevicesRoutes.routes
     usersRoutes       <- UsersRoutes.routes
     collectionsRoutes <- CollectionsRoutes.routes
-  } yield swaggerRoutes <+> devicesRoutes <+> usersRoutes <+> collectionsRoutes
+    filesRoutes       <- FilesRoutes.routes
+  } yield swaggerRoutes <+> devicesRoutes <+> usersRoutes <+> collectionsRoutes <+> filesRoutes
 
   val create: ZManaged[ZEnv with AppEnvironment, Throwable, Server[RouteEffect]] = for {
     implicit0(runtime: Runtime[ZEnv]) <- ZManaged.runtime[ZEnv]

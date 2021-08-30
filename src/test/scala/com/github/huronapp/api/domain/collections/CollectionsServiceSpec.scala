@@ -116,7 +116,7 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
   }
 
   private val createCollection = testM("should create new collection") {
-    val expectedCollection = Collection(FirstRandomFuuid, ExampleCollectionName, SecondRandomFuuid)
+    val expectedCollection = Collection(FirstRandomFuuid, ExampleCollectionName, SecondRandomFuuid, ExampleUserId)
 
     val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState()
     for {
@@ -132,7 +132,7 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
         hasSameElements(
           Set(
             CollectionsRepoFake.PermissionEntry(FirstRandomFuuid, ExampleUserId, CollectionPermission.ManageCollection),
-            CollectionsRepoFake.PermissionEntry(FirstRandomFuuid, ExampleUserId, CollectionPermission.WriteFile),
+            CollectionsRepoFake.PermissionEntry(FirstRandomFuuid, ExampleUserId, CollectionPermission.CreateFile),
             CollectionsRepoFake.PermissionEntry(FirstRandomFuuid, ExampleUserId, CollectionPermission.ReadFile),
             CollectionsRepoFake.PermissionEntry(FirstRandomFuuid, ExampleUserId, CollectionPermission.ReadFileMetadata)
           )
