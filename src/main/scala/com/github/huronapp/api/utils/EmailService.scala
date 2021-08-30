@@ -2,7 +2,9 @@ package com.github.huronapp.api.utils
 
 import com.github.huronapp.api.domain.users.Email
 import zio.console.Console
-import zio.{Has, Task, UIO, ZLayer}
+import zio.{Has, IO, Task, ZLayer}
+
+import java.io.IOException
 
 object EmailService {
 
@@ -16,7 +18,7 @@ object EmailService {
 
   val console: ZLayer[Console, Nothing, EmailService] = ZLayer.fromService[Console.Service, EmailService.Service] { console =>
     new Service {
-      private def printRepeated(content: String, n: Int): UIO[Unit] = console.putStrLn(List.fill(n)(content).mkString)
+      private def printRepeated(content: String, n: Int): IO[IOException, Unit] = console.putStrLn(List.fill(n)(content).mkString)
 
       override def send(sendTo: Email, subject: String, content: String): Task[Unit] =
         console.putStrLn("TO: " + sendTo.value) *>

@@ -159,7 +159,8 @@ object CollectionsRepository {
                                  )
           permissionEntities = List(
                                  CollectionPermission.ManageCollection,
-                                 CollectionPermission.WriteFile,
+                                 CollectionPermission.CreateFile,
+                                 CollectionPermission.ModifyFile,
                                  CollectionPermission.ReadFile,
                                  CollectionPermission.ReadFileMetadata
                                ).map(p => CollectionPermissionEntity(collection.id, creator, p, now))
@@ -223,6 +224,7 @@ private final case class CollectionEntity(
   id: FUUID,
   name: String,
   encryptionKeyVersion: FUUID,
+  owner: FUUID,
   createdAt: Instant,
   updatedAt: Instant)
 

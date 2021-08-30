@@ -3,7 +3,7 @@ package com.github.huronapp.api.config
 import cats.syntax.parallel._
 import ciris.{Secret, env}
 import com.github.huronapp.api.config.instances._
-import com.github.huronapp.api.config.modules.SessionRepoConfig
+import com.github.huronapp.api.config.modules.{FileSystemConfig, SessionRepoConfig}
 import com.github.huronapp.api.utils.Implicits.semver._
 import com.vdurmont.semver4j.Semver
 import org.http4s.Uri
@@ -49,10 +49,16 @@ object AppConfig {
     env("REGISTRATION_CLEANUP_EVERY").as[JDuration].default(JDuration.ofMinutes(10))
   ).map(RegistrationCleanupConfig)
 
+  private val outboxTasksConfig = (
+    env("OUTBOX_TASK_QUEUE_SIZE").as[Int].default(16),
+    env("OUTBOX_QUEUE_PROCESS_EVERY").as[JDuration].default(JDuration.ofMinutes(3)),
+    env("OUTBOX_TASK_DURATION_CUTOFF").as[JDuration].default(JDuration.ofMinutes(15))
+  ).parMapN(OutboxTasksConfig)
+
   private val appConfig =
-    (serverConfig, mobileAppConfig, dbConfig, securityConfig, registrationCleanupConfig)
-      .parMapN((server, mobileApp, db, security, registrationCleanup) =>
-        AppConfig(server, mobileApp, db, security, SchedulersConfig(registrationCleanup))
+    (serverConfig, mobileAppConfig, dbConfig, securityConfig, registrationCleanupConfig, FileSystemConfig.load, outboxTasksConfig)
+      .parMapN((server, mobileApp, db, security, registrationCleanup, fsConfig, outbox) =>
+        AppConfig(server, mobileApp, db, security, SchedulersConfig(registrationCleanup), fsConfig, outbox)
       )
 
   val load: Task[AppConfig] = appConfig.load[Task]
@@ -64,7 +70,9 @@ final case class AppConfig(
   mobileApp: MobileAppConfig,
   database: DatabaseConfig,
   security: SecurityConfig,
-  schedulers: SchedulersConfig)
+  schedulers: SchedulersConfig,
+  filesystemConfig: FileSystemConfig,
+  outboxTasksConfig: OutboxTasksConfig)
 
 final case class ServerConfig(bindAddress: String, port: Int)
 
@@ -85,3 +93,5 @@ final case class SecurityConfig(
 final case class SchedulersConfig(registrationCleanup: RegistrationCleanupConfig)
 
 final case class RegistrationCleanupConfig(runEvery: JDuration)
+
+final case class OutboxTasksConfig(taskQueueSize: Int, runEvery: JDuration, taskDurationCutoff: JDuration)

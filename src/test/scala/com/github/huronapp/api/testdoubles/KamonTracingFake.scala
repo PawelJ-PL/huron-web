@@ -15,7 +15,7 @@ object KamonTracingFake {
 
     override def createSpan[R, E, A](name: String, operation: ZIO[R, E, A], tags: Map[String, Any]): ZIO[R, E, A] = operation
 
-    override def preserveContext[R, E, A](operation: ZIO[R, E, A]): ZIO[R, E, A] = ???
+    override def preserveContext[R, E, A](operation: ZIO[R, E, A]): ZIO[R, E, A] = operation
 
     override def withContext[R, E, A](operation: ZIO[R, E, A], context: Context): ZIO[R, E, A] = operation
 

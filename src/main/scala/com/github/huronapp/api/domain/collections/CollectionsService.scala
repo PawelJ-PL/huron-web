@@ -60,7 +60,7 @@ object CollectionsService {
             for {
               collectionId <- random.randomFuuid
               keyVersion   <- random.randomFuuid
-              collection = Collection(collectionId, dto.name.value, keyVersion)
+              collection = Collection(collectionId, dto.name.value, keyVersion, userId)
               saved        <- collectionsRepo.createCollection(collection, userId, dto.encryptedKey.value).orDie
               _            <- logger.info(show"User $userId created collection $collectionId")
             } yield saved

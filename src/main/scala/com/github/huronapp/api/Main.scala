@@ -2,8 +2,8 @@ package com.github.huronapp.api
 
 import com.github.huronapp.api.config.AppConfig
 import com.github.huronapp.api.database.Database
-import com.github.huronapp.api.messagebus.handlers.EmailHandler
-import com.github.huronapp.api.scheduler.RegistrationCleaner
+import com.github.huronapp.api.messagebus.handlers.{EmailHandler, OutboxTasksHandler}
+import com.github.huronapp.api.scheduler.{OutboxTasksDispatcher, RegistrationCleaner}
 import com.github.huronapp.api.utils.tracing.ZioKamonApp
 import zio.{ExitCode, URIO, ZEnv, ZIO}
 import zio.magic._
@@ -14,9 +14,11 @@ object Main extends ZioKamonApp {
     (for {
       _ <- Database.migrate.toManaged_
       emailHandler = EmailHandler.handle
+      outboxHandler = OutboxTasksHandler.handle
       registrationCleanupScheduler = RegistrationCleaner.start.toManaged_
+      outboxDispatcherScheduler = OutboxTasksDispatcher.start.toManaged_
       server = HttpServer.create
-      _ <- emailHandler <&> registrationCleanupScheduler <&> server
+      _ <- emailHandler <&> outboxHandler <&> registrationCleanupScheduler <&> outboxDispatcherScheduler <&> server
     } yield ())
       .useForever
       .injectCustom(Environment.live(config))

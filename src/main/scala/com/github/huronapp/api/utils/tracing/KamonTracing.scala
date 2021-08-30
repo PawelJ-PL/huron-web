@@ -3,8 +3,10 @@ package com.github.huronapp.api.utils.tracing
 import kamon.Kamon
 import kamon.context.Context
 import kamon.tag.TagSet
+import zio.macros.accessible
 import zio.{Has, Managed, UIO, ULayer, ZIO, ZLayer}
 
+@accessible
 object KamonTracing {
 
   type KamonTracing = Has[KamonTracing.Service]

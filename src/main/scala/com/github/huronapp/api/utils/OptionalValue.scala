@@ -16,6 +16,6 @@ object OptionalValue {
 
   implicit def encoder[A: Encoder]: Encoder[OptionalValue[A]] = deriveEncoder[OptionalValue[A]]
 
-  implicit def tapirSchema[A: Schema]: Schema[OptionalValue[A]] = Schema.derived[OptionalValue[A]]
+  implicit def tapirSchema[A: Schema]: Schema[OptionalValue[A]] = Schema.derived[OptionalValue[A]] // See https://github.com/softwaremill/tapir/issues/1303
 
 }

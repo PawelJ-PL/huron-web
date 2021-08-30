@@ -10,7 +10,9 @@ object CollectionPermission extends Enum[CollectionPermission] {
 
   case object ManageCollection extends CollectionPermission
 
-  case object WriteFile extends CollectionPermission
+  case object CreateFile extends CollectionPermission
+
+  case object ModifyFile extends CollectionPermission
 
   case object ReadFile extends CollectionPermission
 
