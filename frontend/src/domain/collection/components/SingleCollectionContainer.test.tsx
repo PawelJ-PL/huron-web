@@ -28,6 +28,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -51,6 +53,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -71,6 +75,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -90,6 +96,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -109,6 +117,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -132,6 +142,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -153,6 +165,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -179,6 +193,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -201,6 +217,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -226,6 +244,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -251,6 +271,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -258,6 +280,54 @@ describe("Single collection container", () => {
 
         expect(fetchCollectionMock).toHaveBeenCalledTimes(1)
         expect(fetchCollectionMock).toHaveBeenCalledWith(exampleCollectionId)
+    })
+
+    it("should reset remove preferred collection status on mount", () => {
+        const resetRemovePreferredCollectionStatusMock = jest.fn()
+
+        render(
+            <SingleCollectionContainer
+                match={exampleRouteMatch}
+                history={historyMock()}
+                fetchCollectionResult={{ status: "NOT_STARTED" }}
+                fetchCollectionData={jest.fn()}
+                setActiveCollection={jest.fn()}
+                setPreferredCollection={jest.fn()}
+                resetCollectionData={jest.fn()}
+                removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={resetRemovePreferredCollectionStatusMock}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
+                removeActiveCollection={jest.fn()}
+                t={tFunctionMock}
+            />
+        )
+
+        expect(resetRemovePreferredCollectionStatusMock).toHaveBeenCalledTimes(1)
+    })
+
+    it("should reset remove preferred collection status on unmount", () => {
+        const resetRemovePreferredCollectionStatusMock = jest.fn()
+
+        const element = render(
+            <SingleCollectionContainer
+                match={exampleRouteMatch}
+                history={historyMock()}
+                fetchCollectionResult={{ status: "NOT_STARTED" }}
+                fetchCollectionData={jest.fn()}
+                setActiveCollection={jest.fn()}
+                setPreferredCollection={jest.fn()}
+                resetCollectionData={jest.fn()}
+                removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={resetRemovePreferredCollectionStatusMock}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
+                removeActiveCollection={jest.fn()}
+                t={tFunctionMock}
+            />
+        )
+
+        element.unmount()
+
+        expect(resetRemovePreferredCollectionStatusMock).toHaveBeenCalledTimes(2)
     })
 
     it("should reset collection data on unmount", () => {
@@ -273,6 +343,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={jest.fn()}
                 resetCollectionData={resetCollectionMock}
                 removePreferredCollection={jest.fn()}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={jest.fn()}
                 t={tFunctionMock}
             />
@@ -300,6 +372,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={setPreferredCollectionMock}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={removeActiveCollectionMock}
                 t={tFunctionMock}
             />
@@ -330,6 +404,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={setPreferredCollectionMock}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={removeActiveCollectionMock}
                 t={tFunctionMock}
             />
@@ -358,6 +434,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={setPreferredCollectionMock}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={removeActiveCollectionMock}
                 t={tFunctionMock}
             />
@@ -390,6 +468,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={setPreferredCollectionMock}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={removeActiveCollectionMock}
                 t={tFunctionMock}
             />
@@ -422,6 +502,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={setPreferredCollectionMock}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={removeActiveCollectionMock}
                 t={tFunctionMock}
             />
@@ -433,7 +515,7 @@ describe("Single collection container", () => {
         expect(historyPushMock).not.toHaveBeenCalled()
     })
 
-    it("should remove preferred and active collection and redirect if fetched data of non existing collection", () => {
+    it("should remove preferred and active collection if fetched data of non existing collection", () => {
         const setActiveCollectionMock = jest.fn()
         const setPreferredCollectionMock = jest.fn()
         const removeActiveCollectionMock = jest.fn()
@@ -450,6 +532,8 @@ describe("Single collection container", () => {
                 setPreferredCollection={setPreferredCollectionMock}
                 resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 removeActiveCollection={removeActiveCollectionMock}
                 t={tFunctionMock}
             />
@@ -458,6 +542,36 @@ describe("Single collection container", () => {
         expect(setPreferredCollectionMock).not.toHaveBeenCalled()
         expect(removeActiveCollectionMock).toHaveBeenCalledTimes(1)
         expect(removePreferredCollectionMock).toHaveBeenCalledTimes(1)
+        expect(historyPushMock).not.toHaveBeenCalled()
+    })
+
+    it("should redirect to home if remove preferred collection finished", () => {
+        const setActiveCollectionMock = jest.fn()
+        const setPreferredCollectionMock = jest.fn()
+        const removeActiveCollectionMock = jest.fn()
+        const removePreferredCollectionMock = jest.fn()
+        const historyPushMock = jest.fn()
+
+        render(
+            <SingleCollectionContainer
+                match={exampleRouteMatch}
+                history={historyMock({ push: historyPushMock })}
+                fetchCollectionResult={{ status: "NOT_STARTED" }}
+                fetchCollectionData={jest.fn()}
+                setActiveCollection={setActiveCollectionMock}
+                setPreferredCollection={setPreferredCollectionMock}
+                resetCollectionData={jest.fn()}
+                removePreferredCollection={removePreferredCollectionMock}
+                resetRemovePreferredCollectionResult={jest.fn()}
+                removePreferredCollectionResult={{ status: "FINISHED", params: undefined, data: undefined }}
+                removeActiveCollection={removeActiveCollectionMock}
+                t={tFunctionMock}
+            />
+        )
+        expect(setActiveCollectionMock).not.toHaveBeenCalled()
+        expect(setPreferredCollectionMock).not.toHaveBeenCalled()
+        expect(removeActiveCollectionMock).not.toHaveBeenCalled()
+        expect(removePreferredCollectionMock).not.toHaveBeenCalled()
         expect(historyPushMock).toHaveBeenCalledTimes(1)
         expect(historyPushMock).toHaveBeenCalledWith("/")
     })

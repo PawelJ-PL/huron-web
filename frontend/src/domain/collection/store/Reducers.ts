@@ -19,6 +19,7 @@ import {
     removePreferredCollectionIdAction,
     resetAvailableCollectionsListAction,
     resetCreateCollectionStatusAction,
+    resetRemovePreferredCollectionResultAction,
     setActiveCollectionAction,
     setPreferredCollectionIdAction,
 } from "./Actions"
@@ -40,7 +41,10 @@ const createCollectionReducer = createReducer(createCollectionAction, resetCreat
 
 const readPreferredCollectionReducer = createReducer(getPreferredCollectionIdAction).build()
 
-const removePreferredCollectionReducer = createReducer(removePreferredCollectionIdAction).build()
+const removePreferredCollectionReducer = createReducer(
+    removePreferredCollectionIdAction,
+    resetRemovePreferredCollectionResultAction
+).build()
 
 const setPreferredCollectionReducer = createReducer(setPreferredCollectionIdAction).build()
 
