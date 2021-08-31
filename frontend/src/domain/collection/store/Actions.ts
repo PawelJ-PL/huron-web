@@ -15,6 +15,7 @@ export const getPreferredCollectionIdAction = actionCreator.async<void, string |
     "GET_PREFERRED_COLLECTION"
 )
 export const removePreferredCollectionIdAction = actionCreator.async<void, void, Error>("REMOVE_PREFERRED_COLLECTION")
+export const resetRemovePreferredCollectionResultAction = actionCreator("RESET_REMOVE_PREFERRED_COLLECTION_RESULT")
 export const setPreferredCollectionIdAction = actionCreator.async<string, void, Error>("SET_PREFERRED_COLLECTION_ID")
 export const setActiveCollectionAction = actionCreator<string | null>("SET_ACTIVE_COLLECTION")
 export const fetchAndDecryptCollectionKeyAction = actionCreator.async<

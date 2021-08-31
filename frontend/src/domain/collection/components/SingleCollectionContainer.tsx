@@ -10,6 +10,7 @@ import {
     cleanCollectionDetailsAction,
     getCollectionDetailsAction,
     removePreferredCollectionIdAction,
+    resetRemovePreferredCollectionResultAction,
     setActiveCollectionAction,
     setPreferredCollectionIdAction,
 } from "../store/Actions"
@@ -31,9 +32,12 @@ export const SingleCollectionContainer: React.FC<Props> = ({
     resetCollectionData,
     setActiveCollection,
     removeActiveCollection,
+    removePreferredCollectionResult,
+    resetRemovePreferredCollectionResult,
     t,
 }) => {
     useEffect(() => {
+        resetRemovePreferredCollectionResult()
         if (
             fetchCollectionResult.status === "NOT_STARTED" ||
             fetchCollectionResult.status === "FAILED" ||
@@ -43,6 +47,7 @@ export const SingleCollectionContainer: React.FC<Props> = ({
         }
         return () => {
             resetCollectionData()
+            resetRemovePreferredCollectionResult()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
@@ -55,7 +60,6 @@ export const SingleCollectionContainer: React.FC<Props> = ({
             } else {
                 removePreferredCollection()
                 removeActiveCollection()
-                history.push("/")
             }
         }
     }, [
@@ -68,6 +72,12 @@ export const SingleCollectionContainer: React.FC<Props> = ({
         removeActiveCollection,
     ])
 
+    useEffect(() => {
+        if (removePreferredCollectionResult.status === "FINISHED") {
+            history.push("/")
+        }
+    }, [removePreferredCollectionResult, history])
+
     if (
         fetchCollectionResult.status === "FINISHED" &&
         fetchCollectionResult.data &&
@@ -75,7 +85,9 @@ export const SingleCollectionContainer: React.FC<Props> = ({
     ) {
         return <div data-testid="TEMPORARY-COLLECTION-VIEW">{JSON.stringify(fetchCollectionResult.data)}</div>
     } else if (fetchCollectionResult.status === "FAILED") {
-        return <AlertBox icon={true} title={t("single-collection-view:fetching-details-error-message")} status="error" />
+        return (
+            <AlertBox icon={true} title={t("single-collection-view:fetching-details-error-message")} status="error" />
+        )
     } else {
         return <Loader title={t("single-collection-view:loading-collection-data")} />
     }
@@ -83,12 +95,14 @@ export const SingleCollectionContainer: React.FC<Props> = ({
 
 const mapStateToProps = (state: AppState) => ({
     fetchCollectionResult: state.collections.collectionDetails,
+    removePreferredCollectionResult: state.collections.removePreferredCollectionResult,
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
     fetchCollectionData: (collectionId: string) => dispatch(getCollectionDetailsAction.started(collectionId)),
     setPreferredCollection: (collectionId: string) => dispatch(setPreferredCollectionIdAction.started(collectionId)),
     removePreferredCollection: () => dispatch(removePreferredCollectionIdAction.started()),
+    resetRemovePreferredCollectionResult: () => dispatch(resetRemovePreferredCollectionResultAction()),
     resetCollectionData: () => dispatch(cleanCollectionDetailsAction()),
     setActiveCollection: (collectionId: string) => dispatch(setActiveCollectionAction(collectionId)),
     removeActiveCollection: () => dispatch(setActiveCollectionAction(null)),
