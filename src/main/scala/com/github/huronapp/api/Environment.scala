@@ -81,7 +81,7 @@ object Environment {
       DevicesEndpoints.endpoints <+> UsersEndpoints.endpoints <+> CollectionsEndpoints.endpoints <+> FilesEndpoints.endpoints
     )
     val database = configLayer.narrow(_.database) ++ Blocking.any ++ tracing >>> Database.live
-    val random = Blocking.any ++ tracing >>> RandomUtils.live
+    val random = Blocking.any ++ tracing ++ Clock.any >>> RandomUtils.live
     val crypto = random ++ configLayer.narrow(_.security) ++ tracing >>> Crypto.live
     val dataSource = Blocking.any ++ configLayer.narrow(_.database) >>> DataSources.hikari
     val errorStrategy = ZLayer.succeed(
@@ -95,7 +95,7 @@ object Environment {
     val usersService =
       crypto ++ usersRepo ++ db ++ random ++ logging ++ internalMessageBus ++ securityConfig ++ tracing ++ collectionsRepo ++ authKernel >>> UsersService.live
     val sessionsIndex = conditionalSessionIndex(config.security.sessionRepo)
-    val sessionCache = securityConfig >>> conditionalSessionStorage(config.security.sessionRepo)
+    val sessionCache = securityConfig ++ Blocking.any ++ Clock.any >>> conditionalSessionStorage(config.security.sessionRepo)
     val sessionRepo = sessionsIndex ++ Clock.any ++ random ++ securityConfig ++ sessionCache ++ logging >>> SessionRepository.live
     val httpAuth = sessionRepo ++ usersRepo ++ db ++ logging ++ Clock.any ++ securityConfig >>> HttpAuthentication.live
     val userRoutes = Blocking.any ++ usersService ++ logging ++ securityConfig ++ sessionRepo ++ httpAuth >>> UsersRoutes.live
@@ -127,7 +127,9 @@ object Environment {
       case config: SessionRepoConfig.RedisSessionRepo => SessionsIndex.redis(config)
     }
 
-  private def conditionalSessionStorage(config: SessionRepoConfig): ZLayer[Has[SecurityConfig], Throwable, Has[Cache[Task, UserSession]]] =
+  private def conditionalSessionStorage(
+    config: SessionRepoConfig
+  ): ZLayer[Has[SecurityConfig] with Blocking with Clock, Throwable, Has[Cache[Task, UserSession]]] =
     config match {
       case SessionRepoConfig.InMemorySessionRepo      => SessionCache.inMemory
       case config: SessionRepoConfig.RedisSessionRepo => SessionCache.redis(config)

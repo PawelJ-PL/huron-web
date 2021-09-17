@@ -7,7 +7,9 @@ import com.github.huronapp.api.config.modules.{FileSystemConfig, SessionRepoConf
 import com.github.huronapp.api.utils.Implicits.semver._
 import com.vdurmont.semver4j.Semver
 import org.http4s.Uri
-import zio.{Has, Task}
+import zio.blocking.Blocking
+import zio.clock.Clock
+import zio.{Has, Runtime, Task, ZIO}
 import zio.interop.catz._
 
 import java.time.{Duration => JDuration}
@@ -61,7 +63,8 @@ object AppConfig {
         AppConfig(server, mobileApp, db, security, SchedulersConfig(registrationCleanup), fsConfig, outbox)
       )
 
-  val load: Task[AppConfig] = appConfig.load[Task]
+  val load: ZIO[Blocking with Clock, Throwable, AppConfig] =
+    ZIO.runtime[Clock with Blocking].flatMap { implicit r: Runtime[Clock with Blocking] => appConfig.load[Task] }
 
 }
 

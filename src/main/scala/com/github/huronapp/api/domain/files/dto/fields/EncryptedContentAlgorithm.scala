@@ -10,7 +10,7 @@ object EncryptedContentAlgorithm {
 
   implicit val codec: Codec[EncryptedContentAlgorithm] = deriveUnwrappedCodec
 
-  private val validator: Validator[EncryptedContentAlgorithm] = Validator.`enum`(List("AES-CBC")).contramap(_.value)
+  private val validator: Validator[EncryptedContentAlgorithm] = Validator.enumeration(List("AES-CBC")).contramap(_.value)
 
   implicit val tapirSchema: Schema[EncryptedContentAlgorithm] = Schema.derived.validate(validator)
 

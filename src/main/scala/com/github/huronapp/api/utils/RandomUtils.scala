@@ -4,7 +4,8 @@ import com.github.huronapp.api.utils.tracing.KamonTracing
 import com.github.huronapp.api.utils.tracing.KamonTracing.KamonTracing
 import io.chrisdavenport.fuuid.FUUID
 import zio.blocking.Blocking
-import zio.{Has, Task, URIO, ZLayer}
+import zio.clock.Clock
+import zio.{Has, Runtime, Task, URIO, ZIO, ZLayer}
 import zio.interop.catz._
 
 import java.security.SecureRandom
@@ -24,8 +25,8 @@ object RandomUtils {
 
   }
 
-  val live: ZLayer[Blocking with KamonTracing, Nothing, RandomUtils] =
-    ZLayer.fromServices[Blocking.Service, KamonTracing.Service, RandomUtils.Service]((blocking, tracing) =>
+  val live: ZLayer[Blocking with KamonTracing with Clock, Nothing, RandomUtils] =
+    ZLayer.fromServices[Blocking.Service, KamonTracing.Service, Clock.Service, RandomUtils.Service]((blocking, tracing, clock) =>
       new Service {
 
         override def secureBytes(length: Int): Task[Array[Byte]] =
@@ -40,7 +41,11 @@ object RandomUtils {
 
         override def secureBytesHex(length: Int): Task[String] = secureBytes(length).map(DatatypeConverter.printHexBinary)
 
-        override val randomFuuid: URIO[Any, FUUID] = FUUID.randomFUUID[Task].orDie
+        override val randomFuuid: URIO[Any, FUUID] =
+          ZIO
+            .runtime[Clock with Blocking]
+            .flatMap { implicit r: Runtime[Clock with Blocking] => FUUID.randomFUUID[Task].orDie }
+            .provideLayer(ZLayer.succeed(clock) ++ ZLayer.succeed(blocking))
 
       }
     )

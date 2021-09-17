@@ -41,7 +41,7 @@ val dependencies = {
     "com.softwaremill.sttp.tapir" %% "tapir-json-circe",
     "com.softwaremill.sttp.tapir" %% "tapir-openapi-docs",
     "com.softwaremill.sttp.tapir" %% "tapir-openapi-circe-yaml",
-    "com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-http4s",
+    "com.softwaremill.sttp.tapir" %% "tapir-swagger-ui",
     "com.softwaremill.sttp.tapir" %% "tapir-enumeratum",
     "com.softwaremill.sttp.tapir" %% "tapir-refined"
   ).map(_ % Versions.tapir)
@@ -81,8 +81,7 @@ val dependencies = {
 
   val fuuid = Seq(
     "io.chrisdavenport" %% "fuuid",
-    "io.chrisdavenport" %% "fuuid-circe",
-    "io.chrisdavenport" %% "fuuid-http4s"
+    "io.chrisdavenport" %% "fuuid-circe"
   ).map(_ % Versions.fuuid)
 
   val crypt = Seq(
@@ -115,7 +114,7 @@ val dependencies = {
     "io.kamon" %% "kamon-prometheus",
     "io.kamon" %% "kamon-zipkin"
   ).map(_ % Versions.kamon) ++ Seq(
-    "io.kamon" %% "kamon-http4s" % Versions.kamonHttp4s
+    "io.kamon" %% "kamon-http4s-0.23" % Versions.kamonHttp4s
   )
 
   val newType = Seq(

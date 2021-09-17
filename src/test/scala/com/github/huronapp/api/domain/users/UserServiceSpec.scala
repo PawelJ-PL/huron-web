@@ -29,6 +29,7 @@ import com.github.huronapp.api.utils.OptionalValue
 import io.github.gaelrenoux.tranzactio.doobie.Database
 import kamon.context.Context
 import zio.blocking.Blocking
+import zio.clock.Clock
 import zio.{Ref, ZLayer}
 import zio.logging.slf4j.Slf4jLogger
 import zio.test.Assertion.{equalTo, hasSameElements, isEmpty, isLeft, isNone, isSome}
@@ -45,7 +46,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
     usersRepoRef: Ref[UsersRepoFake.UsersRepoState],
     internalTopic: Ref[List[InternalMessage]],
     collectionsRepoRef: Ref[CollectionsRepoFake.CollectionsRepoState]
-  ): ZLayer[Blocking, Nothing, UsersService] = {
+  ): ZLayer[Blocking with Clock, Nothing, UsersService] = {
     val collectionsRep = CollectionsRepoFake.create(collectionsRepoRef)
     CryptoStub.create ++ UsersRepoFake.create(usersRepoRef) ++ Database.none ++ RandomUtilsStub.create ++ logger ++ InternalTopicFake
       .usingRef(internalTopic) ++ ZLayer.succeed(
@@ -399,7 +400,12 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       usersRepo             <- Ref.make(initUsersRepoState)
       initialCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
                                       collectionKeys = Set(
-                                        EncryptionKey(ExampleCollectionId, ExampleUserId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion)
+                                        EncryptionKey(
+                                          ExampleCollectionId,
+                                          ExampleUserId,
+                                          ExampleEncryptionKeyValue,
+                                          ExampleEncryptionKeyVersion
+                                        )
                                       ),
                                       collections = Set(ExampleCollection),
                                       userCollections = Set(UserCollection(ExampleCollectionId, ExampleUserId, accepted = true))
@@ -592,7 +598,12 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       usersRepo             <- Ref.make(initUsersRepoState)
       initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
                                    collectionKeys = Set(
-                                     EncryptionKey(ExampleCollectionId, ExampleUserId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion),
+                                     EncryptionKey(
+                                       ExampleCollectionId,
+                                       ExampleUserId,
+                                       ExampleEncryptionKeyValue,
+                                       ExampleEncryptionKeyVersion
+                                     ),
                                      EncryptionKey(ExampleFuuid1, ExampleUserId, "FooBar", ExampleFuuid2)
                                    )
                                  )

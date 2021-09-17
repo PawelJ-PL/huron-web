@@ -22,7 +22,7 @@ object TapirAuthenticationInputs {
       .and(auth.apiKey(header[Option[String]]("X-Api-Key")).securitySchemeName("apiKeyHeader"))
       .and(auth.apiKey(query[Option[String]]("api-key")).securitySchemeName("apiKeyQueryParam"))
       .and(extractFromRequest[Method](_.method))
-      .mapTo(AuthenticationInputs)
+      .mapTo[AuthenticationInputs]
 
   private def sessionCookieFromRequest(req: ServerRequest): Option[String] =
     req
