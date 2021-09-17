@@ -5,22 +5,23 @@ import sttp.tapir.server.http4s.Http4sServerOptions
 import sttp.tapir.server.http4s.Http4sServerOptions.Log
 import sttp.tapir.server.interceptor.exception.DefaultExceptionHandler
 import zio.ZIO
+import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.interop.catz._
 
 trait BaseRouter {
 
   implicit val serverOpts: Http4sServerOptions[RouteEffect, RouteEffect] =
-    Http4sServerOptions.customInterceptors[RouteEffect, RouteEffect](
-      decodeFailureHandler = TapirHandlers.handler,
-      exceptionHandler = Some(DefaultExceptionHandler),
-      serverLog = Some(Log.defaultServerLog[RouteEffect])
-    )
+    Http4sServerOptions
+      .customInterceptors[RouteEffect, RouteEffect]
+      .decodeFailureHandler(TapirHandlers.handler)
+      .rejectInterceptor(None)
+      .options
 
 }
 
 object BaseRouter {
 
-  type RouteEffect[A] = ZIO[Clock, Throwable, A]
+  type RouteEffect[A] = ZIO[Any with Clock with Blocking, Throwable, A]
 
 }

@@ -27,8 +27,8 @@ import io.circe.Json
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.implicits._
-import org.http4s.util.CaseInsensitiveString
 import org.http4s.{Header, Headers, Method, Request, ResponseCookie, Status, Uri}
+import org.typelevel.ci.CIString
 import zio.clock.Clock
 import zio.{Ref, ZIO, ZLayer}
 import zio.interop.catz._
@@ -242,17 +242,12 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Ok)) &&
       assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest))) &&
-      assert(result.headers.get(CaseInsensitiveString("set-cookie")))(
+      assert(result.headers.get(CIString("set-cookie")).map(_.head.value))(
         isSome(
-          equalTo(
-            Header(
-              "Set-Cookie",
-              ResponseCookie("session", FirstRandomFuuid.show, maxAge = Some(604800), path = Some("/"), httpOnly = true).renderString
-            )
-          )
+          equalTo(ResponseCookie("session", FirstRandomFuuid.show, maxAge = Some(604800), path = Some("/"), httpOnly = true).renderString)
         )
       ) &&
-      assert(result.headers.get(CaseInsensitiveString("x-csrf-token")))(isSome(equalTo(Header("X-Csrf-Token", SecondRandomFuuid.show)))) &&
+      assert(result.headers.get(CIString("x-csrf-token")).map(_.head.value))(isSome(equalTo(SecondRandomFuuid.show))) &&
       assert(loggedMessages)(equalTo(Chain.empty)) &&
       assert(finalSessionRepo)(
         equalTo(
@@ -277,8 +272,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
       assert(body)(equalTo(ErrorResponse.Unauthorized("Invalid credentials"))) &&
-      assert(result.headers.get(CaseInsensitiveString("set-cookie")))(isNone) &&
-      assert(result.headers.get(CaseInsensitiveString("x-csrf-token")))(isNone) &&
+      assert(result.headers.get(CIString("set-cookie")))(isNone) &&
+      assert(result.headers.get(CIString("x-csrf-token")))(isNone) &&
       assert(loggedMessages)(
         equalTo(Chain.one("Credentials verification failed: User with email hash digest(alice@example.org) not found"))
       ) &&
@@ -301,8 +296,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
       assert(body)(equalTo(ErrorResponse.Unauthorized("Invalid credentials"))) &&
-      assert(result.headers.get(CaseInsensitiveString("set-cookie")))(isNone) &&
-      assert(result.headers.get(CaseInsensitiveString("x-csrf-token")))(isNone) &&
+      assert(result.headers.get(CIString("set-cookie")))(isNone) &&
+      assert(result.headers.get(CIString("x-csrf-token")))(isNone) &&
       assert(loggedMessages)(
         equalTo(Chain.one("Credentials verification failed: User 431e092f-50ce-47eb-afbd-b806514d3f2c is not active"))
       ) &&
@@ -325,8 +320,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
       assert(body)(equalTo(ErrorResponse.Unauthorized("Invalid credentials"))) &&
-      assert(result.headers.get(CaseInsensitiveString("set-cookie")))(isNone) &&
-      assert(result.headers.get(CaseInsensitiveString("x-csrf-token")))(isNone) &&
+      assert(result.headers.get(CIString("set-cookie")))(isNone) &&
+      assert(result.headers.get(CIString("x-csrf-token")))(isNone) &&
       assert(loggedMessages)(
         equalTo(Chain.one("Credentials verification failed: Invalid password for user with email hash digest(alice@example.org)"))
       ) &&
@@ -344,10 +339,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.NoContent)) &&
-      assert(result.headers.get(CaseInsensitiveString("set-cookie")))(
+      assert(result.headers.get(CIString("set-cookie")).map(_.head.value))(
         isSome(
           equalTo(
-            Header("Set-Cookie", ResponseCookie("session", "invalid", maxAge = Some(0), path = Some("/"), httpOnly = true).renderString)
+            ResponseCookie("session", "invalid", maxAge = Some(0), path = Some("/"), httpOnly = true).renderString
           )
         )
       ) &&
@@ -363,13 +358,13 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.DELETE, uri = uri"/api/v1/users/me/session")
-              .withHeaders(Headers.of(Header("X-Api-Key", "UserOk")))
+              .withHeaders(Headers(Header.Raw(CIString("X-Api-Key"), "UserOk")))
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.Forbidden]
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Forbidden)) &&
       assert(body)(equalTo(ErrorResponse.Forbidden("Logout not allowed for this authentication method"))) &&
-      assert(result.headers.get(CaseInsensitiveString("set-cookie")))(isNone) &&
+      assert(result.headers.get(CIString("set-cookie")))(isNone) &&
       assert(finalSessionRepo)(equalTo(initSessionsRepoState))
   }
 
@@ -386,7 +381,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(result.headers.get(CaseInsensitiveString("set-cookie")))(isNone) &&
+      assert(result.headers.get(CIString("set-cookie")))(isNone) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }
 
@@ -404,7 +399,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[UserDataResp]
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(result.headers.get(CaseInsensitiveString("X-Csrf-Token")))(isSome(equalTo(Header("X-Csrf-Token", ExampleFuuid2.show)))) &&
+      assert(result.headers.get(CIString("X-Csrf-Token")).map(_.head.value))(isSome(equalTo(ExampleFuuid2.show))) &&
       assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest))) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }
@@ -418,13 +413,13 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       sessionRepo      <- Ref.make(initSessionRepo)
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-      req =
-        Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/data").withHeaders(Headers.of(Header("X-Api-Key", "UserOk")))
+      req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/data")
+              .withHeaders(Headers(Header.Raw(CIString("X-Api-Key"), "UserOk")))
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[UserDataResp]
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(result.headers.get(CaseInsensitiveString("X-Csrf-Token")))(isNone) &&
+      assert(result.headers.get(CIString("X-Csrf-Token")))(isNone) &&
       assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest))) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }

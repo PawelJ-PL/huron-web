@@ -10,12 +10,11 @@ import com.github.huronapp.api.domain.users.UsersRoutes
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import com.github.huronapp.api.http.ApiDocRoutes
 import kamon.http4s.middleware.server.{KamonSupport => KamonServerMiddleware}
+import org.http4s.blaze.server.BlazeServerBuilder
 import org.http4s.implicits._
 import org.http4s.server.Server
-import org.http4s.server.blaze.BlazeServerBuilder
 import zio.{Runtime, ZEnv, ZManaged}
 import zio.interop.catz._
-import zio.interop.catz.implicits._
 
 object HttpServer {
 
@@ -27,7 +26,7 @@ object HttpServer {
     filesRoutes       <- FilesRoutes.routes
   } yield swaggerRoutes <+> devicesRoutes <+> usersRoutes <+> collectionsRoutes <+> filesRoutes
 
-  val create: ZManaged[ZEnv with AppEnvironment, Throwable, Server[RouteEffect]] = for {
+  val create: ZManaged[ZEnv with AppEnvironment, Throwable, Server] = for {
     implicit0(runtime: Runtime[ZEnv]) <- ZManaged.runtime[ZEnv]
     appConfig                         <- ZManaged.service[AppConfig]
     routes                            <- httpRoutes.toManaged_

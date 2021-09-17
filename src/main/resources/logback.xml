@@ -1,26 +1,24 @@
 <configuration>
-    <conversionRule conversionWord="traceID" converterClass="kamon.instrumentation.logback.tools.TraceIDConverter" />
-    <conversionRule conversionWord="spanID" converterClass="kamon.instrumentation.logback.tools.SpanIDConverter" />
+    <conversionRule conversionWord="traceID" converterClass="kamon.instrumentation.logback.tools.TraceIDConverter"/>
+    <conversionRule conversionWord="spanID" converterClass="kamon.instrumentation.logback.tools.SpanIDConverter"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%date{YYYY-MM-dd'T' HH:mm:ss.SSSXXX, UTC} [%level] %logger{36} [%thread] | %traceID %spanID | %message%n%xException
-            </pattern>
+            <pattern>%date{YYYY-MM-dd'T' HH:mm:ss.SSSXXX, UTC} [%level] %logger{36} [%thread] | %traceID %spanID | %message%n%xException</pattern>
         </encoder>
     </appender>
 
     <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
-        <param name="queueSize" value="256"/>
-        <param name="neverBlock" value="true"/>
+        <queueSize>256</queueSize>
+        <neverBlock>true</neverBlock>
         <appender-ref ref="CONSOLE"/>
     </appender>
 
     <logger name="org.http4s.blaze.channel.nio1.NIO1SocketServerGroup" level="ERROR"/>
+    <logger name="org.http4s.blaze.channel.nio1.SelectorLoop" level="ERROR"/>
 
     <root level="INFO">
         <appender-ref ref="ASYNC_CONSOLE"/>
     </root>
-
-    <shutdownHook class="ch.qos.logback.core.hook.DelayingShutdownHook"/>
 
 </configuration>

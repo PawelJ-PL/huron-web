@@ -1,18 +1,15 @@
 package com.github.huronapp.api.http
 
 import cats.data.NonEmptyList
-import cats.syntax.semigroupk._
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
-import org.http4s.headers.Location
-import org.http4s.implicits._
 import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
 import sttp.tapir.openapi.circe.yaml._
-import sttp.tapir.swagger.http4s.SwaggerHttp4s
-import sttp.tapir.ztapir.ZEndpoint
+import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
+import sttp.tapir.swagger.SwaggerUI
+import sttp.tapir.ztapir.{ZEndpoint, ZServerEndpoint}
 import zio.{Has, URIO, ZIO, ZLayer}
-import zio.interop.catz._
 
 object ApiDocRoutes {
 
@@ -29,19 +26,13 @@ object ApiDocRoutes {
   def live(endpoints: NonEmptyList[ZEndpoint[_, _, _]]): ZLayer[Any, Nothing, ApiDocRoutes] =
     ZLayer.succeed(new Service with Http4sDsl[RouteEffect] {
 
-      private val doc = OpenAPIDocsInterpreter.toOpenAPI(endpoints.toList, "Huron App", "")
+      private val doc = OpenAPIDocsInterpreter().toOpenAPI(endpoints.toList, "Huron App", "").toYaml
 
-      private val swaggerRoutes = new SwaggerHttp4s(
-        doc.toYaml,
-        yamlName = "api-doc.yaml",
-        redirectQuery = Map("defaultModelsExpandDepth" -> Seq("0"), "docExpansion" -> Seq("none"))
-      ).routes[RouteEffect]
+      private val swaggerEndpoint: List[ZServerEndpoint[Any, _, _, _]] = SwaggerUI(doc, yamlName = "api-doc.yaml")
 
-      private val slashRedirectRoute = HttpRoutes.of[RouteEffect] {
-        case GET -> Root / "docs" / "" => PermanentRedirect(Location(uri"/docs"))
-      }
+      private val swaggerRoutes = ZHttp4sServerInterpreter[Any]().from(swaggerEndpoint).toRoutes
 
-      override val routes: HttpRoutes[RouteEffect] = slashRedirectRoute <+> swaggerRoutes
+      override val routes: HttpRoutes[RouteEffect] = swaggerRoutes
 
     })
 

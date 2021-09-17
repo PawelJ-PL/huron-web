@@ -18,7 +18,7 @@ object EndpointSyntax {
     )(
       implicit serverOptions: Http4sServerOptions[RouteEffect, RouteEffect]
     ): HttpRoutes[RouteEffect] =
-      ZHttp4sServerInterpreter.from[I, E, O, Any](zendpoint)(logic).toRoutes
+      ZHttp4sServerInterpreter[Any](serverOptions).from[I, E, O](zendpoint)(logic).toRoutes
 
     def toAuthenticatedRoutes[IR](
       auth: AuthenticationInputs => ZIO[Any, E, AuthenticatedUser]
@@ -28,7 +28,7 @@ object EndpointSyntax {
       implicit serverOptions: Http4sServerOptions[RouteEffect, RouteEffect],
       iMinusT: ParamSubtract.Aux[I, AuthenticationInputs, IR]
     ): HttpRoutes[RouteEffect] =
-      ZHttp4sServerInterpreter
+      ZHttp4sServerInterpreter[Any](serverOptions)
         .from(zendpoint.zServerLogicPart[Any, AuthenticationInputs, IR, AuthenticatedUser](auth).andThen[Any](logic))
         .toRoutes
 
@@ -40,7 +40,7 @@ object EndpointSyntax {
       implicit serverOptions: Http4sServerOptions[RouteEffect, RouteEffect],
       iMinusT: ParamSubtract.Aux[I, AuthenticationInputs, IR]
     ): HttpRoutes[RouteEffect] =
-      ZHttp4sServerInterpreter
+      ZHttp4sServerInterpreter[Any](serverOptions)
         .from(
           zendpoint.zServerLogicPart[Any, AuthenticationInputs, IR, AuthenticatedUser](auth).andThen[Any] { case (_, rest) => logic(rest) }
         )

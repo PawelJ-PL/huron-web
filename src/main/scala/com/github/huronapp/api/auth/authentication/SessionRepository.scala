@@ -13,9 +13,10 @@ import io.chrisdavenport.fuuid.FUUID
 import scalacache._
 import scalacache.caffeine.CaffeineCache
 import scalacache.redis.RedisCache
+import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.logging.{Logger, Logging}
-import zio.{Has, Task, ZIO, ZLayer}
+import zio.{Has, Runtime, Task, ZIO, ZLayer}
 
 object SessionRepository {
 
@@ -81,22 +82,28 @@ private case object SessionNotFound extends Throwable
 object SessionCache {
   import zio.interop.catz._
 
-  val inMemory: ZLayer[Any with Has[SecurityConfig], Throwable, Has[Cache[Task, UserSession]]] = {
-    implicit val catsClock: CEClock[Task] = CEClock.create[Task]
-
-    CaffeineCache[Task, UserSession].toLayer
-    ZLayer.fromServiceM[SecurityConfig, Any, Throwable, Cache[Task, UserSession]] { securityConfig =>
-      val ttl = java.time.Duration.ofNanos(securityConfig.sessionCookieTtl.toNanos)
-      val underlyingCache: Task[cache.Cache[String, Entry[UserSession]]] =
-        ZIO(Caffeine.newBuilder().expireAfterWrite(ttl).build[String, Entry[UserSession]])
-      underlyingCache.map(c => CaffeineCache[Task, UserSession](c))
+  val inMemory: ZLayer[Blocking with Clock with Has[SecurityConfig], Throwable, Has[Cache[Task, UserSession]]] =
+    ZLayer.fromServicesM[Blocking.Service, Clock.Service, SecurityConfig, Any, Throwable, Cache[Task, UserSession]] {
+      (blocking, clock, securityConfig) =>
+        val ttl = java.time.Duration.ofNanos(securityConfig.sessionCookieTtl.toNanos)
+        val underlyingCache: Task[cache.Cache[String, Entry[UserSession]]] =
+          ZIO(Caffeine.newBuilder().expireAfterWrite(ttl).build[String, Entry[UserSession]])
+        ZIO
+          .runtime[Clock with Blocking]
+          .flatMap { implicit r: Runtime[Clock with Blocking] => underlyingCache.map(c => CaffeineCache[Task, UserSession](c)) }
+          .provideLayer(ZLayer.succeed(blocking) ++ ZLayer.succeed(clock))
     }
-  }
 
-  def redis(config: RedisSessionRepo): ZLayer[Any, Throwable, Has[Cache[Task, UserSession]]] = {
+  def redis(config: RedisSessionRepo): ZLayer[Blocking with Clock, Throwable, Has[Cache[Task, UserSession]]] = {
     import scalacache.serialization.circe._
-
-    ZIO.effect(RedisCache[Task, UserSession](config.host, config.port)).toLayer
+    ZLayer.fromServicesM[Blocking.Service, Clock.Service, Any, Throwable, Cache[Task, UserSession]] { (blocking, clock) =>
+      ZIO
+        .runtime[Clock with Blocking]
+        .flatMap { implicit r: Runtime[Clock with Blocking] =>
+          ZIO.effect(RedisCache[Task, UserSession](config.host, config.port))
+        }
+        .provideLayer(ZLayer.succeed(blocking) ++ ZLayer.succeed(clock))
+    }
   }
 
 }

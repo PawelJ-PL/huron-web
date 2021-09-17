@@ -19,9 +19,9 @@ object TapirHandlers {
 
   def handler: DefaultDecodeFailureHandler =
     DefaultDecodeFailureHandler(
-      respond(_, badRequestOnPathErrorIfPathShapeMatches = true, badRequestOnPathInvalidIfPathShapeMatches = true),
-      FailureMessages.failureMessage,
-      failureResponse
+      respond = respond(_, badRequestOnPathErrorIfPathShapeMatches = true, badRequestOnPathInvalidIfPathShapeMatches = true),
+      failureMessage = FailureMessages.failureMessage,
+      response = failureResponse
     )
 
 }

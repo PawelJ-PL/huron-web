@@ -15,6 +15,8 @@ import com.github.huronapp.api.utils.OptionalValue
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.Greater
 import io.chrisdavenport.fuuid.FUUID
+import sttp.capabilities
+import sttp.capabilities.zio.ZioStreams
 import sttp.model.StatusCode
 import sttp.tapir.codec.refined._
 import sttp.tapir.Endpoint
@@ -185,7 +187,7 @@ object FilesEndpoints extends BaseEndpoint {
   private val deleteLatestVersionExample =
     Example(Responses.deleteLatestVersion, Responses.deleteLatestVersion.reason, Responses.deleteLatestVersion.reason)
 
-  val createStorageUnitEndpoint: Endpoint[(AuthenticationInputs, CollectionId, NewStorageUnitReq), ErrorResponse, StorageUnitData, Any] =
+  val createStorageUnitEndpoint: Endpoint[(AuthenticationInputs, CollectionId, NewStorageUnitReq), ErrorResponse, StorageUnitData, ZioStreams with capabilities.WebSockets] =
     filesEndpoint
       .summary("Create new directory or upload file")
       .post
@@ -207,7 +209,7 @@ object FilesEndpoints extends BaseEndpoint {
       )
 
   val getStorageUnitEndpoint
-    : Endpoint[(AuthenticationInputs, CollectionId, FileId, Option[FileVersionId]), ErrorResponse, StorageUnitData, Any] =
+    : Endpoint[(AuthenticationInputs, CollectionId, FileId, Option[FileVersionId]), ErrorResponse, StorageUnitData, ZioStreams with capabilities.WebSockets] =
     filesEndpoint
       .summary("Get file or directory metadata")
       .get
@@ -224,7 +226,7 @@ object FilesEndpoints extends BaseEndpoint {
         )
       )
 
-  val getFileContent: Endpoint[(AuthenticationInputs, CollectionId, FileId, Option[FileVersionId]), ErrorResponse, FileContentData, Any] =
+  val getFileContent: Endpoint[(AuthenticationInputs, CollectionId, FileId, Option[FileVersionId]), ErrorResponse, FileContentData, ZioStreams with capabilities.WebSockets] =
     filesEndpoint
       .summary("Get file content")
       .get
@@ -250,7 +252,7 @@ object FilesEndpoints extends BaseEndpoint {
       )
 
   val getParentsEndpoint
-    : Endpoint[(AuthenticationInputs, CollectionId, FileId, Option[Refined[Int, Greater[0]]]), ErrorResponse, List[DirectoryData], Any] =
+    : Endpoint[(AuthenticationInputs, CollectionId, FileId, Option[Refined[Int, Greater[0]]]), ErrorResponse, List[DirectoryData], ZioStreams with capabilities.WebSockets] =
     filesEndpoint
       .summary("Get parents of file or directory")
       .get
@@ -262,7 +264,7 @@ object FilesEndpoints extends BaseEndpoint {
         oneOf[ErrorResponse](badRequest, unauthorized, forbidden, oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]))
       )
 
-  val getRootChildrenEndpoint: Endpoint[(AuthenticationInputs, CollectionId), ErrorResponse, List[StorageUnitData], Any] = filesEndpoint
+  val getRootChildrenEndpoint: Endpoint[(AuthenticationInputs, CollectionId), ErrorResponse, List[StorageUnitData], ZioStreams with capabilities.WebSockets] = filesEndpoint
     .summary("Get direct children of the root directory")
     .get
     .prependIn(authRequestParts)
@@ -277,7 +279,7 @@ object FilesEndpoints extends BaseEndpoint {
       )
     )
 
-  val getChildrenEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId), ErrorResponse, List[StorageUnitData], Any] = filesEndpoint
+  val getChildrenEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId), ErrorResponse, List[StorageUnitData], ZioStreams with capabilities.WebSockets] = filesEndpoint
     .summary("Get direct children of directory")
     .get
     .prependIn(authRequestParts)
@@ -294,7 +296,7 @@ object FilesEndpoints extends BaseEndpoint {
     )
 
   val updateMetadataEndpoint
-    : Endpoint[(AuthenticationInputs, CollectionId, FileId, UpdateStorageUnitMetadataReq), ErrorResponse, StorageUnitData, Any] =
+    : Endpoint[(AuthenticationInputs, CollectionId, FileId, UpdateStorageUnitMetadataReq), ErrorResponse, StorageUnitData, ZioStreams with capabilities.WebSockets] =
     filesEndpoint
       .summary("Update metadata")
       .patch
@@ -324,7 +326,7 @@ object FilesEndpoints extends BaseEndpoint {
         )
       )
 
-  val newVersionEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId, NewVersionReq), ErrorResponse, FileData, Any] =
+  val newVersionEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId, NewVersionReq), ErrorResponse, FileData, ZioStreams with capabilities.WebSockets] =
     filesEndpoint
       .summary("Upload new file version")
       .post
@@ -357,7 +359,7 @@ object FilesEndpoints extends BaseEndpoint {
         )
       )
 
-  val listVersionsEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId), ErrorResponse, List[FileData], Any] =
+  val listVersionsEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId), ErrorResponse, List[FileData], ZioStreams with capabilities.WebSockets] =
     filesEndpoint
       .summary("Get all versions of file")
       .get
@@ -377,7 +379,7 @@ object FilesEndpoints extends BaseEndpoint {
         )
       )
 
-  val deleteFileEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId, Option[Boolean]), ErrorResponse, Unit, Any] = filesEndpoint
+  val deleteFileEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId, Option[Boolean]), ErrorResponse, Unit, ZioStreams with capabilities.WebSockets] = filesEndpoint
     .summary("Delete file or directory")
     .delete
     .prependIn(authRequestParts)
@@ -394,7 +396,7 @@ object FilesEndpoints extends BaseEndpoint {
       )
     )
 
-  val deleteVersionEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId, FileVersionId), ErrorResponse, Unit, Any] =
+  val deleteVersionEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId, FileVersionId), ErrorResponse, Unit, ZioStreams with capabilities.WebSockets] =
     filesEndpoint
       .summary("Delete single version of file")
       .delete
