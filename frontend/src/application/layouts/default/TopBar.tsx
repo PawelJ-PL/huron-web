@@ -63,7 +63,7 @@ export const TopBar: React.FC<Props> = ({ userData, t, history, logout, clearLog
                     </RouterLink>
                 </Box>
                 <Box marginLeft="auto" display="flex" alignItems="center">
-                <SelectCollectionButton />
+                    <SelectCollectionButton />
                     {userData && (
                         <UnlockKeyButton
                             containerProps={{ marginRight: ["0.8em", "1.5em"] }}

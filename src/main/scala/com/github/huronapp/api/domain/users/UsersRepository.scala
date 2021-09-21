@@ -330,6 +330,7 @@ object UsersRepository {
             count <- tzio(run(quote(keyPairs.filter(_.userId == lift(entity.userId)).update(lift(entity)))))
           } yield if (count > 0) Some(entity.transformInto[KeyPair]) else None
 
+        @annotation.nowarn("cat=unused")
         private implicit val keyPairUpdateMeta = updateMeta[KeyPairEntity](_.id, _.userId)
 
         private val users = quote {

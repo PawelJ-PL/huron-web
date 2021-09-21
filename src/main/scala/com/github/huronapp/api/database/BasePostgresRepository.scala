@@ -25,7 +25,8 @@ trait BasePostgresRepository {
 
     implicit def encodeEnum[A <: EnumEntry]: MappedEncoding[A, String] = MappedEncoding[A, String](_.entryName)
 
-    implicit def decodeEnum[A <: EnumEntry](implicit enumType: Enum[A]): MappedEncoding[String, A] = MappedEncoding[String, A](enumType.withName)
+    implicit def decodeEnum[A <: EnumEntry](implicit enumType: Enum[A]): MappedEncoding[String, A] =
+      MappedEncoding[String, A](enumType.withName)
 
     implicit class InstantSyntax(value: Instant) {
 

@@ -18,6 +18,8 @@ import com.github.huronapp.api.domain.users.UsersRoutes.UserRoutes
 import com.github.huronapp.api.domain.users.{UserSession, UsersEndpoints, UsersRepository, UsersRoutes, UsersService}
 import com.github.huronapp.api.http.ApiDocRoutes
 import com.github.huronapp.api.http.ApiDocRoutes.ApiDocRoutes
+import com.github.huronapp.api.http.web.StaticRoutes
+import com.github.huronapp.api.http.web.StaticRoutes.StaticRoutes
 import com.github.huronapp.api.messagebus.{InternalMessage, InternalMessageBus}
 import com.github.huronapp.api.scheduler.OutboxTasksDispatcher.OutboxTasksDispatcher
 import com.github.huronapp.api.scheduler.{OutboxTasksDispatcher, RegistrationCleaner}
@@ -70,6 +72,7 @@ object Environment {
     with Has[Queue[OutboxTask]]
     with OutboxService
     with FileSystemService
+    with StaticRoutes
 
   def live(config: AppConfig): ZLayer[ZEnv, Throwable, AppEnvironment] = {
     val configLayer = ZLayer.succeed(config)
@@ -116,9 +119,11 @@ object Environment {
     val filesRoutes = filesService ++ logging ++ httpAuth >>> FilesRoutes.live
     val outboxConfig = configLayer.narrow(_.outboxTasksConfig)
     val outboxTasksQueue = outboxConfig >>> OutboxTaskProcessingQueue.live
-    val outboxTasksDispatcher =
+    val outboxTasksDispatcher = {
       outboxTasksQueue ++ logging ++ outboxConfig ++ Clock.any ++ db ++ outboxRepo ++ tracing >>> OutboxTasksDispatcher.live
-    configLayer ++ devicesRoutes ++ swaggerRoutes ++ database ++ userRoutes ++ internalMessageBus ++ emailService ++ logging ++ templateService ++ registrationCleaner ++ tracing ++ collectionsRoutes ++ filesRoutes ++ outboxTasksDispatcher ++ outboxTasksQueue ++ outboxService ++ fs
+    }
+    val staticRoutes = StaticRoutes.live
+    configLayer ++ devicesRoutes ++ swaggerRoutes ++ database ++ userRoutes ++ internalMessageBus ++ emailService ++ logging ++ templateService ++ registrationCleaner ++ tracing ++ collectionsRoutes ++ filesRoutes ++ outboxTasksDispatcher ++ outboxTasksQueue ++ outboxService ++ fs ++ staticRoutes
   }
 
   private def conditionalSessionIndex(config: SessionRepoConfig): ZLayer[Any, Nothing, SessionsIndex] =

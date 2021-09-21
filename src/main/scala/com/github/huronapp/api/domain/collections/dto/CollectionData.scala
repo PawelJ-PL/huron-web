@@ -7,7 +7,6 @@ import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.Schema
 
-
 final case class CollectionData(id: FUUID, name: String, encryptionKeyVersion: FUUID)
 
 object CollectionData {

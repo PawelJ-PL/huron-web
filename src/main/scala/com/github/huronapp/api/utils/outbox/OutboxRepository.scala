@@ -34,8 +34,10 @@ object OutboxRepository {
       import doobieContext._
       import dbImplicits._
 
+      @annotation.nowarn("cat=unused")
       implicit val encodeCommand: MappedEncoding[OutboxCommand, String] = MappedEncoding[OutboxCommand, String](_.render)
 
+      @annotation.nowarn("cat=unused")
       implicit val decodeCommand: MappedEncoding[String, OutboxCommand] = MappedEncoding[String, OutboxCommand](string =>
         OutboxCommand.fromString(string) match {
           case Left(error)  => throw error

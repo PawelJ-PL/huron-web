@@ -82,6 +82,7 @@ object UsersRepoFake {
               case None       => ZIO.fail(DbException.Wrapped(new RuntimeException(s"No user related to auth $authData found")))
             }
           )
+          .unit
 
       override def updateUserAuth(auth: UserAuth): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
         ref

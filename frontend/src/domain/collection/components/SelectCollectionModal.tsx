@@ -23,7 +23,10 @@ const SelectCollectionModal: React.FC<Props> = ({ availableCollections, t, histo
             <ModalContent>
                 <ModalHeader>{t("collections-view:select-collection-modal:header")}</ModalHeader>
                 <ModalBody>
-                    <Select onChange={(e) => setSelected(e.target.value)} defaultValue={selectedCollection ?? availableCollections[0].id}>
+                    <Select
+                        onChange={(e) => setSelected(e.target.value)}
+                        defaultValue={selectedCollection ?? availableCollections[0].id}
+                    >
                         {availableCollections.map((collection) => (
                             <option key={collection.id} value={collection.id}>
                                 {collection.name}
