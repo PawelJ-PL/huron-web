@@ -45,6 +45,8 @@ object SessionsIndex {
     )
     .toLayer
 
+  @annotation.nowarn("cat=w-flag-dead-code")
+  @annotation.nowarn("cat=unused")
   def redis(config: RedisSessionRepo): ZLayer[Any, Nothing, SessionsIndex] = ZLayer.succeed(???)
 
 }

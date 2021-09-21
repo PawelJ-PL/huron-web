@@ -2,8 +2,6 @@ package com.github.huronapp.api.http
 
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import sttp.tapir.server.http4s.Http4sServerOptions
-import sttp.tapir.server.http4s.Http4sServerOptions.Log
-import sttp.tapir.server.interceptor.exception.DefaultExceptionHandler
 import zio.ZIO
 import zio.blocking.Blocking
 import zio.clock.Clock

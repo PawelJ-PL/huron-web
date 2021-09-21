@@ -1,6 +1,5 @@
 package com.github.huronapp.api.auth.authentication
 
-import cats.effect.{Clock => CEClock}
 import com.github.huronapp.api.config.SecurityConfig
 import com.github.huronapp.api.config.modules.SessionRepoConfig.RedisSessionRepo
 import SessionsIndex.SessionsIndex

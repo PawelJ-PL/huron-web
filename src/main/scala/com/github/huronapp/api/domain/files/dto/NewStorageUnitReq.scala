@@ -26,11 +26,11 @@ object NewStorageUnitReq {
 }
 
 final case class NewFile(
-                          parent: Option[FUUID],
-                          name: FileName,
-                          mimeType: Option[MimeType],
-                          content: EncryptedContent,
-                          contentDigest: ContentDigest)
+  parent: Option[FUUID],
+  name: FileName,
+  mimeType: Option[MimeType],
+  content: EncryptedContent,
+  contentDigest: ContentDigest)
     extends NewStorageUnitReq
 
 object NewFile {

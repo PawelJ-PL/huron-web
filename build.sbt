@@ -140,9 +140,11 @@ val compilerOptions = scalacOptions ~= ciOptionsFilter.andThen(_ :+ "-Ymacro-ann
 val root = (project in file("."))
   .settings(
     name := "huron-web",
-    version := "0.0.1-SNAPSHOT",
-    scalaVersion := "2.13.5",
+    scalaVersion := "2.13.6",
     compilerOptions,
     dependencies,
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    useJGit,
+    javaAgents += "io.kamon" % "kanela-agent" % Versions.kanelaAgent
   )
+  .enablePlugins(GitVersioning, JavaAppPackaging, DockerPlugin, JavaAgent)

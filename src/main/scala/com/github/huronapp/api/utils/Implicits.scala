@@ -50,12 +50,16 @@ object Implicits {
 
   object fileId {
 
-    implicit val fileIdTapirTextPlainCodec: Codec[String, FileId, CodecFormat.TextPlain] = fuuid.fuuidTapirTextPlainCodec.map(FileId(_))(_.id)
+    implicit val fileIdTapirTextPlainCodec: Codec[String, FileId, CodecFormat.TextPlain] =
+      fuuid.fuuidTapirTextPlainCodec.map(FileId(_))(_.id)
 
   }
 
   object versionId {
-    implicit val versionIdTapirTextPlainCodec: Codec[String, FileVersionId, CodecFormat.TextPlain] = fuuid.fuuidTapirTextPlainCodec.map(FileVersionId(_))(_.id)
+
+    implicit val versionIdTapirTextPlainCodec: Codec[String, FileVersionId, CodecFormat.TextPlain] =
+      fuuid.fuuidTapirTextPlainCodec.map(FileVersionId(_))(_.id)
+
   }
 
 }

@@ -1,1 +1,5 @@
 addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat" % "0.1.20")
+addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "1.0.0")
+addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.9.4")
+addSbtPlugin("com.lightbend.sbt" % "sbt-javaagent" % "0.1.6")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.3")

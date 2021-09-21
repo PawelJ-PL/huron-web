@@ -48,9 +48,11 @@ object Versions {
 
   val kamon = "2.2.3"
 
+  val kanelaAgent = "1.0.11"
+
   val kamonHttp4s = "2.2.1"
 
-  val newType =  "0.4.4"
+  val newType = "0.4.4"
 
   val refined = "0.9.27"
 

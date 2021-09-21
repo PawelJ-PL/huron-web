@@ -12,10 +12,14 @@ object OptionalValue {
 
   implicit val circeConfig: Configuration = Configuration.default.withStrictDecoding
 
+  @annotation.nowarn("cat=unused")
   implicit def decoder[A: Decoder]: Decoder[OptionalValue[A]] = deriveConfiguredDecoder[OptionalValue[A]]
 
+  @annotation.nowarn("cat=unused")
   implicit def encoder[A: Encoder]: Encoder[OptionalValue[A]] = deriveEncoder[OptionalValue[A]]
 
-  implicit def tapirSchema[A: Schema]: Schema[OptionalValue[A]] = Schema.derived[OptionalValue[A]] // See https://github.com/softwaremill/tapir/issues/1303
+  @annotation.nowarn("cat=unused")
+  implicit def tapirSchema[A: Schema]: Schema[OptionalValue[A]] =
+    Schema.derived[OptionalValue[A]] // See https://github.com/softwaremill/tapir/issues/1303
 
 }

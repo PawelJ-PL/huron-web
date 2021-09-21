@@ -13,13 +13,10 @@ import zio.system.System
 trait ZioKamonApp extends zio.App {
   Kamon.init()
 
-
-
   private val defaultEcWithKamon: ContextAwareExecutionContext = ContextAwareExecutionContext(Platform.default.executor.asEC)
 
   override def platform: Platform =
     Platform.default.withExecutor(Executor.fromExecutionContext(defaultYieldOpCount)(defaultEcWithKamon))
-
 
   private val defaultBlockingExecutor = Blocking.Service.live.blockingExecutor
 
