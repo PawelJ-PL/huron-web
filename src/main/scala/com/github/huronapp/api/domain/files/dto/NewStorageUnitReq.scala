@@ -2,7 +2,7 @@ package com.github.huronapp.api.domain.files.dto
 
 import com.github.huronapp.api.utils.Implicits.fuuid._
 import io.chrisdavenport.fuuid.circe._
-import com.github.huronapp.api.domain.files.dto.fields.{ContentDigest, FileName, MimeType}
+import com.github.huronapp.api.domain.files.dto.fields.{ContentDigest, Description, FileName, MimeType}
 import io.chrisdavenport.fuuid.FUUID
 import io.circe.{Codec, Decoder, Encoder, Json}
 import io.circe.generic.extras.Configuration
@@ -28,6 +28,7 @@ object NewStorageUnitReq {
 final case class NewFile(
   parent: Option[FUUID],
   name: FileName,
+  description: Option[Description],
   mimeType: Option[MimeType],
   content: EncryptedContent,
   contentDigest: ContentDigest)

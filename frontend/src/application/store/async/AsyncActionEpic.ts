@@ -18,7 +18,12 @@ export const createEpic = <Params, Result, Error>(
             mergeMap((action) =>
                 from(requestCreator(action.payload, state$.value)).pipe(
                     map((resp) => asyncActions.done({ result: resp, params: action.payload })),
-                    catchError((err: Error) => [asyncActions.failed({ params: action.payload, error: err })])
+                    catchError((err: Error) => {
+                        if (process.env?.NODE_ENV === "development") {
+                            console.error(err)
+                        }
+                        return [asyncActions.failed({ params: action.payload, error: err })]
+                    })
                 )
             )
         )

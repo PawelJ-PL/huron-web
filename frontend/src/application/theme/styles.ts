@@ -25,6 +25,9 @@ const globalStyles = {
     ".react-datepicker__day--selected": {
         background: "brand.500",
     },
+    ".chakra-checkbox__control[data-focus]": {
+        boxShadow: "none !important",
+    },
 }
 
 export const styles = {

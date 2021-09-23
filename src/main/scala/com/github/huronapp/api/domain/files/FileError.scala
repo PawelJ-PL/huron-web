@@ -125,6 +125,13 @@ final case class CircularParentSet(collectionId: CollectionId, objectId: FileId,
 
 }
 
+final case class DescriptionAssignedToNonFileObject(collectionId: CollectionId, objectId: FileId) extends UpdateMetadataError {
+
+  override val logMessage: String =
+    show"Unable to assign description to object $objectId from collection $collectionId, because it's not a file"
+
+}
+
 final case class FileContentNotChanged(collectionId: CollectionId, fileId: FileId) extends CreateVersionError {
 
   override val logMessage: String = "Content of the new version is equal to previous one"

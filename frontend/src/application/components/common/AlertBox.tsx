@@ -15,7 +15,7 @@ import React from "react"
 type Props = {
     icon?: boolean
     title?: string
-    description?: string
+    description?: string | JSX.Element
     status?: AlertStatus
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onClose?: () => any

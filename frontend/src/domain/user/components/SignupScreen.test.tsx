@@ -10,6 +10,7 @@ import * as chakraToast from "@chakra-ui/toast"
 
 // eslint-disable-next-line react/display-name
 jest.mock("./SignupForm", () => () => <div></div>)
+jest.mock("../../../application/components/common/UnexpectedErrorMessage")
 
 jest.mock("react-i18next", () => ({
     ...jest.requireActual("react-i18next"),

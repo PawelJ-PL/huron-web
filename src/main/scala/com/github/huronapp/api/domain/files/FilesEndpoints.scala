@@ -5,7 +5,15 @@ import cats.syntax.show._
 import com.github.huronapp.api.auth.authentication.AuthenticationInputs
 import com.github.huronapp.api.auth.authentication.TapirAuthenticationInputs.authRequestParts
 import com.github.huronapp.api.domain.collections.CollectionId
-import com.github.huronapp.api.domain.files.dto.fields.{ContentDigest, EncryptedBytes, EncryptedContentAlgorithm, FileName, Iv, MimeType}
+import com.github.huronapp.api.domain.files.dto.fields.{
+  ContentDigest,
+  Description,
+  EncryptedBytes,
+  EncryptedContentAlgorithm,
+  FileName,
+  Iv,
+  MimeType
+}
 import com.github.huronapp.api.domain.files.dto.{
   DirectoryData,
   EncryptedContent,
@@ -16,7 +24,8 @@ import com.github.huronapp.api.domain.files.dto.{
   NewStorageUnitReq,
   NewVersionReq,
   StorageUnitData,
-  UpdateStorageUnitMetadataReq
+  UpdateStorageUnitMetadataReq,
+  VersionData
 }
 import com.github.huronapp.api.http.{BaseEndpoint, ErrorResponse}
 import com.github.huronapp.api.utils.Implicits.collectionId._
@@ -102,6 +111,7 @@ object FilesEndpoints extends BaseEndpoint {
       NewFile(
         Some(exampleFileId.id),
         FileName("file2.txt"),
+        Some(Description("File description")),
         Some(MimeType("text/plain")),
         exampleFileContent,
         ContentDigest("7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730")
@@ -127,10 +137,12 @@ object FilesEndpoints extends BaseEndpoint {
       exampleCollectionId.id,
       Some(exampleFileId.id),
       "file1.txt",
+      Some("Some description"),
       FUUID.fuuid("e21bf5e1-8b72-463e-bda2-073a665d8c2d"),
       Some(FUUID.fuuid("47aa22cf-d731-48dd-87a4-c72629f51f20")),
       Some("text/plain"),
       "7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730",
+      2048,
       Instant.EPOCH
     ),
     Some("File data"),
@@ -262,7 +274,9 @@ object FilesEndpoints extends BaseEndpoint {
         jsonBody[FileContentData].example(
           FileContentData(
             exampleFileContent,
-            "7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730"
+            "7d865e959b2466918c9863afca942d0fb89d7c9ac0c99bafc3749504ded97730",
+            "myfile.txt",
+            Some("text/plain")
           )
         )
       )
@@ -338,7 +352,11 @@ object FilesEndpoints extends BaseEndpoint {
       .in(path[FileId]("fileId"))
       .in(
         jsonBody[UpdateStorageUnitMetadataReq].example(
-          UpdateStorageUnitMetadataReq(Some(OptionalValue[FUUID](Some(exampleFileId.id))), Some(FileName("example.txt")))
+          UpdateStorageUnitMetadataReq(
+            Some(OptionalValue[FUUID](Some(exampleFileId.id))),
+            Some(FileName("example.txt")),
+            Some(OptionalValue[Description](Some(Description("Some description"))))
+          )
         )
       )
       .out(jsonBody[StorageUnitData].examples(List(directoryDataExample, fileDataExample)))
@@ -399,13 +417,13 @@ object FilesEndpoints extends BaseEndpoint {
       )
 
   val listVersionsEndpoint
-    : Endpoint[(AuthenticationInputs, CollectionId, FileId), ErrorResponse, List[FileData], ZioStreams with capabilities.WebSockets] =
+    : Endpoint[(AuthenticationInputs, CollectionId, FileId), ErrorResponse, List[VersionData], ZioStreams with capabilities.WebSockets] =
     filesEndpoint
       .summary("Get all versions of file")
       .get
       .prependIn(authRequestParts)
       .in(path[FileId]("fileId") / "versions")
-      .out(jsonBody[List[FileData]])
+      .out(jsonBody[List[VersionData]])
       .errorOut(
         oneOf[ErrorResponse](
           badRequest,

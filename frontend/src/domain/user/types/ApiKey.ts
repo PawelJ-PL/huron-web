@@ -1,6 +1,5 @@
 import { z } from "zod"
-
-const dateStringSchema = z.string().refine((value) => !Number.isNaN(Date.parse(value)), { message: "Not valid date" })
+import { dateStringSchema } from "../../../application/types/schemas"
 
 export const ApiKeyDescriptionSchema = z.object({
     id: z.string(),

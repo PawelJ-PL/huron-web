@@ -25,6 +25,7 @@ final case class File(
   collectionId: CollectionId,
   parentId: Option[FileId],
   name: String,
+  description: Option[String],
   versionId: FileVersionId,
   versionAuthor: Option[UserId],
   size: Long,

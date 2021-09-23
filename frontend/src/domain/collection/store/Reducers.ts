@@ -39,7 +39,13 @@ const getCollectionReducer = createReducer(getCollectionDetailsAction, cleanColl
 
 const createCollectionReducer = createReducer(createCollectionAction, resetCreateCollectionStatusAction).build()
 
-const readPreferredCollectionReducer = createReducer(getPreferredCollectionIdAction).build()
+const readPreferredCollectionReducer = createReducer(getPreferredCollectionIdAction)
+    .case(setPreferredCollectionIdAction.done, (_, action) => ({
+        status: "FINISHED",
+        data: action.params,
+        params: undefined,
+    }))
+    .build()
 
 const removePreferredCollectionReducer = createReducer(
     removePreferredCollectionIdAction,

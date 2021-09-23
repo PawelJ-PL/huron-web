@@ -56,6 +56,7 @@ object FileErrorMapping {
       case _: NewParentSetToSelf                                  => ErrorResponse.BadRequest("New parent set to self")
       case CircularParentSet(collectionId, objectId, newParentId) =>
         FilesEndpoints.Responses.circularParent(collectionId, objectId, newParentId)
+      case _: DescriptionAssignedToNonFileObject                  => ErrorResponse.BadRequest("Description can be assigned only to file")
     }
 
   def createVersionError(error: CreateVersionError): ErrorResponse =

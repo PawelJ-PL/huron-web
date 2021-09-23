@@ -3,11 +3,19 @@ import React from "react"
 import { exampleCollection, exampleCollectionId } from "../../../testutils/constants/collection"
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { historyMock } from "../../../testutils/mocks/router-mock"
+import { Collection } from "../types/Collection"
 import { SingleCollectionContainer } from "./SingleCollectionContainer"
 
 jest.mock("../../../application/components/common/AlertBox")
 
 jest.mock("../../../application/components/common/Loader")
+
+// eslint-disable-next-line react/display-name
+jest.mock("../../file/components/CollectionFilesContainer", () => (props: { collection: Collection }) => (
+    <div data-testid="COLLECTION_FILES_CONTAINER_MOCK">
+        <div>collectionId: {props.collection.id}</div>
+    </div>
+))
 
 const exampleRouteMatch = {
     params: { collectionId: exampleCollectionId },
@@ -26,7 +34,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -34,8 +41,8 @@ describe("Single collection container", () => {
                 t={tFunctionMock}
             />
         )
-        const view = screen.getByTestId("TEMPORARY-COLLECTION-VIEW")
-        expect(view.textContent).toEqual(JSON.stringify(exampleCollection))
+        const view = screen.getByTestId("COLLECTION_FILES_CONTAINER_MOCK")
+        expect(view.textContent).toEqual(`collectionId: ${exampleCollectionId}`)
     })
 
     it("should render error message", () => {
@@ -51,7 +58,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -73,7 +79,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -94,7 +99,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -115,7 +119,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -140,7 +143,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -163,7 +165,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={fetchCollectionMock}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -191,7 +192,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={fetchCollectionMock}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -215,7 +215,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={fetchCollectionMock}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -242,7 +241,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={fetchCollectionMock}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -269,7 +267,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={fetchCollectionMock}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -293,7 +290,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={resetRemovePreferredCollectionStatusMock}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -316,7 +312,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
                 setPreferredCollection={jest.fn()}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 resetRemovePreferredCollectionResult={resetRemovePreferredCollectionStatusMock}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -328,31 +323,6 @@ describe("Single collection container", () => {
         element.unmount()
 
         expect(resetRemovePreferredCollectionStatusMock).toHaveBeenCalledTimes(2)
-    })
-
-    it("should reset collection data on unmount", () => {
-        const resetCollectionMock = jest.fn()
-
-        const element = render(
-            <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
-                fetchCollectionResult={{ status: "NOT_STARTED" }}
-                fetchCollectionData={jest.fn()}
-                setActiveCollection={jest.fn()}
-                setPreferredCollection={jest.fn()}
-                resetCollectionData={resetCollectionMock}
-                removePreferredCollection={jest.fn()}
-                resetRemovePreferredCollectionResult={jest.fn()}
-                removePreferredCollectionResult={{ status: "NOT_STARTED" }}
-                removeActiveCollection={jest.fn()}
-                t={tFunctionMock}
-            />
-        )
-
-        element.unmount()
-
-        expect(resetCollectionMock).toHaveBeenCalledTimes(1)
     })
 
     it("should set active and preferred collection when collection data fetched", () => {
@@ -370,7 +340,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
                 setPreferredCollection={setPreferredCollectionMock}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -402,7 +371,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
                 setPreferredCollection={setPreferredCollectionMock}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -432,7 +400,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
                 setPreferredCollection={setPreferredCollectionMock}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -466,7 +433,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
                 setPreferredCollection={setPreferredCollectionMock}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -500,7 +466,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
                 setPreferredCollection={setPreferredCollectionMock}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -530,7 +495,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
                 setPreferredCollection={setPreferredCollectionMock}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
@@ -560,7 +524,6 @@ describe("Single collection container", () => {
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
                 setPreferredCollection={setPreferredCollectionMock}
-                resetCollectionData={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
                 resetRemovePreferredCollectionResult={jest.fn()}
                 removePreferredCollectionResult={{ status: "FINISHED", params: undefined, data: undefined }}

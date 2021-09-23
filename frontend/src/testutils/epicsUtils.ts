@@ -28,19 +28,17 @@ export const verifyEpic: (
     })
 }
 
-export const verifyAsyncEpic: (
+export function verifyAsyncEpic<T>(
     action: Action<unknown>,
     epic: Epic<AnyAction, AnyAction, AppState>,
     state: AppState,
-    expectedAction: Action<unknown>
-) => Promise<void> = (
-    action: Action<unknown>,
-    epic: Epic<AnyAction, AnyAction, AppState>,
-    state: AppState,
-    expectedAction: Action<unknown>
-) => {
+    expectedAction: Action<T>
+): Promise<Action<T>> {
     const action$ = ActionsObservable.of(action)
     const state$ = new StateObservable(new Subject<AppState>(), state)
     const result = epic(action$, state$, {})
-    return result.toPromise().then((a) => expect(a).toStrictEqual(expectedAction))
+    return result.toPromise().then((a) => {
+        expect(a).toStrictEqual(expectedAction)
+        return a as Action<T>
+    })
 }

@@ -17,7 +17,7 @@ import com.github.huronapp.api.constants.{Collections, Files, MiscConstants, Use
 import com.github.huronapp.api.domain.collections.{Collection, CollectionId, CollectionPermission}
 import com.github.huronapp.api.domain.files.FilesService.FilesService
 import com.github.huronapp.api.domain.files.dto.{EncryptedContent, NewDirectory, NewFile, NewVersionReq, UpdateStorageUnitMetadataReq}
-import com.github.huronapp.api.domain.files.dto.fields.{ContentDigest, EncryptedBytes, EncryptedContentAlgorithm, FileName, Iv}
+import com.github.huronapp.api.domain.files.dto.fields.{ContentDigest, Description, EncryptedBytes, EncryptedContentAlgorithm, FileName, Iv}
 import com.github.huronapp.api.domain.users.UserId
 import com.github.huronapp.api.testdoubles.{
   CollectionsRepoFake,
@@ -74,6 +74,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
       listChildrenParentNotDirectoryTest,
       updateMetadataTest,
       updateMetadataNoUpdatesTest,
+      updateMetadataDirectoryWithDescriptionTest,
       updateMetadataParentSetToSelfTest,
       updateMetadataForbiddenTest,
       updateMetadataFileNotFoundTest,
@@ -142,6 +143,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
   private val newFileDto: NewFile = NewFile(
     None,
     FileName(ExampleFileName),
+    Some(Description(ExampleFileDescription)),
     None,
     EncryptedContent(
       EncryptedContentAlgorithm(ExampleFileContentAlgorithm),
@@ -152,7 +154,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
     ContentDigest(ExampleFilePlainTextDigest)
   )
 
-  private val updateMetadataDto = UpdateStorageUnitMetadataReq(None, Some(FileName("new-file-name.txt")))
+  private val updateMetadataDto = UpdateStorageUnitMetadataReq(None, Some(FileName("new-file-name.txt")), None)
 
   private val newFileVersionDto = NewVersionReq(
     None,
@@ -491,6 +493,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
       CollectionId(ExampleCollectionId),
       None,
       "f1.txt",
+      Some(ExampleFileDescription),
       FileVersionId(ExampleFuuid2),
       None,
       10L,
@@ -535,6 +538,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
       CollectionId(ExampleCollectionId),
       None,
       "f1.txt",
+      Some(ExampleFileDescription),
       FileVersionId(ExampleFuuid2),
       None,
       10L,
@@ -885,6 +889,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
       CollectionId(ExampleCollectionId),
       Some(FileId(ExampleFuuid1)),
       "d2_f1.txt",
+      Some(ExampleFileDescription),
       FileVersionId(ExampleFuuid3),
       None,
       0L,
@@ -940,6 +945,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
       CollectionId(ExampleCollectionId),
       Some(FileId(ExampleFuuid1)),
       "d2_f1.txt",
+      Some(ExampleFileDescription),
       FileVersionId(ExampleFuuid3),
       None,
       0L,
@@ -995,6 +1001,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
       CollectionId(ExampleCollectionId),
       Some(FileId(ExampleFuuid1)),
       "d2_f1.txt",
+      Some(ExampleFileDescription),
       FileVersionId(ExampleFuuid3),
       None,
       0L,
@@ -1050,6 +1057,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
       CollectionId(ExampleCollectionId),
       Some(FileId(ExampleFuuid1)),
       "d2_f1.txt",
+      Some(ExampleFileDescription),
       FileVersionId(ExampleFuuid3),
       None,
       0L,
@@ -1106,6 +1114,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
       CollectionId(ExampleCollectionId),
       Some(FileId(ExampleFuuid1)),
       "d2_f1.txt",
+      Some(ExampleFileDescription),
       FileVersionId(ExampleFuuid3),
       None,
       0L,
@@ -1289,7 +1298,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
   }
 
   private val updateMetadataNoUpdatesTest = testM("Should not update metadata of the file if no updates were provided") {
-    val dto = UpdateStorageUnitMetadataReq(None, None)
+    val dto = UpdateStorageUnitMetadataReq(None, None, None)
 
     val initialFilesRepoState: List[StorageUnit] = List(ExampleFileMetadata)
 
@@ -1315,8 +1324,36 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
       assert(finalOutboxState)(equalTo(initialOutboxState))
   }
 
+  private val updateMetadataDirectoryWithDescriptionTest =
+    testM("Should not update metadata of the directory if description was provided") {
+      val dto = UpdateStorageUnitMetadataReq(None, None, Some(OptionalValue(Some(Description("Foo")))))
+
+      val initialFilesRepoState: List[StorageUnit] = List(ExampleDirectoryMetadata)
+
+      val initialFsState = Map.empty[String, Array[Byte]]
+
+      val initialOutboxState = List.empty[StoredTask]
+
+      for {
+        filesMetadataRepo   <- Ref.make(initialFilesRepoState)
+        collectionsRepo     <- emptyCollectionsRepoWithPermissions()
+        fs                  <- Ref.make(initialFsState)
+        outbox              <- Ref.make(initialOutboxState)
+        result              <- FilesService
+                                 .updateMetadataAs(userId, collectionId, ExampleDirectoryMetadata.id, dto)
+                                 .provideLayer(createService(filesMetadataRepo, collectionsRepo, fs, outbox))
+                                 .either
+        finalFilesRepoState <- filesMetadataRepo.get
+        finalFsState        <- fs.get
+        finalOutboxState    <- outbox.get
+      } yield assert(result)(isLeft(equalTo(DescriptionAssignedToNonFileObject(collectionId, ExampleDirectoryMetadata.id)))) &&
+        assert(finalFilesRepoState)(equalTo(initialFilesRepoState)) &&
+        assert(finalFsState)(equalTo(initialFsState)) &&
+        assert(finalOutboxState)(equalTo(initialOutboxState))
+    }
+
   private val updateMetadataParentSetToSelfTest = testM("Should not update metadata of the file if new parent is self") {
-    val dto = UpdateStorageUnitMetadataReq(Some(OptionalValue(Some(ExampleFileId.id))), None)
+    val dto = UpdateStorageUnitMetadataReq(Some(OptionalValue(Some(ExampleFileId.id))), None, None)
 
     val initialFilesRepoState: List[StorageUnit] = List(ExampleFileMetadata)
 
@@ -1395,7 +1432,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
   }
 
   private val updateMetadataParentNotFoundTest = testM("Should not update metadata of the file if new parent not found") {
-    val dto = UpdateStorageUnitMetadataReq(Some(OptionalValue(Some(ExampleDirectoryId.id))), None)
+    val dto = UpdateStorageUnitMetadataReq(Some(OptionalValue(Some(ExampleDirectoryId.id))), None, None)
 
     val initialFilesRepoState: List[StorageUnit] = List(ExampleFileMetadata)
 
@@ -1424,7 +1461,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
   private val updateMetadataParentNotDirectoryTest = testM("Should not update metadata of the file if new parent is not a directory") {
     val f1 = ExampleFileMetadata.copy(id = FileId(ExampleFuuid1), name = "foo.txt")
 
-    val dto = UpdateStorageUnitMetadataReq(Some(OptionalValue(Some(f1.id.id))), None)
+    val dto = UpdateStorageUnitMetadataReq(Some(OptionalValue(Some(f1.id.id))), None, None)
 
     val initialFilesRepoState: List[StorageUnit] = List(ExampleFileMetadata, f1)
 
@@ -1453,7 +1490,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
   private val updateMetadataFileExistsTest = testM("Should not update metadata of the file if file with the same name already exists") {
     val f1 = ExampleFileMetadata.copy(id = FileId(ExampleFuuid1), name = "foo.txt", parentId = Some(ExampleDirectoryId))
 
-    val dto = UpdateStorageUnitMetadataReq(Some(OptionalValue(f1.parentId.map(_.id))), Some(FileName(f1.name)))
+    val dto = UpdateStorageUnitMetadataReq(Some(OptionalValue(f1.parentId.map(_.id))), Some(FileName(f1.name)), None)
 
     val initialFilesRepoState: List[StorageUnit] = List(ExampleFileMetadata, ExampleDirectoryMetadata, f1)
 
@@ -1494,7 +1531,7 @@ object FilesServiceSpec extends DefaultRunnableSpec with Users with Collections 
     val initialFilesRepoState: List[StorageUnit] =
       List(d1, d2, d1_1, d1_1_1, d1_1_1_1, d1_1_1_1_1, d1_1_1_1_1_1, d1_1_1_1_1_1_1, d1_1_1_1_1_1_1_1, d1_1_1_1_1_1_1_1_1)
 
-    val dto = UpdateStorageUnitMetadataReq(Some(OptionalValue(Some(d1_1_1_1_1_1_1_1.id.id))), None)
+    val dto = UpdateStorageUnitMetadataReq(Some(OptionalValue(Some(d1_1_1_1_1_1_1_1.id.id))), None, None)
 
     val initialFsState = Map.empty[String, Array[Byte]]
 

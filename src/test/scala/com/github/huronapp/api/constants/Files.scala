@@ -20,6 +20,8 @@ trait Files extends Collections with Users {
 
   final val ExampleFileName = "file1.txt"
 
+  final val ExampleFileDescription = "some file"
+
   final val ExampleFileVersionId = FileVersionId(FUUID.fuuid("4d99be77-ce28-4ae1-9270-6195ffaa726c"))
 
   final val ExampleFilePlainTextDigest = "someDigest"
@@ -35,6 +37,7 @@ trait Files extends Collections with Users {
     CollectionId(ExampleCollectionId),
     None,
     ExampleFileName,
+    Some(ExampleFileDescription),
     ExampleFileVersionId,
     Some(UserId(ExampleUserId)),
     3L,

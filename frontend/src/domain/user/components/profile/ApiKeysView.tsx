@@ -2,12 +2,11 @@ import React, { useEffect } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
 import { Dispatch } from "redux"
-import AlertBox from "../../../../application/components/common/AlertBox"
 import Loader from "../../../../application/components/common/Loader"
 import { AppState } from "../../../../application/store"
 import { fetchApiKeysAction, resetFetchApiKeysStatusAction } from "../../store/Actions"
-import capitalize from "lodash/capitalize"
 import ApiKeyList from "./ApiKeysList"
+import UnexpectedErrorMessage from "../../../../application/components/common/UnexpectedErrorMessage"
 
 type Props = ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps> & Pick<WithTranslation, "t">
 
@@ -25,7 +24,7 @@ export const ApiKeysView: React.FC<Props> = ({ apiKeys, fetchKeys, resetKeysResu
     if (apiKeys.status === "PENDING" || apiKeys.status === "NOT_STARTED") {
         return <Loader title={t("profile-page:loading-api-keys")} />
     } else if (apiKeys.status === "FAILED") {
-        return <AlertBox title={capitalize(t("common:unexpected-error"))} status="error" />
+        return <UnexpectedErrorMessage error={apiKeys.error} />
     } else {
         return <ApiKeyList apiKeys={apiKeys.data} />
     }

@@ -20,7 +20,10 @@
         "cancel-imperative": "cancel",
         "confirm-imperative": "confirm",
         "create-imperative": "create",
-        "not-valid-date": "not valid date"
+        "not-valid-date": "not valid date",
+        "unknown-masculine": "unknown",
+        "action-in-progress": "Action in progress",
+        "details": "details"
     },
     "error-pages": {
         "user-loading-failed": {
@@ -158,5 +161,66 @@
     "single-collection-view": {
         "loading-collection-data": "Loading collection data",
         "fetching-details-error-message": "Unable to load collection data"
+    },
+    "file-view": {
+        "file-not-found-error": "File not found",
+        "loader-title": "Loading file or directory data",
+        "directory-content-list": {
+            "headers": {
+                "file-name": "Name",
+                "updated-at": "Updated",
+                "type": "Type",
+                "encrypted-size": "Encrypted size"
+            },
+            "types": {
+                "directory": "directory"
+            },
+            "empty-directory-placeholder": "Empty directory",
+            "create-directory": "New directory",
+            "new-directory-name": "Directory name",
+            "invalid-name": "Invalid name",
+            "file-already-exists": "A file or directory with the specified name already exists",
+            "upload-file-button-label": "Upload file",
+            "dropzone-content": "Drag & drop file here or click to browse",
+            "encrypt-and-send": "Encrypt and send",
+            "load-file-error": "Unable to load file",
+            "file-rejection-errors": {
+                "file-too-large": "File too large. It should not be grater than {{maxSize}}",
+                "too-many-files": "Only one file can be loaded at a time"
+            },
+            "missing-encryption-key-message": "To be able to encrypt a file, the collection encryption key should be unlocked first",
+            "encrypted file to large": "The maximum size is {{maxSize}}, but the file takes {{realSize}} after encryption",
+            "file-actions-label": "Actions",
+            "file-actions": {
+                "rename": "Rename",
+                "delete-file": "Delete",
+                "upload-new-version": "Upload new version",
+                "download-file": "Download file"
+            },
+            "new-name-label": "New name",
+            "file-or-directory-count_one": "file or directory",
+            "file-or-directory-count_other": "{{count}} files or directories",
+            "delete-files-confirmation": "Are you sure you want to delete",
+            "delete-recursively": "Delete non empty directories",
+            "delete-recursively-not-allowed-error": "The directory could not be deleted because it was not empty",
+            "file-content-not-changed-error": "The content of the file has not changed",
+            "download-in-progress-message": "Downloading and decrypting file"
+        },
+        "file-data": {
+            "attributes": {
+                "encrypted-size": "Encrypted size",
+                "updated-at": "Updated",
+                "author": "Author"
+            },
+            "account-deleted": "Account deleted",
+            "download-upload-unavailable": "Downloading and uploading files unavailable because the encryption key has not been unlocked.",
+            "previous-versions": "Previous versions",
+            "loading-versions": "Loading versions",
+            "version-actions": {
+                "delete": "Delete version",
+                "download": "Download"
+            },
+            "delete-version-confirmation": "Are you sure you want to delete the selected file version?"
+        }
     }
 }

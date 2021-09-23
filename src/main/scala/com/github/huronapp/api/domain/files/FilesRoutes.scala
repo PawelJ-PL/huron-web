@@ -16,7 +16,8 @@ import com.github.huronapp.api.domain.files.dto.{
   NewStorageUnitReq,
   NewVersionReq,
   StorageUnitData,
-  UpdateStorageUnitMetadataReq
+  UpdateStorageUnitMetadataReq,
+  VersionData
 }
 import com.github.huronapp.api.domain.users.UserId
 import com.github.huronapp.api.http.{BaseRouter, ErrorResponse}
@@ -90,7 +91,9 @@ object FilesRoutes {
                           metadata.encryptionParams.encryptionKeyVersion,
                           EncryptedBytes(content)
                         ),
-                        metadata.originalDigest
+                        metadata.originalDigest,
+                        metadata.name,
+                        metadata.mimeType
                       )
                   }
                   .flatMapError(error => logger.warn(error.logMessage).as(FileErrorMapping.readContentError(error)))
@@ -130,7 +133,7 @@ object FilesRoutes {
               case (user, (collectionId, fileId)) =>
                 filesService
                   .listVersionsAs(UserId(user.userId), collectionId, fileId)
-                  .map(_.transformInto[List[FileData]])
+                  .map(_.transformInto[List[VersionData]])
                   .flatMapError(error => logger.warn(error.logMessage).as(FileErrorMapping.listFileVersionsError(error)))
             }
 

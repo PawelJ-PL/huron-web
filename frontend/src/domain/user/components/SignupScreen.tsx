@@ -6,13 +6,13 @@ import { Trans, WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
 import { RouteComponentProps, withRouter } from "react-router"
 import { Dispatch } from "redux"
-import AlertBox from "../../../application/components/common/AlertBox"
 import { AppState } from "../../../application/store"
 import { UserAlreadyRegistered } from "../api/errors"
 import { registerNewUserAction, resetRegistrationStatusAction } from "../store/Actions"
 import SignupForm from "./SignupForm"
 import UserFormBox from "./UserFormBox"
 import { Link as RouterLink } from "react-router-dom"
+import UnexpectedErrorMessage from "../../../application/components/common/UnexpectedErrorMessage"
 
 type Props = ReturnType<typeof mapStateToProps> &
     ReturnType<typeof mapDispatchToProps> &
@@ -22,7 +22,7 @@ type Props = ReturnType<typeof mapStateToProps> &
 const SUCCESS_TOAST_ID = "signup-success"
 
 export const SignupScreen: React.FC<Props> = ({ signupResult, i18n, signup, resetResult, t, history }) => {
-    const selectedLanguage = capitalize(i18n.languages[0])
+    const selectedLanguage = capitalize(i18n.languages[0].split("-")[0])
 
     const toast = useToast({ position: "top", duration: 7000, isClosable: true })
 
@@ -65,12 +65,10 @@ export const SignupScreen: React.FC<Props> = ({ signupResult, i18n, signup, rese
     return (
         <UserFormBox outsideElement={loginLink}>
             {signupResult.status === "FAILED" && !(signupResult.error instanceof UserAlreadyRegistered) && (
-                <AlertBox
-                    status="error"
-                    icon={true}
-                    title={capitalize(t("common:unexpected-error"))}
+                <UnexpectedErrorMessage
+                    error={signupResult.error}
+                    alertProps={{ marginTop: "0.3rem" }}
                     onClose={resetResult}
-                    alertProps={{ marginTop: "0.3em" }}
                 />
             )}
             <SignupForm onSubmit={generateKeysAndSignup} submitInProgress={signupResult.status === "PENDING"} />

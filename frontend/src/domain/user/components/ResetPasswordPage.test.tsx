@@ -9,6 +9,7 @@ import { toastMock } from "../../../testutils/mocks/toast-mock"
 
 // eslint-disable-next-line react/display-name
 jest.mock("./ResetPasswordForm", () => () => <div></div>)
+jest.mock("../../../application/components/common/UnexpectedErrorMessage")
 
 describe("Reset password page", () => {
     it("should reset status on unmount", () => {

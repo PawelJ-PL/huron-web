@@ -4,10 +4,10 @@ import com.github.huronapp.api.domain.files.{Directory, File, StorageUnit}
 import com.github.huronapp.api.utils.Implicits.fuuid._
 import io.chrisdavenport.fuuid.circe._
 import io.chrisdavenport.fuuid.FUUID
-import io.circe.Codec
+import io.circe.{Codec, Decoder, Encoder, Json}
 import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
-import io.circe.generic.semiauto.deriveCodec
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl._
 import sttp.tapir.generic.{Configuration => SchemaConfiguration}
@@ -40,16 +40,20 @@ final case class FileData(
   collectionId: FUUID,
   parent: Option[FUUID],
   name: String,
+  description: Option[String],
   versionId: FUUID,
   versionAuthor: Option[FUUID],
   mimeType: Option[String],
   contentDigest: String,
+  encryptedSize: Long,
   updatedAt: Instant)
     extends StorageUnitData
 
 object FileData {
 
-  implicit val codec: Codec[FileData] = deriveCodec
+  implicit val encoder: Encoder.AsObject[FileData] = deriveEncoder[FileData].mapJsonObject(_.add("@type", Json.fromString("FileData")))
+
+  implicit val decoder: Decoder[FileData] = deriveDecoder
 
   implicit val tapirSchema: Schema[FileData] = Schema.derived
 
@@ -61,6 +65,7 @@ object FileData {
     .withFieldComputed(_.versionId, _.versionId.id)
     .withFieldComputed(_.versionAuthor, _.versionAuthor.map(_.id))
     .withFieldComputed(_.contentDigest, _.originalDigest)
+    .withFieldComputed(_.encryptedSize, _.size)
     .buildTransformer
 
 }
@@ -69,7 +74,10 @@ final case class DirectoryData(id: FUUID, collectionId: FUUID, parent: Option[FU
 
 object DirectoryData {
 
-  implicit val codec: Codec[DirectoryData] = deriveCodec
+  implicit val encoder: Encoder.AsObject[DirectoryData] =
+    deriveEncoder[DirectoryData].mapJsonObject(_.add("@type", Json.fromString("DirectoryData")))
+
+  implicit val decoder: Decoder[DirectoryData] = deriveDecoder
 
   implicit val tapirSchema: Schema[DirectoryData] = Schema.derived
 

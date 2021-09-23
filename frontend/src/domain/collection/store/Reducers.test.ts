@@ -12,7 +12,7 @@ import {
     exampleEncryptionKeyVersion,
 } from "./../../../testutils/constants/collection"
 import { exampleCollectionName } from "../../../testutils/constants/collection"
-import { createCollectionAction, setActiveCollectionAction } from "./Actions"
+import { createCollectionAction, setActiveCollectionAction, setPreferredCollectionIdAction } from "./Actions"
 import { collectionsReducer } from "./Reducers"
 
 type State = ReturnType<typeof collectionsReducer>
@@ -59,6 +59,19 @@ describe("Collections reducers", () => {
                 status: "FAILED",
                 params: true,
                 error: new Error("Some error"),
+            })
+        })
+    })
+
+    describe("read preferred collection", () => {
+        it("should update preferred collection when new value is set", () => {
+            const state: State = defaultState
+            const action = setPreferredCollectionIdAction.done({ params: "new-preferred-collection" })
+            const result = collectionsReducer(state, action)
+            expect(result.getPreferredCollectionResult).toStrictEqual({
+                status: "FINISHED",
+                params: undefined,
+                data: "new-preferred-collection",
             })
         })
     })

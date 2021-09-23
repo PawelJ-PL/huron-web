@@ -10,6 +10,8 @@ import { toastMock } from "../../../testutils/mocks/toast-mock"
 // eslint-disable-next-line react/display-name
 jest.mock("./RequestPasswordResetForm", () => () => <div></div>)
 
+jest.mock("../../../application/components/common/UnexpectedErrorMessage")
+
 jest.mock("react-i18next", () => ({
     ...jest.requireActual("react-i18next"),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any, react/display-name

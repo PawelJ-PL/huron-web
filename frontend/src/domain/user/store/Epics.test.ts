@@ -50,11 +50,11 @@ describe("User epics", () => {
             Promise.resolve(`derivedKey(${password}, ${salt})`)
         )
 
-        jest.spyOn(CryptoApi, "encrypt").mockImplementation((input, keyHex) =>
+        jest.spyOn(CryptoApi, "encryptString").mockImplementation((input, keyHex) =>
             Promise.resolve(`encrypted(${input}, ${keyHex})`)
         )
 
-        jest.spyOn(CryptoApi, "decrypt").mockImplementation((encryptedInput: string, keyHex: string) =>
+        jest.spyOn(CryptoApi, "decryptToString").mockImplementation((encryptedInput: string, keyHex: string) =>
             Promise.resolve(`decrypted(${encryptedInput}, ${keyHex})`)
         )
 

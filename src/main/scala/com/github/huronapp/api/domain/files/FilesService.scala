@@ -155,6 +155,7 @@ object FilesService {
                          collectionId,
                          maybeParent,
                          dto.name.value,
+                         dto.description.map(_.value),
                          FileVersionId(versionId),
                          Some(userId),
                          dto.content.bytes.value.length.toLong,
@@ -296,8 +297,11 @@ object FilesService {
           ): ZIO[Any, UpdateMetadataError, StorageUnit] =
             db.transactionOrDie(
               for {
-                _           <-
-                  ZIO.cond(dto.name.isDefined || dto.parent.isDefined, (), NoUpdates(collectionId, "file metadata", storageUnitId.id, dto))
+                _           <- ZIO.cond(
+                                 dto.name.isDefined || dto.parent.isDefined || dto.description.isDefined,
+                                 (),
+                                 NoUpdates(collectionId, "file metadata", storageUnitId.id, dto)
+                               )
                 _           <- ZIO.cond(
                                  dto.parent.flatMap(_.value).forall(newParent => newParent =!= storageUnitId.id),
                                  (),
@@ -306,6 +310,11 @@ object FilesService {
                 _           <- authKernel.authorizeOperation(ModifyFile(Subject(userId.id), collectionId)).mapError(AuthorizationError)
                 currentFile <-
                   filesRepo.getFile(collectionId, storageUnitId, None).orDie.someOrFail(FileNotFound(collectionId, storageUnitId, None))
+                _           <- currentFile match {
+                                 case _: File                        => ZIO.unit
+                                 case _ if dto.description.isDefined => ZIO.fail(DescriptionAssignedToNonFileObject(collectionId, storageUnitId))
+                                 case _                              => ZIO.unit
+                               }
                 _           <- ZIO.foreach_(dto.parent.flatMap(_.value))(newParentId => verifyParent(FileId(newParentId), collectionId))
                 targetDir = dto.parent.map(_.value.map(FileId(_))).getOrElse(currentFile.parentId)
                 targetName = dto.name.map(_.value).getOrElse(currentFile.name)
@@ -315,7 +324,13 @@ object FilesService {
                                  case None            => ZIO.unit
                                }
                 _           <- filesRepo
-                                 .updateFileMetadata(collectionId, storageUnitId, dto.parent.map(_.value.map(FileId(_))), dto.name.map(_.value))
+                                 .updateFileMetadata(
+                                   collectionId,
+                                   storageUnitId,
+                                   dto.parent.map(_.value.map(FileId(_))),
+                                   dto.name.map(_.value),
+                                   dto.description.map(_.value.map(_.value))
+                                 )
                                  .orDie
                 updated     <-
                   filesRepo.getFile(collectionId, storageUnitId, None).orDie.someOrFail(FileNotFound(collectionId, storageUnitId, None))
@@ -373,6 +388,7 @@ object FilesService {
                          collectionId,
                          currentVersion.parentId,
                          currentVersion.name,
+                         currentVersion.description,
                          FileVersionId(newVersionId),
                          Some(userId),
                          dto.content.bytes.value.length.toLong,
