@@ -6,8 +6,8 @@ import { Dispatch } from "redux"
 import AlertBox from "../../../application/components/common/AlertBox"
 import Loader from "../../../application/components/common/Loader"
 import { AppState } from "../../../application/store"
+import CollectionFilesContainer from "../../file/components/CollectionFilesContainer"
 import {
-    cleanCollectionDetailsAction,
     getCollectionDetailsAction,
     removePreferredCollectionIdAction,
     resetRemovePreferredCollectionResultAction,
@@ -29,7 +29,6 @@ export const SingleCollectionContainer: React.FC<Props> = ({
     fetchCollectionResult,
     setPreferredCollection,
     removePreferredCollection,
-    resetCollectionData,
     setActiveCollection,
     removeActiveCollection,
     removePreferredCollectionResult,
@@ -46,7 +45,7 @@ export const SingleCollectionContainer: React.FC<Props> = ({
             fetchCollectionData(collectionId)
         }
         return () => {
-            resetCollectionData()
+            // resetCollectionData()
             resetRemovePreferredCollectionResult()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,7 +82,7 @@ export const SingleCollectionContainer: React.FC<Props> = ({
         fetchCollectionResult.data &&
         fetchCollectionResult.params === collectionId
     ) {
-        return <div data-testid="TEMPORARY-COLLECTION-VIEW">{JSON.stringify(fetchCollectionResult.data)}</div>
+        return <CollectionFilesContainer collection={fetchCollectionResult.data} />
     } else if (fetchCollectionResult.status === "FAILED") {
         return (
             <AlertBox icon={true} title={t("single-collection-view:fetching-details-error-message")} status="error" />
@@ -103,7 +102,6 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     setPreferredCollection: (collectionId: string) => dispatch(setPreferredCollectionIdAction.started(collectionId)),
     removePreferredCollection: () => dispatch(removePreferredCollectionIdAction.started()),
     resetRemovePreferredCollectionResult: () => dispatch(resetRemovePreferredCollectionResultAction()),
-    resetCollectionData: () => dispatch(cleanCollectionDetailsAction()),
     setActiveCollection: (collectionId: string) => dispatch(setActiveCollectionAction(collectionId)),
     removeActiveCollection: () => dispatch(setActiveCollectionAction(null)),
 })

@@ -18,6 +18,7 @@ import { connect } from "react-redux"
 import AlertBox from "../../../../application/components/common/AlertBox"
 import { NoUpdatesProvides } from "../../../../application/api/ApiError"
 import { UPDATE_PROFILE_LANGUAGE_SELECT } from "./testids"
+import UnexpectedErrorMessage from "../../../../application/components/common/UnexpectedErrorMessage"
 
 const langOptions = [
     { value: "En", text: "English" },
@@ -99,10 +100,8 @@ export const UpdateProfileForm: React.FC<Props> = ({
             )
         } else {
             return (
-                <AlertBox
-                    title={capitalize(t("common:unexpected-error"))}
-                    status="error"
-                    icon={true}
+                <UnexpectedErrorMessage
+                    error={error}
                     alertProps={{ marginBottom: "0.5em" }}
                     onClose={resetUpdateStatus}
                 />

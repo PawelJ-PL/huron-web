@@ -75,7 +75,7 @@ const setNotLoggedInOnUnauthorizedEpic: Epic<AnyAction, AnyAction, AppState> = (
 const registerUserEpic = createEpic<RegistrationParams, void, Error>(registerNewUserAction, async (params) => {
     const [masterKey, loginPassword] = await generateLoginPassword(params.password, params.email)
     const keyPair = await CryptoApi.generateKeyPair(PRIVATE_KEY_LENGTH)
-    const encryptedPrivateKey = await CryptoApi.encrypt(keyPair.privateKey, masterKey)
+    const encryptedPrivateKey = await CryptoApi.encryptString(keyPair.privateKey, masterKey, false)
     return await UsersApi.registerUser(
         params.nickname,
         params.email,
@@ -131,7 +131,7 @@ const resetPasswordEpic = createEpic<ResetPasswordParams, boolean, Error>(
     async ({ resetToken, newPassword, email }) => {
         const [masterKey, loginPassword] = await generateLoginPassword(newPassword, email)
         const keyPair = await CryptoApi.generateKeyPair(PRIVATE_KEY_LENGTH)
-        const encryptedPrivateKey = await CryptoApi.encrypt(keyPair.privateKey, masterKey)
+        const encryptedPrivateKey = await CryptoApi.encryptString(keyPair.privateKey, masterKey, false)
         return await UsersApi.resetPassword(
             resetToken,
             loginPassword,
@@ -187,10 +187,14 @@ const changePasswordEpic = createEpic<ChangePasswordInputData, void, Error>(chan
     const [currentMasterKey, currentPassword] = await generateLoginPassword(params.currentPassword, params.email)
     const [newMasterKey, newPassword] = await generateLoginPassword(params.newPassword, params.email)
     const keyPair = await CryptoApi.generateKeyPair(PRIVATE_KEY_LENGTH)
-    const encryptedPrivateKey = await CryptoApi.encrypt(keyPair.privateKey, newMasterKey)
+    const encryptedPrivateKey = await CryptoApi.encryptString(keyPair.privateKey, newMasterKey, false)
     const currentEncryptionKeys = await CollectionsApi.fetchAllEncryptionKeys()
     const currentKeyPair = await UsersApi.fetchKeyPair()
-    const currentPrivateKey = await CryptoApi.decrypt(currentKeyPair.encryptedPrivateKey, currentMasterKey)
+    const currentPrivateKey = await CryptoApi.decryptToString(
+        currentKeyPair.encryptedPrivateKey,
+        currentMasterKey,
+        false
+    )
 
     const updatedKeys = await Promise.all(
         currentEncryptionKeys.map((key) => recryptSingleKey(key, currentPrivateKey, keyPair.publicKey))
@@ -215,7 +219,11 @@ const fetchAndDecryptKeyPairEpic = createEpic<string, KeyPair, Error>(
     fetchAndDecryptKeyPairAction,
     async (masterKey) => {
         const encryptedKeyPair = await UsersApi.fetchKeyPair()
-        const decryptedPrivateKey = await CryptoApi.decrypt(encryptedKeyPair.encryptedPrivateKey, masterKey)
+        const decryptedPrivateKey = await CryptoApi.decryptToString(
+            encryptedKeyPair.encryptedPrivateKey,
+            masterKey,
+            false
+        )
         return { publicKey: encryptedKeyPair.publicKey, privateKey: decryptedPrivateKey }
     }
 )

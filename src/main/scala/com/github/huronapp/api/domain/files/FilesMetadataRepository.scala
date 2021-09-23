@@ -51,7 +51,8 @@ object FilesMetadataRepository {
       collectionId: CollectionId,
       fileId: FileId,
       newParent: Option[Option[FileId]],
-      newName: Option[String]
+      newName: Option[String],
+      newDescription: Option[Option[String]]
     ): ZIO[Connection, DbException, Boolean]
 
   }
@@ -61,15 +62,22 @@ object FilesMetadataRepository {
       import doobieContext._
       import dbImplicits._
 
-      private def toFileMetadataEntity(storageUnit: StorageUnit, now: Instant) =
+      private def toFileMetadataEntity(storageUnit: StorageUnit, now: Instant) = {
+        val description = storageUnit match {
+          case file: File   => file.description
+          case _: Directory => None
+        }
+
         FileMetadataEntity(
           storageUnit.id.id,
           ObjectType.fromStorageUnit(storageUnit),
           storageUnit.collectionId.id,
           storageUnit.parentId.map(_.id),
           storageUnit.name,
+          description,
           now
         )
+      }
 
       override def createFile(file: File): ZIO[Connection, DbException, File] =
         for {
@@ -115,11 +123,11 @@ object FilesMetadataRepository {
                     .pure
                     .as[Boolean]
                 ) //HACK: https://github.com/getquill/quill/issues/2052)
-                .sortBy(f => (f.`type`, f.fileName))(Ord(Ord.asc, Ord.asc))
                 .leftJoin(latestVersions)
                 .on((metadata, latest) => metadata.id == latest.fileId)
                 .leftJoin(fileVersions)
                 .on((fileWithLatest, version) => fileWithLatest._2.map(_.versionId).contains(version.versionId))
+                .sortBy(result => (result._1._1.`type`, result._1._1.fileName))(Ord(Ord.asc, Ord.asc))
             )
           ).map(_.collect {
             case ((file, _), Some(version))                                          => fileWithVersion(file, version)
@@ -140,6 +148,7 @@ object FilesMetadataRepository {
           CollectionId(fileMetadataEntity.collectionId),
           fileMetadataEntity.parentId.map(FileId(_)),
           fileMetadataEntity.fileName,
+          fileMetadataEntity.description,
           FileVersionId(versionEntity.versionId),
           versionEntity.createdBy.map(UserId(_)),
           versionEntity.size,
@@ -282,7 +291,8 @@ object FilesMetadataRepository {
         collectionId: CollectionId,
         fileId: FileId,
         newParent: Option[Option[FileId]],
-        newName: Option[String]
+        newName: Option[String],
+        newDescription: Option[Option[String]]
       ): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
         tzio(
           run(
@@ -291,7 +301,8 @@ object FilesMetadataRepository {
               .filter(f => f.collectionId == lift(collectionId.id) && f.id == lift(fileId.id))
               .update(
                 setOpt(_.parentId, newParent.map(_.map(_.id))),
-                setOpt(_.fileName, newName)
+                setOpt(_.fileName, newName),
+                setOpt(_.description, newDescription)
               )
           )
         ).map(_ > 0)
@@ -345,6 +356,7 @@ private final case class FileMetadataEntity(
   collectionId: FUUID,
   parentId: Option[FUUID],
   fileName: String,
+  description: Option[String],
   createdAt: Instant)
 
 private final case class FileVersionEntity(

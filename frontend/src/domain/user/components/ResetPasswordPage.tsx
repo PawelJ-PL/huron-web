@@ -1,13 +1,12 @@
 import { Alert } from "@chakra-ui/alert"
 import { Box, Text } from "@chakra-ui/layout"
 import { useToast } from "@chakra-ui/react"
-import capitalize from "lodash/capitalize"
 import React, { useEffect } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
 import { RouteComponentProps, withRouter } from "react-router"
 import { Dispatch } from "redux"
-import AlertBox from "../../../application/components/common/AlertBox"
+import UnexpectedErrorMessage from "../../../application/components/common/UnexpectedErrorMessage"
 import { AppState } from "../../../application/store"
 import { clearResetPasswordStatusAction, resetPasswordAction } from "../store/Actions"
 import ResetPasswordForm from "./ResetPasswordForm"
@@ -55,10 +54,9 @@ export const ResetPasswordPage: React.FC<Props> = ({
     return (
         <UserFormBox>
             {actionResult.status === "FAILED" && (
-                <AlertBox
-                    description={capitalize(t("common:unexpected-error"))}
-                    alertProps={{ status: "error", marginTop: "0.3rem" }}
-                    descriptionProps={{ textAlign: "center" }}
+                <UnexpectedErrorMessage
+                    error={actionResult.error}
+                    alertProps={{ marginTop: "0.3rem" }}
                     onClose={clearActionResult}
                 />
             )}

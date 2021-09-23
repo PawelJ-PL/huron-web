@@ -17,9 +17,10 @@ import com.github.huronapp.api.domain.files.dto.{
   NewFile,
   NewVersionReq,
   StorageUnitData,
-  UpdateStorageUnitMetadataReq
+  UpdateStorageUnitMetadataReq,
+  VersionData
 }
-import com.github.huronapp.api.domain.files.dto.fields.{ContentDigest, EncryptedBytes, EncryptedContentAlgorithm, FileName, Iv}
+import com.github.huronapp.api.domain.files.dto.fields.{ContentDigest, Description, EncryptedBytes, EncryptedContentAlgorithm, FileName, Iv}
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import com.github.huronapp.api.http.ErrorResponse
 import com.github.huronapp.api.testdoubles.FilesServiceStub.FilesServiceResponses
@@ -75,6 +76,7 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
       updateMetadataFileExistsTest,
       updateMetadataFileNotFoundTest,
       updateMetadataFileNoUpdatesTest,
+      updateMetadataDescriptionAssignedToNonFileTest,
       updateMetadataParentSetToSelfTest,
       updateMetadataCircularParentTest,
       uploadNewVersionTest,
@@ -121,6 +123,7 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
   private val newFileDto = NewFile(
     None,
     FileName(ExampleFileName),
+    Some(Description(ExampleFileDescription)),
     None,
     EncryptedContent(
       EncryptedContentAlgorithm("AES-CBC"),
@@ -131,7 +134,11 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
     ContentDigest("d4d30f6fb447ae477f87c0f4dd100bed16083ae9e5b44d929ff8966c8885878b")
   )
 
-  private val updateMetadataDto = UpdateStorageUnitMetadataReq(Some(OptionalValue(Some(ExampleFuuid1))), Some(FileName("new-name")))
+  private val updateMetadataDto = UpdateStorageUnitMetadataReq(
+    Some(OptionalValue(Some(ExampleFuuid1))),
+    Some(FileName("new-name")),
+    Some(OptionalValue(Some(Description(ExampleFileDescription))))
+  )
 
   private val newVersionDto = NewVersionReq(
     None,
@@ -269,10 +276,12 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
             ExampleFileMetadata.collectionId.id,
             ExampleFileMetadata.parentId.map(_.id),
             ExampleFileMetadata.name,
+            ExampleFileMetadata.description,
             ExampleFileVersionId.id,
             Some(ExampleUserId),
             None,
             ExampleFileMetadata.originalDigest,
+            ExampleFileMetadata.size,
             ExampleFileMetadata.updatedAt
           )
         )
@@ -404,10 +413,12 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
             ExampleFileMetadata.collectionId.id,
             ExampleFileMetadata.parentId.map(_.id),
             ExampleFileMetadata.name,
+            ExampleFileMetadata.description,
             ExampleFileVersionId.id,
             Some(ExampleUserId),
             None,
             ExampleFileMetadata.originalDigest,
+            ExampleFileMetadata.size,
             ExampleFileMetadata.updatedAt
           )
         )
@@ -472,7 +483,9 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
               ExampleEncryptionKeyVersion,
               EncryptedBytes(ExampleFileContent)
             ),
-            ExampleFileMetadata.originalDigest
+            ExampleFileMetadata.originalDigest,
+            ExampleFileMetadata.name,
+            ExampleFileMetadata.mimeType
           ).asJson
         )
       )
@@ -610,10 +623,12 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
             ExampleFileMetadata.collectionId.id,
             ExampleFileMetadata.parentId.map(_.id),
             ExampleFileMetadata.name,
+            ExampleFileMetadata.description,
             ExampleFileVersionId.id,
             Some(ExampleUserId),
             None,
             ExampleFileMetadata.originalDigest,
+            ExampleFileMetadata.size,
             ExampleFileMetadata.updatedAt
           )
         )
@@ -730,19 +745,35 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
     testM("should generate response for update metadata request if no updates provided") {
       val responses =
         FilesServiceResponses(updateMetadata =
-          ZIO.fail(NoUpdates(collectionId, "file metadata", ExampleFileId.id, UpdateStorageUnitMetadataReq(None, None)))
+          ZIO.fail(NoUpdates(collectionId, "file metadata", ExampleFileId.id, UpdateStorageUnitMetadataReq(None, None, None)))
         )
 
       for {
         logs   <- Ref.make(Chain.empty[String])
         routes <- FilesRoutes.routes.provideLayer(createRoutes(logs, responses)).map(_.orNotFound)
         req = Request[RouteEffect](method = Method.PATCH, uri = baseUri.addPath(show"$ExampleFileId"))
-                .withEntity(UpdateStorageUnitMetadataReq(None, None))
+                .withEntity(UpdateStorageUnitMetadataReq(None, None, None))
                 .withHeaders(validAuthHeader)
         result <- routes.run(req)
         body   <- result.as[ErrorResponse.BadRequest]
       } yield assert(result.status)(equalTo(Status.BadRequest)) &&
         assert(body)(equalTo(ErrorResponse.BadRequest("No updates in request")))
+    }
+
+  private val updateMetadataDescriptionAssignedToNonFileTest =
+    testM("should generate response for update metadata request if description assigned to non file object") {
+      val responses = FilesServiceResponses(updateMetadata = ZIO.fail(DescriptionAssignedToNonFileObject(collectionId, ExampleFileId)))
+
+      for {
+        logs   <- Ref.make(Chain.empty[String])
+        routes <- FilesRoutes.routes.provideLayer(createRoutes(logs, responses)).map(_.orNotFound)
+        req = Request[RouteEffect](method = Method.PATCH, uri = baseUri.addPath(show"$ExampleFileId"))
+                .withEntity(updateMetadataDto)
+                .withHeaders(validAuthHeader)
+        result <- routes.run(req)
+        body   <- result.as[ErrorResponse.BadRequest]
+      } yield assert(result.status)(equalTo(Status.BadRequest)) &&
+        assert(body)(equalTo(ErrorResponse.BadRequest("Description can be assigned only to file")))
     }
 
   private val updateMetadataParentSetToSelfTest =
@@ -805,10 +836,12 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
             ExampleFileMetadata.collectionId.id,
             ExampleFileMetadata.parentId.map(_.id),
             ExampleFileMetadata.name,
+            ExampleFileMetadata.description,
             ExampleFileVersionId.id,
             Some(ExampleUserId),
             None,
             ExampleFileMetadata.originalDigest,
+            ExampleFileMetadata.size,
             ExampleFileMetadata.updatedAt
           )
         )
@@ -904,20 +937,19 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
       routes <- FilesRoutes.routes.provideLayer(createRoutes(logs, responses)).map(_.orNotFound)
       req = Request[RouteEffect](method = Method.GET, uri = baseUri.addPath(show"$ExampleFileId/versions")).withHeaders(validAuthHeader)
       result <- routes.run(req)
-      body   <- result.as[List[FileData]]
+      body   <- result.as[List[VersionData]]
     } yield assert(result.status)(equalTo(Status.Ok)) &&
       assert(body)(
         equalTo(
           List(
-            FileData(
+            VersionData(
               ExampleFileMetadata.id.id,
               ExampleFileMetadata.collectionId.id,
-              ExampleFileMetadata.parentId.map(_.id),
-              ExampleFileMetadata.name,
               ExampleFileVersionId.id,
               Some(ExampleUserId),
               None,
               ExampleFileMetadata.originalDigest,
+              ExampleFileMetadata.size,
               ExampleFileMetadata.updatedAt
             )
           )
@@ -1140,10 +1172,12 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
               ExampleFileMetadata.collectionId.id,
               ExampleFileMetadata.parentId.map(_.id),
               ExampleFileMetadata.name,
+              ExampleFileMetadata.description,
               ExampleFileVersionId.id,
               Some(ExampleUserId),
               None,
               ExampleFileMetadata.originalDigest,
+              ExampleFileMetadata.size,
               ExampleFileMetadata.updatedAt
             )
           )
@@ -1196,10 +1230,12 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
               ExampleFileMetadata.collectionId.id,
               ExampleFileMetadata.parentId.map(_.id),
               ExampleFileMetadata.name,
+              ExampleFileMetadata.description,
               ExampleFileVersionId.id,
               Some(ExampleUserId),
               None,
               ExampleFileMetadata.originalDigest,
+              ExampleFileMetadata.size,
               ExampleFileMetadata.updatedAt
             )
           )

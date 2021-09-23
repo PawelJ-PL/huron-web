@@ -6,6 +6,8 @@ import { ApiKeysView } from "./ApiKeysView"
 // eslint-disable-next-line react/display-name
 jest.mock("./ApiKeysList", () => () => <div data-testid="keys-list"></div>)
 
+jest.mock("../../../../application/components/common/UnexpectedErrorMessage")
+
 describe("Api keys view", () => {
     describe("mount and unmount", () => {
         it("should fetch keys on mount", () => {
@@ -83,7 +85,8 @@ describe("Api keys view", () => {
                     resetKeysResult={jest.fn()}
                 />
             )
-            screen.getByText("Common:unexpected-error")
+            const errorMessage = screen.getByTestId("UNEXPECTED_ERROR_MESSAGE_MOCK")
+            expect(errorMessage.textContent).toEqual("Some error")
         })
 
         it("should return list if status is FINISHED", () => {

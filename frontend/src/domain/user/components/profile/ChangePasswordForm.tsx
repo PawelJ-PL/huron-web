@@ -16,6 +16,7 @@ import { connect } from "react-redux"
 import { InvalidCredentials, InvalidEmail } from "../../api/errors"
 import AlertBox from "../../../../application/components/common/AlertBox"
 import { AsymmetricDecryptionFailed, SymmetricDecryptionFailed } from "../../../../application/cryptography/api/errors"
+import UnexpectedErrorMessage from "../../../../application/components/common/UnexpectedErrorMessage"
 
 type Props = Pick<WithTranslation, "t"> & ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps>
 
@@ -63,31 +64,23 @@ const ChangePasswordForm: React.FC<Props> = ({ t, changePasswordResult, resetRes
     }, [changePasswordResult, reset])
 
     const renderError = (error: Error) => {
-        let status: "error" | "warning"
-        let title: string
+        let extraProps: { status: "error" | "warning"; title: string } | undefined = undefined
 
         if (error instanceof InvalidCredentials) {
-            status = "warning"
-            title = t("profile-page:password-change.invalid-credentials-error")
+            extraProps = { status: "warning", title: t("profile-page:password-change.invalid-credentials-error") }
         } else if (error instanceof InvalidEmail) {
-            status = "warning"
-            title = t("profile-page:password-change.invalid-email-error")
+            extraProps = { status: "warning", title: t("profile-page:password-change.invalid-email-error") }
         } else if (error instanceof SymmetricDecryptionFailed || error instanceof AsymmetricDecryptionFailed) {
-            status = "warning"
-            title = t("profile-page:password-change.decrypt-failed-check-email-and-password")
-        } else {
-            status = "error"
-            title = capitalize(t("common:unexpected-error"))
+            extraProps = {
+                status: "warning",
+                title: t("profile-page:password-change.decrypt-failed-check-email-and-password"),
+            }
         }
 
-        return (
-            <AlertBox
-                status={status}
-                icon={true}
-                title={title}
-                onClose={resetResult}
-                alertProps={{ marginBottom: "0.5rem" }}
-            />
+        return extraProps ? (
+            <AlertBox {...extraProps} icon={true} onClose={resetResult} alertProps={{ marginBottom: "0.5rem" }} />
+        ) : (
+            <UnexpectedErrorMessage error={error} alertProps={{ marginBottom: "0.5rem" }} onClose={resetResult} />
         )
     }
 

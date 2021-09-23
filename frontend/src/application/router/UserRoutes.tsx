@@ -25,4 +25,12 @@ export const userRoutes: AppRoute[] = [
         withLayout: true,
         render: (props) => <SingleCollectionContainer key={props.match.params.collectionId} />,
     },
+    {
+        path: "/collection/:collectionId/file/:fileId",
+        exact: true,
+        withLayout: true,
+        render: (props) => (
+            <SingleCollectionContainer key={`${props.match.params.collectionId}-${props.match.params.fileId}`} />
+        ),
+    },
 ]

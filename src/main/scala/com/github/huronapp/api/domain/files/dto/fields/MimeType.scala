@@ -10,7 +10,10 @@ object MimeType {
 
   implicit val codec: Codec[MimeType] = deriveUnwrappedCodec
 
-  private val validator: Validator[MimeType] = Validator.pattern[String]("^\\w+/[-.\\w]+(?:\\+[-.\\w]+)?$").contramap(_.value)
+  private val validator: Validator[MimeType] = (
+    Validator.pattern[String]("^\\w+/[-.\\w]+(?:\\+[-.\\w]+)?$") and
+      Validator.maxLength(50)
+  ).contramap(_.value)
 
   implicit val tapirSchema: Schema[MimeType] = Schema.derived.validate(validator)
 

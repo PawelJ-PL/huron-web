@@ -1,3 +1,9 @@
+/**
+ * @jest-environment node
+ */
+
+// See https://github.com/facebook/jest/issues/7780
+
 import CryptoApi from "./CryptoApi"
 import forge from "node-forge"
 
@@ -70,6 +76,8 @@ A17sBoG3GSeopUuJf7j9lVc8r0cH0POUh76UtMIKzPykko0FFz/9AdqKdXHrwg==
 
 const exampleEncryptionInput = "FooBar ^& 123 łąć 🦫"
 
+const exampleNonUtfEncryptionInput = "Baz Qux 135 !#%&"
+
 describe("Crypto API", () => {
     describe("derive key", () => {
         it("should derive key using password and salt", async () => {
@@ -92,11 +100,51 @@ describe("Crypto API", () => {
     describe("symmetric encrypt and decrypt", () => {
         it("should encrypt and decrypt string", async () => {
             const encryptionKey = "12d424724067e66bbfc80f0df651695792a42307e9507b2725600016c8dbc337"
-            const encrypted = await CryptoApi.encrypt(exampleEncryptionInput, encryptionKey)
-            const decrypted = await CryptoApi.decrypt(encrypted, encryptionKey)
+            const encrypted = await CryptoApi.encryptString(exampleEncryptionInput, encryptionKey, true)
+            const decrypted = await CryptoApi.decryptToString(encrypted, encryptionKey, true)
 
             expect(encrypted).toMatch(/^AES-CBC:[a-f0-9]+:[a-f0-9]+$/)
             expect(decrypted).toEqual(exampleEncryptionInput)
+        })
+
+        it("should encrypt and decrypt binary data", async () => {
+            const encryptionKey = "12d424724067e66bbfc80f0df651695792a42307e9507b2725600016c8dbc337"
+            const rawInput = new Uint8Array([5, 20, 70, 111, 111, 200, 0, 188, 5, 11, 122, 122])
+            const buffer = rawInput.buffer
+            const encrypted = await CryptoApi.encryptBinary(buffer, encryptionKey)
+            const decrypted = await CryptoApi.decryptBinary(encrypted, encryptionKey)
+
+            expect(encrypted).toMatch(/^AES-CBC:[a-f0-9]+:[a-f0-9]+$/)
+            expect(decrypted).toEqual(rawInput)
+        })
+
+        it("should encrypt and decrypt string with non default chunk size", async () => {
+            const encryptionKey = "12d424724067e66bbfc80f0df651695792a42307e9507b2725600016c8dbc337"
+            const encrypted = await CryptoApi.encryptString(exampleEncryptionInput, encryptionKey, true, 2)
+            const decrypted = await CryptoApi.decryptToString(encrypted, encryptionKey, true, 2)
+
+            expect(encrypted).toMatch(/^AES-CBC:[a-f0-9]+:[a-f0-9]+$/)
+            expect(decrypted).toEqual(exampleEncryptionInput)
+        })
+
+        it("should encrypt and decrypt binary data with non default chunk size", async () => {
+            const encryptionKey = "12d424724067e66bbfc80f0df651695792a42307e9507b2725600016c8dbc337"
+            const rawInput = new Uint8Array([5, 20, 70, 111, 111, 200, 0, 188, 5, 11, 122, 122])
+            const buffer = rawInput.buffer
+            const encrypted = await CryptoApi.encryptBinary(buffer, encryptionKey, 2)
+            const decrypted = await CryptoApi.decryptBinary(encrypted, encryptionKey, 2)
+
+            expect(encrypted).toMatch(/^AES-CBC:[a-f0-9]+:[a-f0-9]+$/)
+            expect(decrypted).toEqual(rawInput)
+        })
+
+        it("should encrypt and decrypt non utf string", async () => {
+            const encryptionKey = "12d424724067e66bbfc80f0df651695792a42307e9507b2725600016c8dbc337"
+            const encrypted = await CryptoApi.encryptString(exampleNonUtfEncryptionInput, encryptionKey, false)
+            const decrypted = await CryptoApi.decryptToString(encrypted, encryptionKey, false)
+
+            expect(encrypted).toMatch(/^AES-CBC:[a-f0-9]+:[a-f0-9]+$/)
+            expect(decrypted).toEqual(exampleNonUtfEncryptionInput)
         })
 
         it("should return proper error if algorithm is missing in input during decryption", async () => {
@@ -104,7 +152,7 @@ describe("Crypto API", () => {
             const encryptedInput =
                 ":bf66d5f956162efdf7ec67d158378605:5b596454dec31ee65fbbec8ef11f5a266227d35572c124461260b5909904ba41e2b43b6114ae351fa6d2181c9313bac8"
 
-            await expect(CryptoApi.decrypt(encryptedInput, encryptionKey)).rejects.toEqual(
+            await expect(CryptoApi.decryptToString(encryptedInput, encryptionKey, true)).rejects.toEqual(
                 new Error("Malformed encrypted input")
             )
         })
@@ -114,7 +162,7 @@ describe("Crypto API", () => {
             const encryptedInput =
                 "AES-CBC::5b596454dec31ee65fbbec8ef11f5a266227d35572c124461260b5909904ba41e2b43b6114ae351fa6d2181c9313bac8"
 
-            await expect(CryptoApi.decrypt(encryptedInput, encryptionKey)).rejects.toEqual(
+            await expect(CryptoApi.decryptToString(encryptedInput, encryptionKey, true)).rejects.toEqual(
                 new Error("Malformed encrypted input")
             )
         })
@@ -123,7 +171,7 @@ describe("Crypto API", () => {
             const encryptionKey = "12d424724067e66bbfc80f0df651695792a42307e9507b2725600016c8dbc337"
             const encryptedInput = "AES-CBC:bf66d5f956162efdf7ec67d158378605:"
 
-            await expect(CryptoApi.decrypt(encryptedInput, encryptionKey)).rejects.toEqual(
+            await expect(CryptoApi.decryptToString(encryptedInput, encryptionKey, true)).rejects.toEqual(
                 new Error("Malformed encrypted input")
             )
         })
@@ -133,7 +181,7 @@ describe("Crypto API", () => {
             const encryptedInput =
                 "FooBar:bf66d5f956162efdf7ec67d158378605:5b596454dec31ee65fbbec8ef11f5a266227d35572c124461260b5909904ba41e2b43b6114ae351fa6d2181c9313bac8"
 
-            await expect(CryptoApi.decrypt(encryptedInput, encryptionKey)).rejects.toEqual(
+            await expect(CryptoApi.decryptToString(encryptedInput, encryptionKey, true)).rejects.toEqual(
                 new Error("FooBar is not valid cipher")
             )
         })
@@ -210,6 +258,18 @@ describe("Crypto API", () => {
         it("should draw bytes with proper length", async () => {
             const result = await CryptoApi.randomBytes(18)
             expect(result).toMatch(/^[a-f0-9]{36}$/)
+        })
+    })
+
+    describe("digest", () => {
+        it("should compute string digest", async () => {
+            const result = await CryptoApi.digest(exampleEncryptionInput)
+            expect(result).toEqual("2e6bc4291fbe3a9420bd359cb9e7c9ec015e1a5704282448dd2fd376c8168974")
+        })
+
+        it("should compute string digest with non default chunk size", async () => {
+            const result = await CryptoApi.digest(exampleEncryptionInput, 2)
+            expect(result).toEqual("2e6bc4291fbe3a9420bd359cb9e7c9ec015e1a5704282448dd2fd376c8168974")
         })
     })
 })

@@ -4,13 +4,12 @@ import { AppState } from "../../../application/store"
 import { Dispatch } from "redux"
 import { loginAction, resetLoginResultAction } from "../store/Actions"
 import { connect } from "react-redux"
-import AlertBox from "../../../application/components/common/AlertBox"
 import LoginForm from "./LoginForm"
 import { Trans, WithTranslation, withTranslation } from "react-i18next"
-import capitalize from "lodash/capitalize"
 import { Link } from "@chakra-ui/layout"
 import { Link as RouterLink } from "react-router-dom"
 import UserFormBox from "./UserFormBox"
+import UnexpectedErrorMessage from "../../../application/components/common/UnexpectedErrorMessage"
 
 type Props = ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps> & WithTranslation
 
@@ -29,10 +28,9 @@ const LoginScreen: React.FC<Props> = ({ login, loginResult, resetLoginResult, t 
     return (
         <UserFormBox outsideElement={signUpLink}>
             {loginResult.status === "FAILED" && (
-                <AlertBox
-                    title={capitalize(t("common:unexpected-error"))}
-                    alertProps={{ status: "error", marginTop: "0.3rem" }}
-                    icon={true}
+                <UnexpectedErrorMessage
+                    error={loginResult.error}
+                    alertProps={{ marginTop: "0.3rem" }}
                     onClose={resetLoginResult}
                 />
             )}

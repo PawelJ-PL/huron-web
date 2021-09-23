@@ -20,7 +20,10 @@
         "cancel-imperative": "anuluj",
         "confirm-imperative": "potwierdź",
         "create-imperative": "stwórz",
-        "not-valid-date": "nieprawidłowa data"
+        "not-valid-date": "nieprawidłowa data",
+        "unknown-masculine": "nieznany",
+        "action-in-progress": "Akcja w toku",
+        "details": "szczegóły"
     },
     "error-pages": {
         "user-loading-failed": {
@@ -158,5 +161,67 @@
     "single-collection-view": {
         "loading-collection-data": "Wczytywanie danych kolekcji",
         "fetching-details-error-message": "Nie można wczytać danych kolekcji"
+    },
+    "file-view": {
+        "file-not-found-error": "Nie odnaleziono pliku",
+        "loader-title": "Wczytywanie danych o pliku lub katalogu",
+        "directory-content-list": {
+            "headers": {
+                "file-name": "Nazwa",
+                "updated-at": "Zmodyfikowany",
+                "type": "Typ",
+                "encrypted-size": "Rozmiar po zaszyfrowaniu"
+            },
+            "types": {
+                "directory": "folder"
+            },
+            "empty-directory-placeholder": "Pusty folder",
+            "create-directory": "Nowy folder",
+            "new-directory-name": "Nazwa katalogu",
+            "invalid-name": "Niepoprawna nazwa",
+            "file-already-exists": "Plik lub katalog o podanej nazwie już istnieje",
+            "upload-file-button-label": "Wgraj plik",
+            "dropzone-content": "Przeciągnij plik tutaj lub kliknij aby przeglądać",
+            "encrypt-and-send": "Zaszyfruj i wyślij",
+            "load-file-error": "Nie można wczytać pliku",
+            "file-rejection-errors": {
+                "file-too-large": "Plik zbyt duży. Maksymalny rozmiar wynosi {{maxSize}}",
+                "too-many-files": "Można wgrać tylko jeden plik"
+            },
+            "missing-encryption-key-message": "Aby można było zaszyfrować plik, należy najpierw odblokować klucz szyfrujący kolekcji",
+            "encrypted file to large": "Maksymalny rozmiar to {{maxSize}}, jednak plik po zaszyfrowaniu zajmuje {{realSize}}",
+            "file-actions-label": "Akcje",
+            "file-actions": {
+                "rename": "Zmiana nazwy",
+                "delete-file": "Skasuj",
+                "upload-new-version": "Wgraj nową wersję",
+                "download-file": "Pobierz plik"
+            },
+            "new-name-label": "Nowa nazwa",
+            "file-or-directory-count_one": "plik lub katalog",
+            "file-or-directory-count_few": "{{count}} pliki lub katalogi",
+            "file-or-directory-count_many": "{{count}} plików lub katalogów",
+            "delete-files-confirmation": "Czy na pewno usunąć",
+            "delete-recursively": "Usunąć niepuste katalogi",
+            "delete-recursively-not-allowed-error": "Nie można było usunąć katalogu, ponieważ nie był pusty",
+            "file-content-not-changed-error": "Zawartość pliku nie zmieniła się",
+            "download-in-progress-message": "Pobieranie i deszyfrowanie pliku"
+        },
+        "file-data": {
+            "attributes": {
+                "encrypted-size": "Rozmiar po zaszyfrowaniu",
+                "updated-at": "Zmodyfikowany",
+                "author": "Autor"
+            },
+            "account-deleted": "Konto skasowane",
+            "download-upload-unavailable": "Pobieranie i wgrywanie plików niedostępne, ponieważ klucz szyfrujący nie został odblokowany.",
+            "previous-versions": "Wcześniejsze wersje",
+            "loading-versions": "Wczytywanie wersji",
+            "version-actions": {
+                "delete": "Skasuj wersję",
+                "download": "Pobierz"
+            },
+            "delete-version-confirmation": "Czy na pewno chcesz skasować wskazaną wersję pliku?"
+        }
     }
 }

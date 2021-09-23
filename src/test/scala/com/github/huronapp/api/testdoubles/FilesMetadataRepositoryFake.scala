@@ -101,12 +101,18 @@ object FilesMetadataRepositoryFake {
         collectionId: collections.CollectionId,
         fileId: files.FileId,
         newParent: Option[Option[files.FileId]],
-        newName: Option[String]
+        newName: Option[String],
+        newDescription: Option[Option[String]]
       ): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
         ref.modify {
           state =>
             val maybeUpdatedObject = state.find(f => f.id === fileId && f.collectionId === collectionId).map {
-              case f: File      => f.copy(parentId = newParent.getOrElse(f.parentId), name = newName.getOrElse(f.name))
+              case f: File      =>
+                f.copy(
+                  parentId = newParent.getOrElse(f.parentId),
+                  name = newName.getOrElse(f.name),
+                  description = newDescription.getOrElse(f.description)
+                )
               case d: Directory => d.copy(parentId = newParent.getOrElse(d.parentId), name = newName.getOrElse(d.name))
             }
             val updateState = maybeUpdatedObject.map(updatedObj => state.filterNot(_.id === updatedObj.id) :+ updatedObj).getOrElse(state)

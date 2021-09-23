@@ -1,3 +1,5 @@
+import { filesEpics } from "./../../domain/file/store/Epics"
+import { filesReducer } from "./../../domain/file/store/Reducers"
 import { onStateChange } from "./../api/BaseClient"
 import { usersEpics } from "./../../domain/user/store/Epics"
 import { usersReducer } from "./../../domain/user/store/Reducers"
@@ -6,11 +8,11 @@ import { combineEpics, createEpicMiddleware } from "redux-observable"
 import { collectionsEpics } from "../../domain/collection/store/Epics"
 import { collectionsReducer } from "../../domain/collection/store/Reducers"
 
-const rootReducer = combineReducers({ users: usersReducer, collections: collectionsReducer })
+const rootReducer = combineReducers({ users: usersReducer, collections: collectionsReducer, files: filesReducer })
 
 export type AppState = ReturnType<typeof rootReducer>
 
-const rootEpic = combineEpics(usersEpics, collectionsEpics)
+const rootEpic = combineEpics(usersEpics, collectionsEpics, filesEpics)
 
 function configure() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

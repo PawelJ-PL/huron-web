@@ -1,17 +1,16 @@
 import { Box, Link, Text } from "@chakra-ui/layout"
 import { useToast } from "@chakra-ui/toast"
-import capitalize from "lodash/capitalize"
 import React, { useEffect } from "react"
 import { Trans, WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
 import { RouteComponentProps, withRouter } from "react-router"
 import { Dispatch } from "redux"
-import AlertBox from "../../../application/components/common/AlertBox"
 import { AppState } from "../../../application/store"
 import { clearPasswordResetRequestStatusAction, requestPasswordResetAction } from "../store/Actions"
 import RequestPasswordResetForm from "./RequestPasswordResetForm"
 import UserFormBox from "./UserFormBox"
 import { Link as RouterLink } from "react-router-dom"
+import UnexpectedErrorMessage from "../../../application/components/common/UnexpectedErrorMessage"
 
 const SUCCESS_TOAST_ID = "request-success"
 
@@ -60,11 +59,9 @@ export const RequestPasswordResetPage: React.FC<Props> = ({
         <UserFormBox outsideElement={loginLink}>
             <Box display="block">
                 {actionResult.status === "FAILED" && (
-                    <AlertBox
-                        title={capitalize(t("common:unexpected-error"))}
-                        icon={true}
-                        alertProps={{ status: "error", marginTop: "0.3rem" }}
-                        descriptionProps={{ textAlign: "center" }}
+                    <UnexpectedErrorMessage
+                        error={actionResult.error}
+                        alertProps={{ marginTop: "0.3rem" }}
                         onClose={clearStatus}
                     />
                 )}
