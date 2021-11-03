@@ -33,7 +33,8 @@ object HttpServer {
     appConfig <- ZManaged.service[AppConfig]
     routes    <- httpRoutes.toManaged_
     tracedRoutes = KamonServerMiddleware(routes, appConfig.server.bindAddress, appConfig.server.port)
-    server    <- BlazeServerBuilder[RouteEffect](runtime.platform.executor.asEC)
+    server    <- BlazeServerBuilder[RouteEffect]
+                   .withExecutionContext(runtime.platform.executor.asEC)
                    .bindHttp(appConfig.server.port, appConfig.server.bindAddress)
                    .withHttpApp(tracedRoutes.orNotFound)
                    .resource
