@@ -18,8 +18,7 @@ object CollectionsEndpoints extends BaseEndpoint {
 
   private val collectionsEndpoint: Endpoint[Unit, Unit, Unit, Any] = apiEndpoint.tag("collections").in("collections")
 
-  val listCollectionsEndpoint
-    : Endpoint[(AuthenticationInputs, Option[Boolean]), ErrorResponse, List[CollectionData], Any] =
+  val listCollectionsEndpoint: Endpoint[(AuthenticationInputs, Option[Boolean]), ErrorResponse, List[CollectionData], Any] =
     collectionsEndpoint
       .summary("List collections available to user")
       .get
