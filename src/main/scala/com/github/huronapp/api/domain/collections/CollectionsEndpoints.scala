@@ -16,10 +16,10 @@ import sttp.tapir.ztapir._
 
 object CollectionsEndpoints extends BaseEndpoint {
 
-  private val collectionsEndpoint: ZEndpoint[Unit, Unit, Unit] = apiEndpoint.tag("collections").in("collections")
+  private val collectionsEndpoint: Endpoint[Unit, Unit, Unit, Any] = apiEndpoint.tag("collections").in("collections")
 
   val listCollectionsEndpoint
-    : Endpoint[(AuthenticationInputs, Option[Boolean]), ErrorResponse, List[CollectionData], ZioStreams with capabilities.WebSockets] =
+    : Endpoint[(AuthenticationInputs, Option[Boolean]), ErrorResponse, List[CollectionData], Any] =
     collectionsEndpoint
       .summary("List collections available to user")
       .get
@@ -80,7 +80,7 @@ object CollectionsEndpoints extends BaseEndpoint {
       .out(jsonBody[List[EncryptionKeyData]])
       .errorOut(oneOf[ErrorResponse](unauthorized))
 
-  val endpoints: NonEmptyList[ZEndpoint[_, _, _]] =
+  val endpoints: NonEmptyList[Endpoint[_, _, _, ZioStreams with capabilities.WebSockets]] =
     NonEmptyList.of(
       listCollectionsEndpoint,
       getCollectionDetailsEndpoint,

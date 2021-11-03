@@ -48,7 +48,7 @@ import java.time.Instant
 
 object FilesEndpoints extends BaseEndpoint {
 
-  private val filesEndpoint: ZEndpoint[CollectionId, Unit, Unit] =
+  private val filesEndpoint: Endpoint[CollectionId, Unit, Unit, Any] =
     apiEndpoint.tag("files").in("collections" / path[CollectionId]("collectionId") / "files")
 
   object Responses {
@@ -477,7 +477,7 @@ object FilesEndpoints extends BaseEndpoint {
         )
       )
 
-  val endpoints: NonEmptyList[ZEndpoint[_, _, _]] = NonEmptyList.of(
+  val endpoints: NonEmptyList[Endpoint[_, _, _, ZioStreams with capabilities.WebSockets]] = NonEmptyList.of(
     createStorageUnitEndpoint,
     getStorageUnitEndpoint,
     getFileContent,

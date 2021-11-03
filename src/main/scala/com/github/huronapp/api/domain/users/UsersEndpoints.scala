@@ -31,7 +31,7 @@ import sttp.tapir.ztapir._
 
 object UsersEndpoints extends BaseEndpoint {
 
-  private val usersEndpoint: ZEndpoint[Unit, Unit, Unit] = apiEndpoint.tag("users").in("users")
+  private val usersEndpoint: Endpoint[Unit, Unit, Unit, Any] = apiEndpoint.tag("users").in("users")
 
   private val exampleKeypairInput = KeyPairDto(KeyAlgorithm.Rsa, PublicKey("rsa-public-key..."), PrivateKey("encrypted-rsa-private-key..."))
 
@@ -298,7 +298,7 @@ object UsersEndpoints extends BaseEndpoint {
         )
       )
 
-  val endpoints: NonEmptyList[ZEndpoint[_, _, _]] =
+  val endpoints: NonEmptyList[Endpoint[_, _, _, ZioStreams with capabilities.WebSockets]] =
     NonEmptyList.of(
       registerUserEndpoint,
       confirmRegistrationEndpoint,
