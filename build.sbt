@@ -140,7 +140,7 @@ val compilerOptions = scalacOptions ~= ciOptionsFilter.andThen(_ :+ "-Ymacro-ann
 val root = (project in file("."))
   .settings(
     name := "huron-web",
-    scalaVersion := "2.13.6",
+    scalaVersion := "2.13.7",
     compilerOptions,
     dependencies,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
