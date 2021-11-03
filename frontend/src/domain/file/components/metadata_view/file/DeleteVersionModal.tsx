@@ -1,6 +1,6 @@
 import { Button } from "@chakra-ui/button"
 import { Heading } from "@chakra-ui/layout"
-import { Modal, ModalBody, ModalContent, ModalFooter, ModalOverlay } from "@chakra-ui/modal"
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalOverlay } from "@chakra-ui/react"
 import React from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"

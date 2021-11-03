@@ -1,5 +1,5 @@
 import { Button, IconButton } from "@chakra-ui/button"
-import { Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/menu"
+import { Menu, MenuButton, MenuItem, MenuList } from "@chakra-ui/react"
 import React from "react"
 import { FileMetadata, FilesystemUnitMetadata } from "../../../types/FilesystemUnitMetadata"
 import { FaChevronDown } from "react-icons/fa"

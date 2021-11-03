@@ -8,13 +8,13 @@ import { dateLocaleForLang } from "../../../../application/localization/utils"
 import DatePicker from "react-datepicker"
 import { API_KEY_EXPIRATION_PICKER_INPUT, API_KEY_EXPIRATION_SWITCH } from "./testids"
 
-function extractDate(newDate: Date | [Date, Date] | null) {
+function extractDate(newDate: Date | [Date | null, Date | null] | null): Date {
     if (newDate === null) {
         return new Date()
     } else if (newDate instanceof Date) {
         return newDate
     } else {
-        return newDate[0]
+        return newDate[0] ?? new Date()
     }
 }
 

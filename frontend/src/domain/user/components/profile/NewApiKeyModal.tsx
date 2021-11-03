@@ -1,5 +1,5 @@
 import { FormControl, FormErrorMessage, FormLabel } from "@chakra-ui/form-control"
-import { Modal, ModalBody, ModalContent, ModalFooter, ModalOverlay } from "@chakra-ui/modal"
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalOverlay } from "@chakra-ui/react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import React, { useCallback } from "react"
 import { useForm } from "react-hook-form"

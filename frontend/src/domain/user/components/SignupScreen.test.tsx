@@ -6,7 +6,7 @@ import { i18nMock, tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { historyMock } from "../../../testutils/mocks/router-mock"
 import { toastMock } from "../../../testutils/mocks/toast-mock"
 import { SignupScreen } from "./SignupScreen"
-import * as chakraToast from "@chakra-ui/toast"
+import * as chakraToast from "@chakra-ui/react"
 
 // eslint-disable-next-line react/display-name
 jest.mock("./SignupForm", () => () => <div></div>)

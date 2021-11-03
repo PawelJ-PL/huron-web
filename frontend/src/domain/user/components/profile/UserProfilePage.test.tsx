@@ -3,7 +3,7 @@ import React from "react"
 import { exampleHashedEmail, exampleUserId, exampleUserNickname } from "../../../../testutils/constants/user"
 import { tFunctionMock } from "../../../../testutils/mocks/i18n-mock"
 import { UserProfilePage } from "./UserProfilePage"
-import * as chakraToast from "@chakra-ui/toast"
+import * as chakraToast from "@chakra-ui/react"
 import { toastMock } from "../../../../testutils/mocks/toast-mock"
 
 // eslint-disable-next-line react/display-name

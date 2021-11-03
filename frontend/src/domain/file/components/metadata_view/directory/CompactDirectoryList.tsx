@@ -1,4 +1,4 @@
-import { Checkbox } from "@chakra-ui/checkbox"
+import { Checkbox } from "@chakra-ui/react"
 import { Box, Divider, Flex, Heading, Text } from "@chakra-ui/layout"
 import React, { useEffect } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"

@@ -3,7 +3,7 @@ import React from "react"
 import { exampleApiKey } from "../../../../testutils/constants/user"
 import { i18nMock, tFunctionMock } from "../../../../testutils/mocks/i18n-mock"
 import { ApiKeyList } from "./ApiKeysList"
-import * as chakraToast from "@chakra-ui/toast"
+import * as chakraToast from "@chakra-ui/react"
 import { toastMock } from "../../../../testutils/mocks/toast-mock"
 
 // eslint-disable-next-line react/display-name

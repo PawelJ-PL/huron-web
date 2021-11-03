@@ -1,6 +1,6 @@
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink } from "@chakra-ui/breadcrumb"
 import { Text } from "@chakra-ui/layout"
-import { Tooltip } from "@chakra-ui/tooltip"
+import { Tooltip } from "@chakra-ui/react"
 import React from "react"
 import { Link } from "react-router-dom"
 import { Collection } from "../../../collection/types/Collection"
