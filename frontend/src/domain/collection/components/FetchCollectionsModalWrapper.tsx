@@ -1,4 +1,4 @@
-import { Modal, ModalBody, ModalContent, ModalHeader, ModalOverlay } from "@chakra-ui/modal"
+import { Modal, ModalBody, ModalContent, ModalHeader, ModalOverlay } from "@chakra-ui/react"
 import React, { useEffect } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"

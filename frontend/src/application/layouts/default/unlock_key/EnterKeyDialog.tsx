@@ -1,6 +1,6 @@
 import { Button } from "@chakra-ui/button"
 import { Input } from "@chakra-ui/input"
-import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "@chakra-ui/modal"
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "@chakra-ui/react"
 import { capitalize } from "lodash"
 import React, { useState } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"

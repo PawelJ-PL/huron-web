@@ -1,7 +1,7 @@
 import { Button } from "@chakra-ui/button"
 import { FormControl, FormErrorMessage } from "@chakra-ui/form-control"
 import { Input } from "@chakra-ui/input"
-import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "@chakra-ui/modal"
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "@chakra-ui/react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import capitalize from "lodash/capitalize"
 import React from "react"

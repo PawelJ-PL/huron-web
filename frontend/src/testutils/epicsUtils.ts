@@ -1,8 +1,8 @@
-import { ActionsObservable, Epic, StateObservable } from "redux-observable"
+import { Epic, StateObservable } from "redux-observable"
 import { Action } from "typescript-fsa"
 import { AppState } from "../application/store"
 import { TestScheduler } from "rxjs/testing"
-import { Subject } from "rxjs"
+import { firstValueFrom, Observable, Subject, of } from "rxjs"
 import { AnyAction } from "redux"
 
 export const verifyEpic: (
@@ -20,9 +20,8 @@ export const verifyEpic: (
 
     testScheduler.run(({ hot, expectObservable }) => {
         const input$ = hot("-a", { a: action })
-        const action$ = new ActionsObservable(input$)
         const state$ = new StateObservable(new Subject<AppState>(), state)
-        const result = epic(action$, state$, {})
+        const result = epic(input$, state$, {})
 
         expectObservable(result).toBe(expected.marbles, expected.values, expected.error)
     })
@@ -34,10 +33,10 @@ export function verifyAsyncEpic<T>(
     state: AppState,
     expectedAction: Action<T>
 ): Promise<Action<T>> {
-    const action$ = ActionsObservable.of(action)
+    const action$: Observable<AnyAction> = of(action)
     const state$ = new StateObservable(new Subject<AppState>(), state)
     const result = epic(action$, state$, {})
-    return result.toPromise().then((a) => {
+    return firstValueFrom(result).then((a) => {
         expect(a).toStrictEqual(expectedAction)
         return a as Action<T>
     })

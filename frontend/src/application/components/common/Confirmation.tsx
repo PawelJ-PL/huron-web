@@ -1,5 +1,5 @@
 import { Button } from "@chakra-ui/button"
-import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "@chakra-ui/modal"
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "@chakra-ui/react"
 import React from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import capitalize from "lodash/capitalize"

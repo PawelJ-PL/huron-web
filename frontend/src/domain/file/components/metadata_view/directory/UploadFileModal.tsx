@@ -1,4 +1,4 @@
-import { Modal, ModalBody, ModalContent, ModalFooter, ModalOverlay } from "@chakra-ui/modal"
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalOverlay } from "@chakra-ui/react"
 import React, { useState } from "react"
 import { FileError, useDropzone } from "react-dropzone"
 import { Box } from "@chakra-ui/layout"

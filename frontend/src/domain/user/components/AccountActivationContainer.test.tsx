@@ -4,7 +4,7 @@ import { LOADER_PAGE } from "../../../application/pages/testids"
 import { i18nMock, tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { historyMock } from "../../../testutils/mocks/router-mock"
 import { AccountActivationContainer } from "./AccountActivationContainer"
-import * as chakraToast from "@chakra-ui/toast"
+import * as chakraToast from "@chakra-ui/react"
 import { toastMock } from "../../../testutils/mocks/toast-mock"
 
 describe("Account activation container", () => {

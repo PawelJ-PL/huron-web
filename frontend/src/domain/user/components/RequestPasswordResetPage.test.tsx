@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router"
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { historyMock } from "../../../testutils/mocks/router-mock"
 import { RequestPasswordResetPage } from "./RequestPasswordResetPage"
-import * as chakraToast from "@chakra-ui/toast"
+import * as chakraToast from "@chakra-ui/react"
 import { toastMock } from "../../../testutils/mocks/toast-mock"
 
 // eslint-disable-next-line react/display-name

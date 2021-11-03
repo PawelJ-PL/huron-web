@@ -1,5 +1,5 @@
 import { Box, Link, Text } from "@chakra-ui/layout"
-import { useToast } from "@chakra-ui/toast"
+import { useToast } from "@chakra-ui/react"
 import capitalize from "lodash/capitalize"
 import React, { useEffect } from "react"
 import { Trans, WithTranslation, withTranslation } from "react-i18next"
