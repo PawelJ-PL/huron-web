@@ -1,34 +1,50 @@
 package com.github.huronapp.api.domain.users
 
 import cats.data.Chain
+import cats.syntax.show._
 import com.github.huronapp.api.auth.authorization.types.Subject
 import com.github.huronapp.api.auth.authorization.{OperationNotPermitted, SetEncryptionKey}
 import com.github.huronapp.api.constants.{Collections, Config, MiscConstants, Users}
 import com.github.huronapp.api.domain.collections.dto.EncryptionKeyData
 import com.github.huronapp.api.domain.users.UsersRoutes.UserRoutes
-import com.github.huronapp.api.domain.users.dto.fields.{ApiKeyDescription, Nickname, Password, PrivateKey, PublicKey, KeyPair => KeyPairDto}
+import com.github.huronapp.api.domain.users.dto.fields.{
+  ApiKeyDescription,
+  ContactAlias,
+  Nickname,
+  Password,
+  PrivateKey,
+  PublicKey,
+  KeyPair => KeyPairDto
+}
 import com.github.huronapp.api.domain.users.dto.{
   ApiKeyDataResp,
   GeneratePasswordResetReq,
   LoginReq,
+  NewContactReq,
   NewPersonalApiKeyReq,
   NewUserReq,
   PasswordResetReq,
+  PatchContactReq,
   PatchUserDataReq,
+  PublicUserContactResp,
+  PublicUserDataResp,
   UpdateApiKeyDataReq,
   UpdatePasswordReq,
+  UserContactResponse,
   UserDataResp
 }
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import com.github.huronapp.api.http.ErrorResponse
+import com.github.huronapp.api.http.pagination.PaginationEnvelope
 import com.github.huronapp.api.testdoubles.HttpAuthenticationFake.validAuthHeader
 import com.github.huronapp.api.testdoubles.{HttpAuthenticationFake, LoggerFake, RandomUtilsStub, SessionRepoFake, UsersServiceStub}
+import com.github.huronapp.api.utils.OptionalValue
 import io.circe.Json
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.implicits._
 import org.http4s.{Header, Headers, Method, Request, ResponseCookie, Status, Uri}
-import org.typelevel.ci.CIString
+import org.typelevel.ci.{CIString, CIStringSyntax}
 import zio.clock.Clock
 import zio.{Ref, ZIO, ZLayer}
 import zio.interop.catz._
@@ -56,7 +72,15 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
     suite("Users routes suite")(
       decodingFailureHandling,
       registerUser,
-      registerUserWithConflict,
+      registerUserWithEmailConflict,
+      registerUserWithNickNameConflict,
+      findUsersByNickname,
+      findUsersByNicknameWithNonTrimmedFilter,
+      findUsersByNicknameWithTooShortNickname,
+      findUsersByNicknameWithTooSmallLimit,
+      findUsersByNicknameWithTooBigLimit,
+      findUsersByNicknameWithNonPositivePage,
+      findUsersByNicknameUnauthorized,
       confirmRegistration,
       confirmRegistrationWithInvalidToken,
       confirmRegistrationWithAlreadyConfirmed,
@@ -71,8 +95,12 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       userDataAuthenticatedWithApiKey,
       userDataNotFound,
       userDataUnauthorized,
+      userPublicData,
+      userPublicDataUserNotFound,
+      userPublicDataUnauthorized,
       updateUserData,
       updateUserDataNoUpdates,
+      updateUserDataNickNameConflict,
       updateUserDataUserNotFound,
       updateUserDataUserUnauthorized,
       changePassword,
@@ -106,7 +134,29 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       updateApiKeyUnauthorized,
       getKeyPairs,
       getNonExistingKeyPairs,
-      getKeyPairsUnauthorized
+      getKeyPairsUnauthorized,
+      createContact,
+      createContactUserNotFound,
+      createContactAliasConflict,
+      createContactConflict,
+      createContactAddSelf,
+      createContactUnauthorized,
+      listContacts,
+      listContactsWithTooSmallLimit,
+      listContactsWithTooHighLimit,
+      listContactsUnauthorized,
+      editContact,
+      editContactNoUpdated,
+      editContactAliasExists,
+      editContactNotFound,
+      editContactUnauthorized,
+      returnStandardPageHeaders,
+      returnStandardPageHeadersNonDefaultValues,
+      previousPageHeader,
+      previousPageOnFirstPage,
+      previousPageHeaderOutOfRange,
+      nextPageHeader,
+      nextPageOnLastPage
     )
 
   private val exampleSession = UserSession(ExampleFuuid1, ExampleUserId, ExampleFuuid2, Instant.EPOCH)
@@ -131,6 +181,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
 
   private val encryptionKeyData = EncryptionKeyData(ExampleCollectionId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion)
 
+  private val editContactDto = PatchContactReq(Some(OptionalValue.of(ContactAlias("newAlias"))))
+
   private val registerUser = testM("should generate response on registration success") {
     val dto =
       NewUserReq(Nickname(ExampleUserNickName), ExampleUserEmail, Password(ExampleUserPassword), Some(ExampleUserLanguage), keyPairDto)
@@ -150,7 +202,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
   }
 
-  private val registerUserWithConflict = testM("should generate response on registration conflict") {
+  private val registerUserWithEmailConflict = testM("should generate response on registration email conflict") {
     val dto =
       NewUserReq(Nickname(ExampleUserNickName), ExampleUserEmail, Password(ExampleUserPassword), Some(ExampleUserLanguage), keyPairDto)
 
@@ -166,12 +218,164 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.Conflict)) &&
-      assert(body)(equalTo(ErrorResponse.Conflict("Email already registered"))) &&
+      assert(body)(equalTo(ErrorResponse.Conflict("Email already registered", Some("EmailAlreadyRegistered")))) &&
       assert(loggedMessages)(
         equalTo(Chain.one("Unable to register user: Email with digest digest(alice@example.org) already registered"))
       ) &&
       assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
   }
+
+  private val registerUserWithNickNameConflict = testM("should generate response on registration nickname conflict") {
+    val dto =
+      NewUserReq(Nickname(ExampleUserNickName), ExampleUserEmail, Password(ExampleUserPassword), Some(ExampleUserLanguage), keyPairDto)
+
+    val responses = UsersServiceStub.UsersServiceResponses(createUser = ZIO.fail(NickNameAlreadyRegistered(ExampleUserNickName)))
+
+    for {
+      sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users").withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.Conflict]
+      loggedMessages   <- logs.get
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.Conflict)) &&
+      assert(body)(equalTo(ErrorResponse.Conflict("Nickname already registered", Some("NickNameAlreadyRegistered")))) &&
+      assert(loggedMessages)(
+        equalTo(Chain.one(show"Unable to register user: Nickname $ExampleUserNickName already registered"))
+      ) &&
+      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+  }
+
+  private val findUsersByNickname = testM("should generate response on users by nickname search") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    for {
+      sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa")
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[List[PublicUserDataResp]]
+      loggedMessages   <- logs.get
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(
+        equalTo(List(PublicUserDataResp(ExampleUserId, ExampleUserNickName, Some(PublicUserContactResp(ExampleContact.alias)))))
+      ) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+  }
+
+  private val findUsersByNicknameWithNonTrimmedFilter =
+    testM("should generate response on users by nickname search with non trimmed filter") {
+      val responses = UsersServiceStub.UsersServiceResponses()
+
+      for {
+        sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
+        logs             <- Ref.make(Chain.empty[String])
+        routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaa ")
+        req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+        result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+        loggedMessages   <- logs.get
+        finalSessionRepo <- sessionRepo.get
+      } yield assert(result.status)(equalTo(Status.BadRequest)) &&
+        assert(loggedMessages)(equalTo(Chain.empty)) &&
+        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    }
+
+  private val findUsersByNicknameWithTooShortNickname =
+    testM("should generate response on users by nickname search with too short nickname") {
+      val responses = UsersServiceStub.UsersServiceResponses()
+
+      for {
+        sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
+        logs             <- Ref.make(Chain.empty[String])
+        routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aa")
+        req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+        result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+        loggedMessages   <- logs.get
+        finalSessionRepo <- sessionRepo.get
+      } yield assert(result.status)(equalTo(Status.BadRequest)) &&
+        assert(loggedMessages)(equalTo(Chain.empty)) &&
+        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    }
+
+  private val findUsersByNicknameWithTooSmallLimit =
+    testM("should generate response on users by nickname search with too small limit") {
+      val responses = UsersServiceStub.UsersServiceResponses()
+
+      for {
+        sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
+        logs             <- Ref.make(Chain.empty[String])
+        routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaa").withQueryParam("limit", 0)
+        req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+        result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+        loggedMessages   <- logs.get
+        finalSessionRepo <- sessionRepo.get
+      } yield assert(result.status)(equalTo(Status.BadRequest)) &&
+        assert(loggedMessages)(equalTo(Chain.empty)) &&
+        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    }
+
+  private val findUsersByNicknameWithTooBigLimit =
+    testM("should generate response on users by nickname search with too big limit") {
+      val responses = UsersServiceStub.UsersServiceResponses()
+
+      for {
+        sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
+        logs             <- Ref.make(Chain.empty[String])
+        routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaa").withQueryParam("limit", 11)
+        req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+        result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+        loggedMessages   <- logs.get
+        finalSessionRepo <- sessionRepo.get
+      } yield assert(result.status)(equalTo(Status.BadRequest)) &&
+        assert(loggedMessages)(equalTo(Chain.empty)) &&
+        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    }
+
+  private val findUsersByNicknameWithNonPositivePage =
+    testM("should generate response on users by nickname search with non positive page number") {
+      val responses = UsersServiceStub.UsersServiceResponses()
+
+      for {
+        sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
+        logs             <- Ref.make(Chain.empty[String])
+        routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaa").withQueryParam("page", 0)
+        req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+        result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+        loggedMessages   <- logs.get
+        finalSessionRepo <- sessionRepo.get
+      } yield assert(result.status)(equalTo(Status.BadRequest)) &&
+        assert(loggedMessages)(equalTo(Chain.empty)) &&
+        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    }
+
+  private val findUsersByNicknameUnauthorized =
+    testM("should generate response on users by nickname search when user not logged in") {
+      val responses = UsersServiceStub.UsersServiceResponses()
+
+      for {
+        sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
+        logs             <- Ref.make(Chain.empty[String])
+        routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa")
+        req = Request[RouteEffect](method = Method.GET, uri = uri)
+        result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+        loggedMessages   <- logs.get
+        finalSessionRepo <- sessionRepo.get
+      } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+        assert(loggedMessages)(equalTo(Chain.empty)) &&
+        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    }
 
   private val confirmRegistration = testM("should generate response on signup confirmation success") {
     val responses = UsersServiceStub.UsersServiceResponses()
@@ -456,6 +660,60 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }
 
+  private val userPublicData = testM("should generate response for user public data") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.GET, uri = Uri.unsafeFromString(show"/api/v1/users/${ExampleContact.contactId}/data"))
+              .withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[PublicUserDataResp]
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(equalTo(PublicUserDataResp(ExampleContact.contactId, "user2", Some(PublicUserContactResp(ExampleContact.alias))))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val userPublicDataUserNotFound = testM("should generate response for user public data if user not found") {
+    val responses = UsersServiceStub.UsersServiceResponses(contactData = ZIO.none)
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.GET, uri = Uri.unsafeFromString(show"/api/v1/users/${ExampleContact.contactId}/data"))
+              .withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.NotFound]
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.NotFound)) &&
+      assert(body)(equalTo(ErrorResponse.NotFound("User not found"))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val userPublicDataUnauthorized = testM("should generate response for user public data if user is not logged in") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.GET, uri = Uri.unsafeFromString(show"/api/v1/users/${ExampleContact.contactId}/data"))
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
   private val updateUserData = testM("should generate response for user data update") {
     val dto = PatchUserDataReq(nickName = Some(Nickname("NewName")), language = None)
 
@@ -493,6 +751,26 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       finalSessionRepo <- sessionRepo.get
     } yield assert(result.status)(equalTo(Status.BadRequest)) &&
       assert(body)(equalTo(ErrorResponse.BadRequest("No updates in request"))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val updateUserDataNickNameConflict = testM("should generate response for user data update if nickname already registered") {
+    val dto = PatchUserDataReq(nickName = None, language = None)
+
+    val responses = UsersServiceStub.UsersServiceResponses(patchUser = ZIO.fail(NickNameAlreadyRegistered(ExampleUserNickName)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.PATCH, uri = uri"/api/v1/users/me/data").withHeaders(validAuthHeader).withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.Conflict]
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.Conflict)) &&
+      assert(body)(equalTo(ErrorResponse.Conflict("Nickname already registered", Some("NickNameAlreadyRegistered")))) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
   }
 
@@ -1215,6 +1493,432 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
     } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
       assert(loggedMessages)(equalTo(Chain.empty)) &&
       assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val createContact = testM("should generate response for create contact action") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val dto = NewContactReq(ExampleContact.contactId, ExampleContact.alias.map(ContactAlias(_)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/contacts").withHeaders(validAuthHeader).withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[UserContactResponse]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(equalTo(UserContactResponse(ExampleContact.contactId, "user2", ExampleContact.alias))) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val createContactUserNotFound = testM("should generate response for create contact action when user not found") {
+    val responses = UsersServiceStub.UsersServiceResponses(createContact = ZIO.fail(UserNotFound(ExampleContact.contactId)))
+
+    val dto = NewContactReq(ExampleContact.contactId, ExampleContact.alias.map(ContactAlias(_)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/contacts").withHeaders(validAuthHeader).withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.NotFound]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.NotFound)) &&
+      assert(body)(equalTo(ErrorResponse.NotFound("User not found"))) &&
+      assert(loggedMessages)(equalTo(Chain.one(show"Unable to create contact: User with id ${ExampleContact.contactId} not found"))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val createContactAliasConflict = testM("should generate response for create contact action when alias already used") {
+    val responses =
+      UsersServiceStub.UsersServiceResponses(createContact = ZIO.fail(ContactAliasAlreadyExists(ExampleUserId, "Bob", ExampleFuuid1)))
+
+    val dto = NewContactReq(ExampleContact.contactId, ExampleContact.alias.map(ContactAlias(_)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/contacts").withHeaders(validAuthHeader).withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.Conflict]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Conflict)) &&
+      assert(body)(equalTo(ErrorResponse.Conflict("Contact alias already exists", Some("ContactAliasAlreadyExists")))) &&
+      assert(loggedMessages)(
+        equalTo(
+          Chain.one(show"Unable to create contact: User $ExampleUserId already has contact with alias Bob related to user $ExampleFuuid1")
+        )
+      ) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val createContactConflict = testM("should generate response for create contact action when contact already exists") {
+    val responses =
+      UsersServiceStub.UsersServiceResponses(createContact = ZIO.fail(ContactAlreadyExists(ExampleUserId, ExampleContact.contactId)))
+
+    val dto = NewContactReq(ExampleContact.contactId, ExampleContact.alias.map(ContactAlias(_)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/contacts").withHeaders(validAuthHeader).withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.Conflict]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Conflict)) &&
+      assert(body)(equalTo(ErrorResponse.Conflict("Contact already exists", Some("ContactAlreadyExists")))) &&
+      assert(loggedMessages)(
+        equalTo(
+          Chain.one(show"Unable to create contact: User $ExampleUserId has already saved contact with user ${ExampleContact.contactId}")
+        )
+      ) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val createContactAddSelf = testM("should generate response for create contact action when user add self") {
+    val responses =
+      UsersServiceStub.UsersServiceResponses(createContact = ZIO.fail(ForbiddenSelfToContacts(ExampleUserId)))
+
+    val dto = NewContactReq(ExampleContact.contactId, ExampleContact.alias.map(ContactAlias(_)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/contacts").withHeaders(validAuthHeader).withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.PreconditionFailed]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
+      assert(body)(equalTo(ErrorResponse.PreconditionFailed("Unable to add self to contacts", Some("AddSelfToContacts")))) &&
+      assert(loggedMessages)(
+        equalTo(
+          Chain.one(show"Unable to create contact: User $ExampleUserId trying to add self to contacts")
+        )
+      ) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val createContactUnauthorized = testM("should generate response for create contact action when user not logged in") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val dto = NewContactReq(ExampleContact.contactId, ExampleContact.alias.map(ContactAlias(_)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/contacts").withEntity(dto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val listContacts = testM("should generate response for list contacts") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    for {
+      sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs        <- Ref.make(Chain.empty[String])
+      routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users/me/contacts"
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body        <- result.as[List[UserContactResponse]]
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(
+        equalTo(List(UserContactResponse(ExampleUserId, ExampleUserNickName, ExampleContact.alias)))
+      )
+  }
+
+  private val listContactsWithTooSmallLimit = testM("should generate response for list contacts with too small limit") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    for {
+      sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs        <- Ref.make(Chain.empty[String])
+      routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users/me/contacts".withQueryParam("limit", 0)
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+    } yield assert(result.status)(equalTo(Status.BadRequest))
+  }
+
+  private val listContactsWithTooHighLimit = testM("should generate response for list contacts with too high limit") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    for {
+      sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs        <- Ref.make(Chain.empty[String])
+      routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users/me/contacts".withQueryParam("limit", 101)
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+    } yield assert(result.status)(equalTo(Status.BadRequest))
+  }
+
+  private val listContactsUnauthorized = testM("should generate response for list contacts if user not logged in") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    for {
+      sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs        <- Ref.make(Chain.empty[String])
+      routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users/me/contacts"
+      req = Request[RouteEffect](method = Method.GET, uri = uri)
+      result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+    } yield assert(result.status)(equalTo(Status.Unauthorized))
+  }
+
+  private val editContact = testM("should generate response for edit contact action") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users/me/contacts".addPath(ExampleContact.contactId.show)
+      req = Request[RouteEffect](method = Method.PATCH, uri = uri).withHeaders(validAuthHeader).withEntity(editContactDto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[UserContactResponse]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(equalTo(UserContactResponse(ExampleFuuid1, ExampleUser.nickName, ExampleContact.alias))) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val editContactNoUpdated = testM("should generate response for edit contact action if no updates provided") {
+    val dto = PatchContactReq(None)
+
+    val responses = UsersServiceStub.UsersServiceResponses(editContact = ZIO.fail(NoUpdates("contact", ExampleUser.id, dto)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users/me/contacts".addPath(ExampleContact.contactId.show)
+      req = Request[RouteEffect](method = Method.PATCH, uri = uri).withHeaders(validAuthHeader).withEntity(editContactDto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.BadRequest]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.BadRequest)) &&
+      assert(body)(equalTo(ErrorResponse.BadRequest("No updates in request"))) &&
+      assert(loggedMessages)(equalTo(Chain.one(show"Unable to update contact data: No updates provided for contact ${ExampleUser.id}"))) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val editContactAliasExists = testM("should generate response for edit contact action if alias exists") {
+    val responses = UsersServiceStub.UsersServiceResponses(editContact =
+      ZIO.fail(ContactAliasAlreadyExists(ExampleUserId, "someAlias", ExampleContact.contactId))
+    )
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users/me/contacts".addPath(ExampleContact.contactId.show)
+      req = Request[RouteEffect](method = Method.PATCH, uri = uri).withHeaders(validAuthHeader).withEntity(editContactDto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.Conflict]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Conflict)) &&
+      assert(body)(equalTo(ErrorResponse.Conflict("Contact alias already exists", Some("ContactAliasAlreadyExists")))) &&
+      assert(loggedMessages)(
+        equalTo(
+          Chain.one(
+            show"Unable to update contact data: User $ExampleUserId already has contact with alias someAlias related to user ${ExampleContact.contactId}"
+          )
+        )
+      ) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val editContactNotFound = testM("should generate response for edit contact action if contact not found") {
+    val responses = UsersServiceStub.UsersServiceResponses(editContact = ZIO.fail(ContactNotFound(ExampleUserId, ExampleContact.contactId)))
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users/me/contacts".addPath(ExampleContact.contactId.show)
+      req = Request[RouteEffect](method = Method.PATCH, uri = uri).withHeaders(validAuthHeader).withEntity(editContactDto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[ErrorResponse.NotFound]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.NotFound)) &&
+      assert(body)(equalTo(ErrorResponse.NotFound("Contact not found"))) &&
+      assert(loggedMessages)(
+        equalTo(
+          Chain.one(
+            show"Unable to update contact data: User $ExampleUserId has no contact with user ${ExampleContact.contactId}"
+          )
+        )
+      ) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val editContactUnauthorized = testM("should generate response for edit contact action if user not logged in") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users/me/contacts".addPath(ExampleContact.contactId.show)
+      req = Request[RouteEffect](method = Method.PATCH, uri = uri).withEntity(editContactDto)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(initSessionRepo))
+  }
+
+  private val returnStandardPageHeaders = testM("should generate response with standard pagination headers with default values") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    for {
+      sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs        <- Ref.make(Chain.empty[String])
+      routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa")
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(result.headers.get(ci"X-Page").map(_.head.value))(isSome(equalTo("1"))) &&
+      assert(result.headers.get(ci"X-Elements-Per-Page").map(_.head.value))(isSome(equalTo("5"))) &&
+      assert(result.headers.get(ci"X-Total-Pages").map(_.head.value))(isSome(equalTo("1")))
+  }
+
+  private val returnStandardPageHeadersNonDefaultValues =
+    testM("should generate response with standard pagination headers with non default values") {
+      val responses =
+        UsersServiceStub.UsersServiceResponses(findUser =
+          ZIO.succeed(PaginationEnvelope(List((ExampleUser, None), (ExampleUser, None), (ExampleUser, None)), 17L))
+        )
+
+      for {
+        sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
+        logs        <- Ref.make(Chain.empty[String])
+        routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa").withQueryParam("page", 3).withQueryParam("limit", 3)
+        req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+        result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      } yield assert(result.status)(equalTo(Status.Ok)) &&
+        assert(result.headers.get(ci"X-Page").map(_.head.value))(isSome(equalTo("3"))) &&
+        assert(result.headers.get(ci"X-Elements-Per-Page").map(_.head.value))(isSome(equalTo("3"))) &&
+        assert(result.headers.get(ci"X-Total-Pages").map(_.head.value))(isSome(equalTo("6")))
+    }
+
+  private val previousPageHeader = testM("should generate response with X-Prev-Page header") {
+    val responses =
+      UsersServiceStub.UsersServiceResponses(findUser =
+        ZIO.succeed(PaginationEnvelope(List((ExampleUser, None), (ExampleUser, None), (ExampleUser, None)), 17L))
+      )
+
+    for {
+      sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs        <- Ref.make(Chain.empty[String])
+      routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa").withQueryParam("page", 3).withQueryParam("limit", 3)
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(result.headers.get(ci"X-Prev-Page").map(_.head.value))(isSome(equalTo("2")))
+  }
+
+  private val previousPageOnFirstPage = testM("should generate response without X-Prev-Page header on first page") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    for {
+      sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs        <- Ref.make(Chain.empty[String])
+      routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa")
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(result.headers.get(ci"X-Prev-Page"))(isNone)
+  }
+
+  private val previousPageHeaderOutOfRange =
+    testM("should generate response without X-Prev-Page header if current and previous pages are out of range") {
+      val responses =
+        UsersServiceStub.UsersServiceResponses(findUser = ZIO.succeed(PaginationEnvelope(List.empty, 17L)))
+
+      for {
+        sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
+        logs        <- Ref.make(Chain.empty[String])
+        routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa").withQueryParam("page", 30).withQueryParam("limit", 3)
+        req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+        result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      } yield assert(result.status)(equalTo(Status.Ok)) &&
+        assert(result.headers.get(ci"X-Prev-Page"))(isNone)
+    }
+
+  private val nextPageHeader = testM("should generate response with X-Next-Page header") {
+    val responses =
+      UsersServiceStub.UsersServiceResponses(findUser =
+        ZIO.succeed(PaginationEnvelope(List((ExampleUser, None), (ExampleUser, None), (ExampleUser, None)), 17L))
+      )
+
+    for {
+      sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs        <- Ref.make(Chain.empty[String])
+      routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa").withQueryParam("page", 3).withQueryParam("limit", 3)
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(result.headers.get(ci"X-Next-Page").map(_.head.value))(isSome(equalTo("4")))
+  }
+
+  private val nextPageOnLastPage = testM("should generate response without X-Next-Page header on last page") {
+    val responses =
+      UsersServiceStub.UsersServiceResponses(findUser =
+        ZIO.succeed(PaginationEnvelope(List((ExampleUser, None), (ExampleUser, None)), 17L))
+      )
+
+    for {
+      sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs        <- Ref.make(Chain.empty[String])
+      routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa").withQueryParam("page", 6).withQueryParam("limit", 3)
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(result.headers.get(ci"X-Next-Page"))(isNone)
   }
 
 }

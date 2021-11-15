@@ -8,7 +8,7 @@ object FileErrorMapping {
   def createDirectoryError(error: CreateDirectoryError): ErrorResponse =
     error match {
       case _: AuthorizationError                        => ErrorResponse.Forbidden("Operation not permitted")
-      case FileAlreadyExists(_, _, fileName)            => ErrorResponse.Conflict(show"File or directory $fileName already exists")
+      case FileAlreadyExists(_, _, fileName)            => ErrorResponse.Conflict(show"File or directory $fileName already exists", None)
       case ParentNotFound(collectionId, parentId)       => FilesEndpoints.Responses.parentNotFound(collectionId, parentId)
       case ParentIsNotDirectory(collectionId, parentId) => FilesEndpoints.Responses.notDirectory(collectionId, parentId)
     }
@@ -16,7 +16,7 @@ object FileErrorMapping {
   def createFileError(error: CreateFileError): ErrorResponse =
     error match {
       case _: AuthorizationError                                               => ErrorResponse.Forbidden("Operation not permitted")
-      case FileAlreadyExists(_, _, fileName)                                   => ErrorResponse.Conflict(show"File or directory $fileName already exists")
+      case FileAlreadyExists(_, _, fileName)                                   => ErrorResponse.Conflict(show"File or directory $fileName already exists", None)
       case ParentNotFound(collectionId, parentId)                              => FilesEndpoints.Responses.parentNotFound(collectionId, parentId)
       case ParentIsNotDirectory(collectionId, parentId)                        => FilesEndpoints.Responses.notDirectory(collectionId, parentId)
       case EncryptionKeyVersionMismatch(collectionId, providedKey, currentKey) =>
@@ -50,7 +50,7 @@ object FileErrorMapping {
       case ParentIsNotDirectory(collectionId, parentId)           => FilesEndpoints.Responses.notDirectory(collectionId, parentId)
       case ParentNotFound(collectionId, parentId)                 => FilesEndpoints.Responses.parentNotFound(collectionId, parentId)
       case _: AuthorizationError                                  => ErrorResponse.Forbidden("Operation not permitted")
-      case FileAlreadyExists(_, _, fileName)                      => ErrorResponse.Conflict(show"File or directory $fileName already exists")
+      case FileAlreadyExists(_, _, fileName)                      => ErrorResponse.Conflict(show"File or directory $fileName already exists", None)
       case _: FileNotFound                                        => ErrorResponse.NotFound("File or directory not found")
       case _: NoUpdates[_]                                        => ErrorResponse.BadRequest("No updates in request")
       case _: NewParentSetToSelf                                  => ErrorResponse.BadRequest("New parent set to self")

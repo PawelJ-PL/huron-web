@@ -30,7 +30,7 @@ object ErrorResponse {
 
   }
 
-  final case class Conflict(message: String) extends ErrorResponse
+  final case class Conflict(message: String, reason: Option[String]) extends ErrorResponse
 
   object Conflict {
 

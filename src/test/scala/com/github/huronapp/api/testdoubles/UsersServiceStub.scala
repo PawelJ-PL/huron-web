@@ -1,11 +1,13 @@
 package com.github.huronapp.api.testdoubles
 
-import com.github.huronapp.api.constants.Users
+import com.github.huronapp.api.constants.{MiscConstants, Users}
 import com.github.huronapp.api.domain.users.UsersService.UsersService
 import com.github.huronapp.api.domain.users.dto.{
+  NewContactReq,
   NewPersonalApiKeyReq,
   NewUserReq,
   PasswordResetReq,
+  PatchContactReq,
   PatchUserDataReq,
   UpdateApiKeyDataReq,
   UpdatePasswordReq
@@ -13,9 +15,12 @@ import com.github.huronapp.api.domain.users.dto.{
 import com.github.huronapp.api.domain.users.{
   ApiKey,
   ApiKeyType,
+  ContactWithUser,
+  CreateContactError,
   CreateUserError,
   CredentialsVerificationError,
   DeleteApiKeyError,
+  EditContactError,
   Email,
   KeyPair,
   PasswordResetError,
@@ -27,15 +32,24 @@ import com.github.huronapp.api.domain.users.{
   UpdateApiKeyError,
   UpdatePasswordError,
   User,
+  UserContact,
+  UserWithContact,
   UsersService
 }
+import com.github.huronapp.api.http.pagination.PaginationEnvelope
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.{boolean, string}
+import eu.timepit.refined.collection.MinSize
+import eu.timepit.refined.numeric.Positive
 import io.chrisdavenport.fuuid.FUUID
 import zio.{ULayer, ZIO, ZLayer}
 
-object UsersServiceStub extends Users {
+object UsersServiceStub extends Users with MiscConstants {
 
   final case class UsersServiceResponses(
     createUser: ZIO[Any, CreateUserError, User] = ZIO.succeed(ExampleUser),
+    findUser: ZIO[Any, Nothing, PaginationEnvelope[UserWithContact]] = ZIO.succeed(PaginationEnvelope(List((ExampleUser,
+            Some(ExampleContact))), 1)),
     confirmRegistration: ZIO[Any, SignUpConfirmationError, FUUID] = ZIO.succeed(ExampleUserId),
     login: ZIO[Any, CredentialsVerificationError, User] = ZIO.succeed(ExampleUser),
     userData: ZIO[Any, Nothing, Option[User]] = ZIO.some(ExampleUser),
@@ -48,7 +62,15 @@ object UsersServiceStub extends Users {
     listApiKeys: ZIO[Any, Nothing, List[ApiKey]] = ZIO.succeed(List(ExampleApiKey)),
     deleteApiKey: ZIO[Any, DeleteApiKeyError, Unit] = ZIO.unit,
     updateApiKey: ZIO[Any, UpdateApiKeyError, ApiKey] = ZIO.succeed(ExampleApiKey),
-    keyPair: ZIO[Any, Nothing, Option[KeyPair]] = ZIO.some(ExampleKeyPair))
+    keyPair: ZIO[Any, Nothing, Option[KeyPair]] = ZIO.some(ExampleKeyPair),
+    contactData: ZIO[Any, Nothing, Option[UserWithContact]] = ZIO.some((ExampleUser.copy(id = ExampleContact.contactId, nickName = "user2"),
+        Some(ExampleContact))),
+    createContact: ZIO[Any, CreateContactError, ContactWithUser] = ZIO.succeed((ExampleContact, ExampleUser.copy(id =
+            ExampleContact.contactId, nickName = "user2"))),
+    listContacts: ZIO[Any, Nothing, PaginationEnvelope[ContactWithUser]] = ZIO.succeed(PaginationEnvelope(List((ExampleContact,
+            ExampleUser)), 1)),
+    deleteContact: ZIO[Any, Nothing, Boolean] = ZIO.succeed(true),
+    editContact: ZIO[Any, EditContactError, ContactWithUser] = ZIO.succeed((ExampleContact, ExampleUser.copy(id = ExampleFuuid1))))
 
   def withResponses(responses: UsersServiceResponses): ULayer[UsersService] =
     ZLayer.succeed(new UsersService.Service {
@@ -60,6 +82,34 @@ object UsersServiceStub extends Users {
       override def verifyCredentials(email: Email, password: String): ZIO[Any, CredentialsVerificationError, User] = responses.login
 
       override def userData(userId: FUUID): ZIO[Any, Nothing, Option[User]] = responses.userData
+
+      override def userContact(ownerId: FUUID, contactId: FUUID): ZIO[Any, Nothing, Option[UserWithContact]] =
+        responses.contactData
+
+      override def findUser(
+        asUser: FUUID,
+        nickNamePart: Refined[String, boolean.And[string.Trimmed, MinSize[5]]],
+        limit: Refined[Int, Positive],
+        drop: Int,
+        includeSelf: Boolean
+      ): ZIO[Any, Nothing, PaginationEnvelope[UserWithContact]] = responses.findUser
+
+      override def createContactAs(userId: FUUID, dto: NewContactReq): ZIO[Any, CreateContactError, ContactWithUser] =
+        responses.createContact
+
+      override def listContactsAs(
+        userId: FUUID,
+        limit: Refined[Int, Positive],
+        drop: Int
+      ): ZIO[Any, Nothing, PaginationEnvelope[(UserContact, User)]] = responses.listContacts
+
+      override def deleteContactAs(userId: FUUID, contactObjectId: FUUID): ZIO[Any, Nothing, Boolean] = responses.deleteContact
+
+      override def patchContactAs(
+        userId: FUUID,
+        contactObjectId: FUUID,
+        dto: PatchContactReq
+      ): ZIO[Any, EditContactError, (UserContact, User)] = responses.editContact
 
       override def patchUserData(userId: FUUID, dto: PatchUserDataReq): ZIO[Any, PatchUserError, User] = responses.patchUser
 

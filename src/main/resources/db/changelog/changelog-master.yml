@@ -23,6 +23,7 @@ databaseChangeLog:
                   type: varchar
                   constraints:
                     nullable: false
+                    unique: true
               - column:
                   name: language
                   type: varchar
@@ -48,6 +49,12 @@ databaseChangeLog:
             columns:
               - column:
                   name: email_hash
+
+        - createIndex:
+            tableName: users
+            columns:
+              - column:
+                  name: nick_name
 
         - createTable:
             tableName: user_auth
@@ -244,6 +251,55 @@ databaseChangeLog:
                   columns:
                     - column:
                         name: user_id
+
+        - createTable:
+            tableName: user_contacts
+            columns:
+              - column:
+                  name: contact_owner_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_key_conctact_owner_id
+                    deleteCascade: true
+                    references: users(id)
+                    nullable: false
+              - column:
+                  name: contact_object_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_key_conctact_object_id
+                    deleteCascade: true
+                    references: users(id)
+                    nullable: false
+              - column:
+                  name: alias
+                  type: varchar
+              - column:
+                  name: created_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamptz
+                  constraints:
+                    nullable: false
+
+        - addPrimaryKey:
+            columnNames: contact_owner_id, contact_object_id
+            constraintName: pk_user_contact
+            tableName: user_contacts
+
+        - addUniqueConstraint:
+            columnNames: contact_owner_id, alias
+            constraintName: unique_contact_alias
+            tableName: user_contacts
+
+        - createIndex:
+            tableName: user_contacts
+            columns:
+              - column:
+                  name: contact_owner_id
 
         - createTable:
             tableName: collections

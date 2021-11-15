@@ -10,14 +10,18 @@ import com.github.huronapp.api.domain.collections.CollectionsRepository
 import com.github.huronapp.api.domain.collections.CollectionsRepository.CollectionsRepository
 import com.github.huronapp.api.domain.collections.dto.EncryptionKeyData
 import com.github.huronapp.api.domain.users.UsersRepository.UsersRepository
+import com.github.huronapp.api.domain.users.dto.fields.ContactAlias
 import com.github.huronapp.api.domain.users.dto.{
+  NewContactReq,
   NewPersonalApiKeyReq,
   NewUserReq,
   PasswordResetReq,
+  PatchContactReq,
   PatchUserDataReq,
   UpdateApiKeyDataReq,
   UpdatePasswordReq
 }
+import com.github.huronapp.api.http.pagination.PaginationEnvelope
 import com.github.huronapp.api.messagebus.InternalMessage
 import com.github.huronapp.api.messagebus.InternalMessage.{PasswordResetRequested, UserRegistered}
 import com.github.huronapp.api.utils.RandomUtils
@@ -26,6 +30,11 @@ import com.github.huronapp.api.utils.crypto.Crypto
 import com.github.huronapp.api.utils.crypto.Crypto.Crypto
 import com.github.huronapp.api.utils.tracing.KamonTracing
 import com.github.huronapp.api.utils.tracing.KamonTracing.KamonTracing
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.boolean.And
+import eu.timepit.refined.collection.MinSize
+import eu.timepit.refined.numeric.Positive
+import eu.timepit.refined.string.Trimmed
 import io.chrisdavenport.fuuid.FUUID
 import io.github.gaelrenoux.tranzactio.doobie
 import io.github.gaelrenoux.tranzactio.doobie.{Connection, Database}
@@ -50,6 +59,24 @@ object UsersService {
     def verifyCredentials(email: Email, password: String): ZIO[Any, CredentialsVerificationError, User]
 
     def userData(userId: FUUID): ZIO[Any, Nothing, Option[User]]
+
+    def userContact(ownerId: FUUID, contactId: FUUID): ZIO[Any, Nothing, Option[UserWithContact]]
+
+    def findUser(
+      asUser: FUUID,
+      nickNamePart: String Refined (Trimmed And MinSize[5]),
+      limit: Refined[Int, Positive],
+      drop: Int,
+      includeSelf: Boolean
+    ): ZIO[Any, Nothing, PaginationEnvelope[UserWithContact]]
+
+    def createContactAs(userId: FUUID, dto: NewContactReq): ZIO[Any, CreateContactError, ContactWithUser]
+
+    def listContactsAs(userId: FUUID, limit: Refined[Int, Positive], drop: Int): ZIO[Any, Nothing, PaginationEnvelope[ContactWithUser]]
+
+    def deleteContactAs(userId: FUUID, contactObjectId: FUUID): ZIO[Any, Nothing, Boolean]
+
+    def patchContactAs(userId: FUUID, contactObjectId: FUUID, dto: PatchContactReq): ZIO[Any, EditContactError, ContactWithUser]
 
     def patchUserData(userId: FUUID, dto: PatchUserDataReq): ZIO[Any, PatchUserError, User]
 
@@ -84,6 +111,7 @@ object UsersService {
             override def createUser(dto: NewUserReq): ZIO[Any, CreateUserError, User] =
               db
                 .transactionOrDie(for {
+                  _            <- usersRepo.findByNickName(dto.nickName.value).orDie.none.orElseFail(NickNameAlreadyRegistered(dto.nickName.value))
                   emailDigest  <- dto.email.digest.provideLayer(ZLayer.succeed(crypto))
                   _            <- usersRepo.findByEmailDigest(emailDigest).orDie.none.orElseFail(EmailAlreadyRegistered(emailDigest))
                   userId       <- random.randomFuuid
@@ -150,9 +178,75 @@ object UsersService {
 
             override def userData(userId: FUUID): ZIO[Any, Nothing, Option[User]] = db.transactionOrDie(usersRepo.findById(userId).orDie)
 
+            override def userContact(ownerId: FUUID, contactId: FUUID): ZIO[Any, Nothing, Option[UserWithContact]] =
+              db.transactionOrDie(usersRepo.findWithContactById(ownerId, contactId).orDie)
+
+            override def findUser(
+              asUser: FUUID,
+              nickNamePart: String Refined (Trimmed And MinSize[5]),
+              limit: Refined[Int, Positive],
+              drop: Int,
+              includeSelf: Boolean
+            ): ZIO[Any, Nothing, PaginationEnvelope[UserWithContact]] =
+              db.transactionOrDie(
+                usersRepo.findAllWithContactByMatchingNickname(asUser, nickNamePart.value, limit.value, drop, includeSelf).orDie
+              )
+
+            override def listContactsAs(
+              userId: FUUID,
+              limit: Refined[Int, Positive],
+              drop: Int
+            ): ZIO[Any, Nothing, PaginationEnvelope[(UserContact, User)]] =
+              db.transactionOrDie(usersRepo.getContacts(userId, limit.value, drop).orDie)
+
+            private def validateUniqueAlias(
+              maybeAlias: Option[ContactAlias],
+              ownerId: FUUID
+            ): ZIO[Connection, ContactAliasAlreadyExists, Unit] =
+              maybeAlias match {
+                case None        => ZIO.unit
+                case Some(alias) =>
+                  usersRepo.getContactByAlias(ownerId, alias.value).orDie.flatMap {
+                    case None        => ZIO.unit
+                    case Some(value) => ZIO.fail(ContactAliasAlreadyExists(ownerId, alias.value, value.contactId))
+                  }
+              }
+
+            override def createContactAs(userId: FUUID, dto: NewContactReq): ZIO[Any, CreateContactError, ContactWithUser] =
+              db.transactionOrDie(for {
+                _             <- ZIO.cond(userId =!= dto.contactUserId, (), ForbiddenSelfToContacts(userId))
+                _             <- validateUniqueAlias(dto.alias, userId)
+                _             <- usersRepo.getContact(userId, dto.contactUserId).orDie.none.orElseFail(ContactAlreadyExists(userId, dto.contactUserId))
+                contactObject <- usersRepo.findById(dto.contactUserId).orDie.someOrFail(UserNotFound(dto.contactUserId))
+                contact = UserContact(userId, dto.contactUserId, dto.alias.map(_.value))
+                savedContact  <- usersRepo.createContact(contact).orDie
+              } yield (savedContact, contactObject))
+
+            override def deleteContactAs(userId: FUUID, contactObjectId: FUUID): ZIO[Any, Nothing, Boolean] =
+              db.transactionOrDie(usersRepo.deleteContact(userId, contactObjectId).orDie)
+
+            override def patchContactAs(
+              userId: FUUID,
+              contactObjectId: FUUID,
+              dto: PatchContactReq
+            ): ZIO[Any, EditContactError, ContactWithUser] =
+              db.transactionOrDie(for {
+                _               <- ZIO.cond(dto.alias.isDefined, (), NoUpdates("contact", userId, dto))
+                _               <- usersRepo.getContact(userId, contactObjectId).orDie.someOrFail(ContactNotFound(userId, contactObjectId))
+                _               <- validateUniqueAlias(dto.alias.flatMap(_.value), userId)
+                contactUserData <- usersRepo.findById(contactObjectId).orDie.someOrFail(ContactNotFound(userId, contactObjectId))
+                _               <- usersRepo.updateContact(userId, contactObjectId, dto.alias.map(_.value.map(_.value))).orDie
+                updated         <- usersRepo.getContact(userId, contactObjectId).orDie.someOrFail(ContactNotFound(userId, contactObjectId))
+              } yield (updated, contactUserData))
+
             override def patchUserData(userId: FUUID, dto: PatchUserDataReq): ZIO[Any, PatchUserError, User] =
               db.transactionOrDie(for {
                 _       <- ZIO.cond(dto.nickName.isDefined || dto.language.isDefined, (), NoUpdates("user", userId, dto))
+                _       <- dto.nickName match {
+                             case Some(nickname) =>
+                               usersRepo.findByNickName(nickname.value).orDie.none.orElseFail(NickNameAlreadyRegistered(nickname.value))
+                             case None           => ZIO.unit
+                           }
                 updated <- usersRepo.updateUserData(userId, dto.nickName.map(_.value), dto.language).orDie.someOrFail(UserNotFound(userId))
               } yield updated)
 

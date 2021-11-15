@@ -211,7 +211,7 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
       result <- routes.run(req)
       body   <- result.as[ErrorResponse.Conflict]
     } yield assert(result.status)(equalTo(Status.Conflict)) &&
-      assert(body)(equalTo(ErrorResponse.Conflict(show"File or directory $ExampleDirectoryName already exists")))
+      assert(body)(equalTo(ErrorResponse.Conflict(show"File or directory $ExampleDirectoryName already exists", None)))
   }
 
   private val createDirectoryParentNotFoundTest = testM("should generate response for create directory request if parent not found") {
@@ -324,7 +324,7 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
       result <- routes.run(req)
       body   <- result.as[ErrorResponse.Conflict]
     } yield assert(result.status)(equalTo(Status.Conflict)) &&
-      assert(body)(equalTo(ErrorResponse.Conflict(show"File or directory ${ExampleFileMetadata.name} already exists")))
+      assert(body)(equalTo(ErrorResponse.Conflict(show"File or directory ${ExampleFileMetadata.name} already exists", None)))
   }
 
   private val uploadFileParentNotFoundTest = testM("should generate response for upload file request if parent not found") {
@@ -721,7 +721,7 @@ object FilesRoutesSpec extends DefaultRunnableSpec with Collections with Files w
         result <- routes.run(req)
         body   <- result.as[ErrorResponse.Conflict]
       } yield assert(result.status)(equalTo(Status.Conflict)) &&
-        assert(body)(equalTo(ErrorResponse.Conflict(show"File or directory $ExampleFileName already exists")))
+        assert(body)(equalTo(ErrorResponse.Conflict(show"File or directory $ExampleFileName already exists", None)))
     }
 
   private val updateMetadataFileNotFoundTest =

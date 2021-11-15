@@ -1,6 +1,6 @@
 package com.github.huronapp.api.constants
 
-import com.github.huronapp.api.domain.users.{ApiKey, ApiKeyType, Email, KeyAlgorithm, KeyPair, Language, User}
+import com.github.huronapp.api.domain.users.{ApiKey, ApiKeyType, Email, KeyAlgorithm, KeyPair, Language, User, UserContact}
 import io.chrisdavenport.fuuid.FUUID
 
 import java.time.Instant
@@ -22,6 +22,8 @@ trait Users {
   final val ExampleUserPasswordHash = "bcrypt(secret-password)"
 
   final val ExampleUser = User(ExampleUserId, ExampleUserEmailDigest, ExampleUserNickName, ExampleUserLanguage)
+
+  final val ExampleContact = UserContact(ExampleUserId, FUUID.fuuid("6ff7f5fa-eb01-40ae-bd4b-8f9a30daf1ae"), Some("Teddy"))
 
   final val ExampleApiKeyId = FUUID.fuuid("b0edc95b-5bf8-4be1-b272-e91dd391beee")
 

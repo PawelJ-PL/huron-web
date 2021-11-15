@@ -5,14 +5,18 @@ import com.github.huronapp.api.domain.users.UsersRepository.UsersRepository
 import com.github.huronapp.api.domain.users.{
   ApiKey,
   ApiKeyType,
+  ContactWithUser,
   KeyPair,
   Language,
   TemporaryToken,
   TokenType,
   User,
   UserAuth,
+  UserContact,
+  UserWithContact,
   UsersRepository
 }
+import com.github.huronapp.api.http.pagination.PaginationEnvelope
 import doobie.util.transactor
 import io.chrisdavenport.fuuid.FUUID
 import io.github.gaelrenoux.tranzactio.DbException
@@ -29,6 +33,7 @@ object UsersRepoFake {
     users: Set[User] = Set.empty,
     auth: Set[UserAuth] = Set.empty,
     tokens: Set[TemporaryToken] = Set.empty,
+    contacts: Set[UserContact] = Set.empty,
     apiKeys: Set[ApiKey] = Set.empty,
     keyPairs: Set[KeyPair] = Set.empty)
 
@@ -52,6 +57,9 @@ object UsersRepoFake {
 
       override def findByEmailDigest(emailDigest: String): ZIO[Has[transactor.Transactor[Task]], DbException, Option[User]] =
         ref.get.map(_.users.find(_.emailHash === emailDigest))
+
+      override def findByNickName(nickName: String): ZIO[Has[transactor.Transactor[Task]], DbException, Option[User]] =
+        ref.get.map(_.users.find(_.nickName === nickName))
 
       override def updateUserData(
         userId: FUUID,
@@ -140,6 +148,103 @@ object UsersRepoFake {
             prev.copy(tokens = updated)
           }
           .flatMap(beforeUpdate => ref.get.map(state => (beforeUpdate.tokens.size - state.tokens.size).toLong))
+
+      override def findWithContactById(
+        ownerId: FUUID,
+        contactId: FUUID
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Option[(User, Option[UserContact])]] =
+        ref.get.map { state =>
+          state.users.find(_.id === contactId).map { user =>
+            val contact = state.contacts.find(c => c.contactId === user.id && c.ownerId === ownerId)
+            (user, contact)
+          }
+        }
+
+      override def findAllWithContactByMatchingNickname(
+        ownerId: FUUID,
+        matchingNickName: String,
+        limit: Int,
+        drop: Int,
+        includeSelf: Boolean
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, PaginationEnvelope[UserWithContact]] =
+        ref.get.map {
+          state =>
+            val usersFilter: User => Boolean = u => u.nickName.startsWith(matchingNickName) && (u.id =!= ownerId || includeSelf)
+
+            val matchingUsers =
+              state
+                .users
+                .filter(usersFilter)
+                .toList
+                .sortBy(u => (u.nickName.length, u.nickName))
+                .slice(drop, drop + limit)
+            val data = matchingUsers.map { u =>
+              val maybeContact = state.contacts.find(c => c.ownerId === ownerId && c.contactId === u.id)
+              (u, maybeContact)
+            }
+            val total = state.users.count(usersFilter)
+            PaginationEnvelope(data, total.toLong)
+        }
+
+      override def getContacts(
+        ownerId: FUUID,
+        limit: Int,
+        drop: Int
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, PaginationEnvelope[ContactWithUser]] =
+        ref.get.map {
+          state =>
+            val contacts = state.contacts.filter(_.ownerId === ownerId)
+            val pairs = contacts.map(c => (c, state.users.find(_.id === c.contactId))).collect {
+              case (contact, Some(u)) => (contact, u)
+            }
+            val result = pairs
+              .toList
+              .sortWith { (prev, next) =>
+                import math.Ordered._
+                if (prev._1.alias.isEmpty && next._1.alias.isEmpty)
+                  prev._2.nickName < next._2.nickName
+                else if (prev._1.alias.isDefined && next._1.alias.isDefined)
+                  prev._1.alias < next._1.alias
+                else if (prev._1.alias.isDefined && next._1.alias.isEmpty)
+                  true
+                else false
+              }
+              .slice(drop, drop + limit)
+            PaginationEnvelope(result, pairs.size.toLong)
+        }
+
+      override def getContact(ownerId: FUUID, objectId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Option[UserContact]] =
+        ref.get.map(_.contacts.find(c => c.ownerId === ownerId && c.contactId === objectId))
+
+      override def getContactByAlias(
+        ownerId: FUUID,
+        alias: String
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Option[UserContact]] =
+        ref.get.map(_.contacts.find(c => c.alias.contains(alias) && c.ownerId === ownerId))
+
+      override def createContact(contact: UserContact): ZIO[Has[transactor.Transactor[Task]], DbException, UserContact] =
+        ref
+          .update { state =>
+            val updated = state.contacts + contact
+            state.copy(contacts = updated)
+          }
+          .as(contact)
+
+      override def deleteContact(ownerId: FUUID, contactId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] = ???
+
+      override def updateContact(
+        ownerId: FUUID,
+        contactId: FUUID,
+        alias: Option[Option[String]]
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
+        ref.modify { state =>
+          val maybeUpdated =
+            state.contacts.find(c => c.ownerId === ownerId && c.contactId === contactId).map(c => c.copy(alias = alias.getOrElse(c.alias)))
+          val newContacts = maybeUpdated
+            .map(contact => state.contacts.filter(c => c.contactId =!= contact.contactId || c.ownerId =!= contact.ownerId) + contact)
+            .getOrElse[Set[UserContact]](state.contacts)
+          (maybeUpdated.isDefined, state.copy(contacts = newContacts))
+        }
 
       override def createApiKey(apiKey: ApiKey): ZIO[Has[transactor.Transactor[Task]], DbException, ApiKey] = {
         val savedKey = apiKey.copy(updatedAt = RepoTimeNow, createdAt = RepoTimeNow)
