@@ -4,18 +4,18 @@ import io.circe.Codec
 import io.circe.generic.extras.semiauto.deriveUnwrappedCodec
 import sttp.tapir.{Schema, Validator}
 
-final case class Nickname(value: String) extends AnyVal
+final case class ContactAlias(value: String) extends AnyVal
 
-object Nickname {
+object ContactAlias {
 
-  implicit val codec: Codec[Nickname] = deriveUnwrappedCodec[Nickname]
+  implicit val codec: Codec[ContactAlias] = deriveUnwrappedCodec[ContactAlias]
 
-  private val validator: Validator[Nickname] = (
+  private val validator: Validator[ContactAlias] = (
     Validator.minLength[String](5) and
       Validator.maxLength(40) and
       Validator.pattern("^[\\p{L}|0-9]+$")
   ).contramap(_.value)
 
-  implicit val tapirSchema: Schema[Nickname] = Schema.derived[Nickname].validate(validator)
+  implicit val tapirSchema: Schema[ContactAlias] = Schema.derived[ContactAlias].validate(validator)
 
 }

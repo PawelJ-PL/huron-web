@@ -112,7 +112,8 @@ val dependencies = {
     "io.kamon" %% "kamon-logback",
     "io.kamon" %% "kamon-system-metrics",
     "io.kamon" %% "kamon-prometheus",
-    "io.kamon" %% "kamon-zipkin"
+    "io.kamon" %% "kamon-zipkin",
+    "io.kamon" %% "kamon-apm-reporter"
   ).map(_ % Versions.kamon) ++ Seq(
     "io.kamon" %% "kamon-http4s-0.23" % Versions.kamonHttp4s
   )

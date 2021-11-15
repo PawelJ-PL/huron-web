@@ -1,11 +1,13 @@
 package com.github.huronapp.api.domain.users
 
 import com.github.huronapp.api.database.BasePostgresRepository
+import com.github.huronapp.api.http.pagination.PaginationEnvelope
 import doobie.util.transactor
 import io.chrisdavenport.fuuid.FUUID
 import io.getquill.Ord
 import io.github.gaelrenoux.tranzactio.DbException
 import io.github.gaelrenoux.tranzactio.doobie._
+import io.scalaland.chimney.Transformer
 import zio.clock.Clock
 import zio.{Has, Task, ZIO, ZLayer}
 import io.scalaland.chimney.dsl._
@@ -29,6 +31,8 @@ object UsersRepository {
 
     def findByEmailDigest(emailDigest: String): ZIO[Connection, DbException, Option[User]]
 
+    def findByNickName(nickName: String): ZIO[Connection, DbException, Option[User]]
+
     def updateUserData(userId: FUUID, nickName: Option[String], language: Option[Language]): ZIO[Connection, DbException, Option[User]]
 
     def setAuth(authData: UserAuth): ZIO[Connection, DbException, Unit]
@@ -50,6 +54,28 @@ object UsersRepository {
     def deleteTemporaryToken(token: String): ZIO[Connection, DbException, Boolean]
 
     def deleteTokensByTypeAndUserId(tokenType: TokenType, userId: FUUID): ZIO[Connection, DbException, Long]
+
+    def findWithContactById(ownerId: FUUID, contactId: FUUID): ZIO[Connection, DbException, Option[UserWithContact]]
+
+    def findAllWithContactByMatchingNickname(
+      ownerId: FUUID,
+      matchingNickName: String,
+      limit: Int,
+      drop: Int,
+      includeSelf: Boolean
+    ): ZIO[Connection, DbException, PaginationEnvelope[UserWithContact]]
+
+    def getContacts(ownerId: FUUID, limit: Int, drop: Int): ZIO[Connection, DbException, PaginationEnvelope[ContactWithUser]]
+
+    def getContact(ownerId: FUUID, objectId: FUUID): ZIO[Connection, DbException, Option[UserContact]]
+
+    def getContactByAlias(ownerId: FUUID, alias: String): ZIO[Connection, DbException, Option[UserContact]]
+
+    def createContact(contact: UserContact): ZIO[Connection, DbException, UserContact]
+
+    def deleteContact(ownerId: FUUID, contactId: FUUID): ZIO[Connection, DbException, Boolean]
+
+    def updateContact(ownerId: FUUID, contactId: FUUID, alias: Option[Option[String]]): ZIO[Connection, DbException, Boolean]
 
     def createApiKey(apiKey: ApiKey): ZIO[Connection, DbException, ApiKey]
 
@@ -128,6 +154,15 @@ object UsersRepository {
             run(
               quote(
                 users.filter(_.emailHash == lift(emailDigest))
+              )
+            ).map(_.headOption.map(_.transformInto[User]))
+          }
+
+        override def findByNickName(nickName: String): ZIO[Connection, DbException, Option[User]] =
+          tzio {
+            run(
+              quote(
+                users.filter(_.nickName.toLowerCase == lift(nickName).toLowerCase)
               )
             ).map(_.headOption.map(_.transformInto[User]))
           }
@@ -231,6 +266,129 @@ object UsersRepository {
             )
           )
 
+        override def findWithContactById(
+          ownerId: FUUID,
+          contactId: FUUID
+        ): ZIO[Has[transactor.Transactor[Task]], DbException, Option[(User, Option[UserContact])]] =
+          tzio(
+            run(
+              quote(
+                for {
+                  user    <- users.filter(_.id == lift(contactId))
+                  contact <- contacts.filter(_.contactOwnerId == lift(ownerId)).leftJoin(_.contactObjectId == user.id)
+                } yield (user, contact)
+              )
+            ).map(_.headOption.transformInto[Option[(User, Option[UserContact])]])
+          )
+
+        private def filterMatchingUsers(ownerId: FUUID, matchingNickName: String, includeSelf: Boolean) =
+          quote(
+            users.filter(u =>
+              (u.nickName.toLowerCase like lift(matchingNickName.toLowerCase + "%")) && (u.id != lift(ownerId) || lift(includeSelf))
+            )
+          )
+
+        override def findAllWithContactByMatchingNickname(
+          ownerId: FUUID,
+          matchingNickName: String,
+          limit: Int,
+          drop: Int,
+          includeSelf: Boolean
+        ): ZIO[Connection, DbException, PaginationEnvelope[UserWithContact]] =
+          for {
+            rows  <- tzio(
+                       run(
+                         quote(
+                           for {
+                             user         <- filterMatchingUsers(ownerId, matchingNickName, includeSelf)
+                             maybeContact <- contacts.filter(_.contactOwnerId == lift(ownerId)).leftJoin(_.contactObjectId == user.id)
+                           } yield (user, maybeContact)
+                         )
+                           .sortBy(result => (result._1.nickName.sqlLength, result._1.nickName))(Ord(Ord.asc, Ord.asc))
+                           .drop(lift(drop))
+                           .take(lift(limit))
+                       ).map(_.transformInto[List[(User, Option[UserContact])]])
+                     )
+            total <- tzio(run(quote(filterMatchingUsers(ownerId, matchingNickName, includeSelf).size)))
+          } yield PaginationEnvelope(rows, total)
+
+        override def getContacts(
+          ownerId: FUUID,
+          limit: Index,
+          drop: Index
+        ): ZIO[Connection, DbException, PaginationEnvelope[ContactWithUser]] =
+          for {
+            rows  <- tzio(
+                       run(
+                         quote(for {
+                           contact <- contacts.filter(_.contactOwnerId == lift(ownerId))
+                           user    <- users.join(_.id == contact.contactObjectId)
+                         } yield (contact, user))
+                           .sortBy(result => (result._1.alias, result._2.nickName))(Ord(Ord.ascNullsLast, Ord.asc))
+                           .drop(lift(drop))
+                           .take(lift(limit))
+                       ).map(_.transformInto[List[ContactWithUser]])
+                     )
+            total <- tzio(run(quote(contacts.filter(_.contactOwnerId == lift(ownerId)).size)))
+          } yield PaginationEnvelope(rows, total)
+
+        override def getContact(ownerId: FUUID, objectId: FUUID): ZIO[Connection, DbException, Option[UserContact]] =
+          tzio(
+            run(
+              quote(
+                contacts.filter(c => c.contactOwnerId == lift(ownerId) && c.contactObjectId == lift(objectId))
+              )
+            ).map(_.headOption.transformInto[Option[UserContact]])
+          )
+
+        override def getContactByAlias(
+          ownerId: FUUID,
+          alias: String
+        ): ZIO[Has[transactor.Transactor[Task]], DbException, Option[UserContact]] =
+          tzio(
+            run(
+              quote(
+                contacts.filter(c => c.contactOwnerId == lift(ownerId) && c.alias.contains(lift(alias)))
+              )
+            ).map(_.headOption.transformInto[Option[UserContact]])
+          )
+
+        override def createContact(contact: UserContact): ZIO[Has[transactor.Transactor[Task]], DbException, UserContact] =
+          for {
+            now <- clock.instant
+            contactEntity = UserContactEntity(contact.ownerId, contact.contactId, contact.alias, now, now)
+            _   <- tzio(run(quote(contacts.insert(lift(contactEntity)))))
+          } yield contact
+
+        override def deleteContact(ownerId: FUUID, contactId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
+          tzio(
+            run(
+              quote(
+                contacts.filter(c => c.contactOwnerId == lift(ownerId) && c.contactObjectId == lift(contactId)).delete
+              )
+            )
+          ).map(_ > 0)
+
+        override def updateContact(
+          ownerId: FUUID,
+          contactId: FUUID,
+          alias: Option[Option[String]]
+        ): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
+          for {
+            now    <- clock.instant
+            result <- tzio(
+                        run(
+                          contacts
+                            .dynamic
+                            .filter(c => c.contactOwnerId == lift(ownerId) && c.contactObjectId == lift(contactId))
+                            .update(
+                              setOpt(_.alias, alias),
+                              setValue(_.updatedAt, now)
+                            )
+                        )
+                      )
+          } yield result > 0
+
         override def createApiKey(apiKey: ApiKey): ZIO[Has[transactor.Transactor[Task]], DbException, ApiKey] =
           for {
             now <- clock.instant
@@ -282,7 +440,7 @@ object UsersRepository {
                 apiKeys.filter(_.id == lift(keyId)).delete
               )
             )
-          ).map(_ < 0)
+          ).map(_ > 0)
 
         override def updateApiKey(
           keyId: FUUID,
@@ -345,6 +503,10 @@ object UsersRepository {
           querySchema[TokenEntity]("temporary_user_tokens")
         }
 
+        private val contacts = quote {
+          querySchema[UserContactEntity]("user_contacts")
+        }
+
         private val apiKeys = quote {
           querySchema[ApiKeyEntity]("api_keys")
         }
@@ -387,3 +549,20 @@ private final case class KeyPairEntity(
   publicKey: String,
   encryptedPrivateKey: String,
   updatedAt: Instant)
+
+private final case class UserContactEntity(
+  contactOwnerId: FUUID,
+  contactObjectId: FUUID,
+  alias: Option[String],
+  createdAt: Instant,
+  updatedAt: Instant)
+
+private object UserContactEntity {
+
+  implicit val toDomainTransformer: Transformer[UserContactEntity, UserContact] = Transformer
+    .define[UserContactEntity, UserContact]
+    .withFieldComputed(_.contactId, _.contactObjectId)
+    .withFieldComputed(_.ownerId, _.contactOwnerId)
+    .buildTransformer
+
+}

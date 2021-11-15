@@ -28,6 +28,10 @@ sealed trait DeleteApiKeyError extends UserError
 
 sealed trait UpdateApiKeyError extends UserError
 
+sealed trait CreateContactError extends UserError
+
+sealed trait EditContactError extends UserError
+
 final case class AuthorizationError(error: AuthError) extends UpdatePasswordError {
 
   override val logMessage: String = error.message
@@ -37,6 +41,12 @@ final case class AuthorizationError(error: AuthError) extends UpdatePasswordErro
 final case class EmailAlreadyRegistered(emailDigest: String) extends CreateUserError {
 
   override val logMessage: String = show"Email with digest $emailDigest already registered"
+
+}
+
+final case class NickNameAlreadyRegistered(nickname: String) extends CreateUserError with PatchUserError {
+
+  override val logMessage: String = show"Nickname $nickname already registered"
 
 }
 
@@ -73,13 +83,20 @@ final case class InvalidPassword(emailHash: String) extends CredentialsVerificat
 
 }
 
-final case class NoUpdates[A](resourceType: String, resourceId: FUUID, dto: A) extends PatchUserError with UpdateApiKeyError {
+final case class NoUpdates[A](resourceType: String, resourceId: FUUID, dto: A)
+    extends PatchUserError
+    with UpdateApiKeyError
+    with EditContactError {
 
   override val logMessage: String = s"No updates provided for $resourceType $resourceId"
 
 }
 
-final case class UserNotFound(userId: FUUID) extends PatchUserError with UpdatePasswordError with PasswordResetError {
+final case class UserNotFound(userId: FUUID)
+    extends PatchUserError
+    with UpdatePasswordError
+    with PasswordResetError
+    with CreateContactError {
 
   override val logMessage: String = s"User with id $userId not found"
 
@@ -126,5 +143,31 @@ final case class EmailDigestDoesNotMatch(userId: FUUID, expectedDigest: String, 
 
   override val logMessage: String =
     s"The digest of user $userId email address was expected to be $expectedDigest, but $currentDigest was found"
+
+}
+
+final case class ContactAliasAlreadyExists(userId: FUUID, alias: String, currentContact: FUUID)
+    extends CreateContactError
+    with EditContactError {
+
+  override val logMessage: String = show"User $userId already has contact with alias $alias related to user $currentContact"
+
+}
+
+final case class ContactAlreadyExists(userId: FUUID, objectId: FUUID) extends CreateContactError {
+
+  override val logMessage: String = show"User $userId has already saved contact with user $objectId"
+
+}
+
+final case class ForbiddenSelfToContacts(userId: FUUID) extends CreateContactError {
+
+  override val logMessage: String = show"User $userId trying to add self to contacts"
+
+}
+
+final case class ContactNotFound(ownerId: FUUID, contactObjectId: FUUID) extends EditContactError {
+
+  override val logMessage: String = show"User ${ownerId} has no contact with user ${contactObjectId}"
 
 }

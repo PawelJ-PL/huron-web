@@ -1,12 +1,14 @@
 package com.github.huronapp.api.domain.users
 
+import com.github.huronapp.api.domain.users.UsersEndpoints.Responses
 import com.github.huronapp.api.http.ErrorResponse
 
 object UserErrorsMapping {
 
   def createUserError(error: CreateUserError): ErrorResponse =
     error match {
-      case _: EmailAlreadyRegistered => ErrorResponse.Conflict("Email already registered")
+      case _: EmailAlreadyRegistered    => Responses.emailConflict
+      case _: NickNameAlreadyRegistered => Responses.nickNameConflict
     }
 
   def confirmRegistrationError(error: SignUpConfirmationError): ErrorResponse =
@@ -24,8 +26,9 @@ object UserErrorsMapping {
 
   def patchUserError(error: PatchUserError): ErrorResponse =
     error match {
-      case _: NoUpdates[_] => ErrorResponse.BadRequest("No updates in request")
-      case _: UserNotFound => ErrorResponse.NotFound("User not found")
+      case _: NoUpdates[_]              => ErrorResponse.BadRequest("No updates in request")
+      case _: NickNameAlreadyRegistered => Responses.nickNameConflict
+      case _: UserNotFound              => ErrorResponse.NotFound("User not found")
     }
 
   def updatePasswordError(error: UpdatePasswordError): ErrorResponse =
@@ -52,6 +55,21 @@ object UserErrorsMapping {
       case _: NoUpdates[_]                         => ErrorResponse.BadRequest("No updates in request")
       case ApiKeyNotFound(keyId)                   => ErrorResponse.NotFound(s"API key $keyId not found")
       case ApiKeyBelongsToAnotherUser(keyId, _, _) => ErrorResponse.NotFound(s"API key $keyId not found")
+    }
+
+  def createContactError(error: CreateContactError): ErrorResponse =
+    error match {
+      case _: UserNotFound              => ErrorResponse.NotFound("User not found")
+      case _: ContactAliasAlreadyExists => UsersEndpoints.Responses.contactAliasConflict
+      case _: ContactAlreadyExists      => UsersEndpoints.Responses.contactConflict
+      case _: ForbiddenSelfToContacts   => UsersEndpoints.Responses.addSelfToContacts
+    }
+
+  def editContactError(error: EditContactError): ErrorResponse =
+    error match {
+      case _: NoUpdates[_]              => ErrorResponse.BadRequest("No updates in request")
+      case _: ContactAliasAlreadyExists => UsersEndpoints.Responses.contactAliasConflict
+      case _: ContactNotFound           => ErrorResponse.NotFound("Contact not found")
     }
 
 }

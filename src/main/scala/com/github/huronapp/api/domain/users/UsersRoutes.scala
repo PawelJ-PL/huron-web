@@ -9,16 +9,27 @@ import com.github.huronapp.api.auth.authentication.SessionRepository.SessionRepo
 import com.github.huronapp.api.domain.users.UsersService.UsersService
 import com.github.huronapp.api.domain.users.dto.{
   ApiKeyDataResp,
+  NewContactReq,
   NewPersonalApiKeyReq,
+  PatchContactReq,
   PatchUserDataReq,
+  PublicUserContactResp,
+  PublicUserDataResp,
   UpdateApiKeyDataReq,
   UpdatePasswordReq,
+  UserContactResponse,
   UserDataResp
 }
 import com.github.huronapp.api.domain.users.dto.fields.{KeyPair => KeyPairDto}
 import com.github.huronapp.api.http.{BaseRouter, ErrorResponse}
 import com.github.huronapp.api.http.EndpointSyntax._
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
+import com.github.huronapp.api.http.pagination.{Paging, PagingResponseMetadata}
+import eu.timepit.refined.auto._
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.boolean.And
+import eu.timepit.refined.collection.MinSize
+import eu.timepit.refined.string.Trimmed
 import io.chrisdavenport.fuuid.FUUID
 import io.scalaland.chimney.dsl._
 import org.http4s.HttpRoutes
@@ -58,6 +69,33 @@ object UsersRoutes {
                 )
                 .unit
             )
+
+          private val findUserRoutes: HttpRoutes[RouteEffect] =
+            UsersEndpoints
+              .findUsersEndpoint
+              .toAuthenticatedRoutes[
+                (Paging, String Refined (Trimmed And MinSize[5]), Option[Boolean])
+              ](
+                auth.asUser
+              ) {
+                case (user, (paging, filter, includeSelf)) =>
+                  usersService
+                    .findUser(
+                      user.userId,
+                      filter,
+                      paging.limit,
+                      paging.dropCount,
+                      includeSelf.getOrElse(true)
+                    )
+                    .map { envelope =>
+                      val body = envelope.data.map {
+                        case (user, maybeContact) =>
+                          PublicUserDataResp(user.id, user.nickName, maybeContact.transformInto[Option[PublicUserContactResp]])
+                      }
+                      val pagingMetadata = PagingResponseMetadata.of(paging, envelope)
+                      (pagingMetadata, body)
+                    }
+              }
 
           private val confirmRegistrationRoutes: HttpRoutes[RouteEffect] = UsersEndpoints
             .confirmRegistrationEndpoint
@@ -122,6 +160,15 @@ object UsersRoutes {
             user match {
               case AuthenticatedUser.SessionAuthenticatedUser(session) => Some(session.csrfToken)
               case _: AuthenticatedUser.ApiKeyUser                     => None
+            }
+
+          private val publicUserDataRoutes: HttpRoutes[RouteEffect] =
+            UsersEndpoints.publicUserDataEndpoint.toAuthenticatedRoutes[FUUID](auth.asUser) {
+              case (authenticatedUser, objectUserId) =>
+                usersService.userContact(authenticatedUser.userId, objectUserId).someOrFail(ErrorResponse.NotFound("User not found")).map {
+                  case (user, maybeContact) =>
+                    PublicUserDataResp(user.id, user.nickName, maybeContact.map(contact => PublicUserContactResp(contact.alias)))
+                }
             }
 
           private val updateUserRoutes: HttpRoutes[RouteEffect] =
@@ -208,13 +255,62 @@ object UsersRoutes {
                   .map(_.transformInto[KeyPairDto])
             }
 
+          private val createContactRoutes: HttpRoutes[RouteEffect] =
+            UsersEndpoints.createContactEndpoint.toAuthenticatedRoutes[NewContactReq](auth.asUser) {
+              case (user, req) =>
+                usersService
+                  .createContactAs(user.userId, req)
+                  .map {
+                    case (contact, user) => UserContactResponse(user.id, user.nickName, contact.alias)
+                  }
+                  .flatMapError(error =>
+                    logger.warn(show"Unable to create contact: ${error.logMessage}").as(UserErrorsMapping.createContactError(error))
+                  )
+            }
+
+          private val listContactsRoutes: HttpRoutes[RouteEffect] =
+            UsersEndpoints.listContactsEndpoint.toAuthenticatedRoutes[Paging](auth.asUser) {
+              case (user, paging) =>
+                usersService.listContactsAs(user.userId, paging.limit, paging.dropCount).map { envelope =>
+                  val body = envelope.data.map {
+                    case (contact, user) => UserContactResponse(user.id, user.nickName, contact.alias)
+                  }
+                  val headers = PagingResponseMetadata.of(paging, envelope)
+                  (headers, body)
+                }
+            }
+
+          private val deleteContactRoutes: HttpRoutes[RouteEffect] =
+            UsersEndpoints.deleteContactEndpoint.toAuthenticatedRoutes[FUUID](auth.asUser) {
+              case (user, contactId) =>
+                usersService
+                  .deleteContactAs(user.userId, contactId)
+                  .filterOrFail(identity)(ErrorResponse.NotFound("Contact not found"))
+                  .unit
+            }
+
+          private val updateContactRoutes: HttpRoutes[RouteEffect] =
+            UsersEndpoints.editContactEndpoint.toAuthenticatedRoutes[(FUUID, PatchContactReq)](auth.asUser) {
+              case (user, (contactObjectId, dto)) =>
+                usersService
+                  .patchContactAs(user.userId, contactObjectId, dto)
+                  .map {
+                    case (contact, user) => UserContactResponse(user.id, user.nickName, contact.alias)
+                  }
+                  .flatMapError(error =>
+                    logger.warn(show"Unable to update contact data: ${error.logMessage}").as(UserErrorsMapping.editContactError(error))
+                  )
+            }
+
           override val routes: HttpRoutes[RouteEffect] =
             registerUserRoutes <+>
+              findUserRoutes <+>
               confirmRegistrationRoutes <+>
               userLoginRoutes <+>
               userLogoutRoutes <+>
               userDataRoutes <+>
               updateUserRoutes <+>
+              publicUserDataRoutes <+>
               updateUserPasswordRoutes <+>
               requestPasswordResetRoutes <+>
               passwordResetRoutes <+>
@@ -222,7 +318,11 @@ object UsersRoutes {
               listApiKeyRoutes <+>
               deleteApiKeyRoutes <+>
               updateApiKey <+>
-              getUsersKeyPair
+              getUsersKeyPair <+>
+              createContactRoutes <+>
+              listContactsRoutes <+>
+              deleteContactRoutes <+>
+              updateContactRoutes
 
         }
     )

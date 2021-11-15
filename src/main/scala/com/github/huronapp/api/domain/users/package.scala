@@ -15,4 +15,8 @@ package object users {
 
   }
 
+  type UserWithContact = (User, Option[UserContact])
+
+  type ContactWithUser = (UserContact, User)
+
 }

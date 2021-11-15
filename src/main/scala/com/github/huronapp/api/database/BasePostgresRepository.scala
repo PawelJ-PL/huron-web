@@ -38,6 +38,12 @@ trait BasePostgresRepository {
 
     }
 
+    implicit class StringSyntax(value: String) {
+
+      def sqlLength = quote(infix"length($value)".as[Long])
+
+    }
+
   }
 
 }

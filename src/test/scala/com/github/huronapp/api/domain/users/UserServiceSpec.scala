@@ -6,15 +6,26 @@ import com.github.huronapp.api.constants.{Collections, Config, MiscConstants, Us
 import com.github.huronapp.api.domain.collections.EncryptionKey
 import com.github.huronapp.api.domain.collections.dto.EncryptionKeyData
 import com.github.huronapp.api.domain.users.UsersService.UsersService
-import com.github.huronapp.api.domain.users.dto.fields.{ApiKeyDescription, Nickname, Password, PrivateKey, PublicKey, KeyPair => KeyPairDto}
+import com.github.huronapp.api.domain.users.dto.fields.{
+  ApiKeyDescription,
+  ContactAlias,
+  Nickname,
+  Password,
+  PrivateKey,
+  PublicKey,
+  KeyPair => KeyPairDto
+}
 import com.github.huronapp.api.domain.users.dto.{
+  NewContactReq,
   NewPersonalApiKeyReq,
   NewUserReq,
   PasswordResetReq,
+  PatchContactReq,
   PatchUserDataReq,
   UpdateApiKeyDataReq,
   UpdatePasswordReq
 }
+import com.github.huronapp.api.http.pagination.PaginationEnvelope
 import com.github.huronapp.api.messagebus.InternalMessage
 import com.github.huronapp.api.testdoubles.CollectionsRepoFake.UserCollection
 import com.github.huronapp.api.testdoubles.{
@@ -35,6 +46,7 @@ import zio.logging.slf4j.Slf4jLogger
 import zio.test.Assertion.{equalTo, hasSameElements, isEmpty, isLeft, isNone, isSome}
 import zio.test.environment.TestEnvironment
 import zio.test.{DefaultRunnableSpec, ZSpec, assert}
+import eu.timepit.refined.auto._
 
 import java.time.Instant
 
@@ -58,6 +70,11 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
     suite("Users service suite")(
       createUser,
       createUserWithEmailConflict,
+      createUserWithNickNameConflict,
+      findUsersByNickname,
+      findUsersByNicknameWithLimit,
+      findUsersByNicknameWithDrop,
+      findUsersByNicknameWithoutSelf,
       confirmSignUp,
       confirmSignUpWithInvalidToken,
       confirmAlreadyConfirmedRegistration,
@@ -67,8 +84,24 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       verifyCredentialsForInactiveUser,
       getUserData,
       getUserDataForNonExistingUser,
+      getUserContact,
+      getPublicDataIfContactNotDefined,
+      getUserContactForNonExistingUser,
+      createContact,
+      createContactAliasAlreadyExists,
+      createContactAlreadyExists,
+      createContactUserNotFound,
+      createContactAddSelf,
+      listContacts,
+      listContactsWithLimit,
+      listContactsWithDrop,
+      updateContact,
+      updateContactNoUpdates,
+      updateContactNotFound,
+      updateContactAliasExists,
       updateUserData,
       updateUserDataWithNoUpdates,
+      updateUserDataWithNickNameConflict,
       updateUserDataWithMissingUser,
       updatePassword,
       updatePasswordWithMissingEmail,
@@ -106,6 +139,8 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
 
   private val encryptionKeyData = EncryptionKeyData(ExampleCollectionId, ExampleEncryptionKeyValue, ExampleEncryptionKeyVersion)
 
+  private val editContactDto = PatchContactReq(Some(OptionalValue.of(ContactAlias("newAlias"))))
+
   private val createUser = testM("should successfully create a user") {
     for {
       internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
@@ -133,7 +168,8 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
   private val createUserWithEmailConflict = testM("should not create user if email registered") {
     for {
       internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
-      initUsersRepoState = UsersRepoFake.UsersRepoState(users = Set(ExampleUser.copy(emailHash = "digest(alice@example.org)")))
+      initUsersRepoState =
+        UsersRepoFake.UsersRepoState(users = Set(ExampleUser.copy(emailHash = "digest(alice@example.org)", nickName = "SomeOtherNickName")))
       usersRepo             <- Ref.make(initUsersRepoState)
       collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
       result                <- UsersService.createUser(newUserDto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo)).either
@@ -144,6 +180,157 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
       assert(sentMessages)(isEmpty) &&
       assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+  }
+
+  private val createUserWithNickNameConflict = testM("should not create user if nickname registered") {
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(users = Set(ExampleUser))
+      usersRepo             <- Ref.make(initUsersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result                <- UsersService.createUser(newUserDto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo)).either
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(result)(isLeft(equalTo(NickNameAlreadyRegistered(ExampleUserNickName)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty) &&
+      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+  }
+
+  private val findUsersByNickname = testM("should return users with matching nickname") {
+    val user1 = ExampleUser.copy(nickName = "aaabcdefgh")
+    val user2 = ExampleUser.copy(id = ExampleFuuid1, nickName = "fooaaabc")
+    val user3 = ExampleUser.copy(id = ExampleFuuid2, nickName = "aaabcaaaaaaaaaaaaaaaaaa")
+    val user4 = ExampleUser.copy(id = ExampleFuuid3, nickName = "aaabc")
+    val user5 = ExampleUser.copy(id = ExampleFuuid4, nickName = "aaabca")
+
+    val initialState = UsersRepoFake.UsersRepoState(users = Set(user1, user2, user3, user4, user5))
+    val collectionRepoState = CollectionsRepoFake.CollectionsRepoState()
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(initialState)
+      collectionsRepo       <- Ref.make(collectionRepoState)
+      user                  <- UsersService
+                                 .findUser(ExampleUserId, "aaabc", 30, 0, includeSelf = true)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(user.data)(
+      equalTo(
+        List(
+          (user4, None),
+          (user5, None),
+          (user1, None),
+          (user3, None)
+        )
+      )
+    ) &&
+      assert(finalUsersRepoState)(equalTo(initialState)) &&
+      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val findUsersByNicknameWithLimit = testM("should return users with matching nickname with limit") {
+    val user1 = ExampleUser.copy(nickName = "aaabcdefgh")
+    val user2 = ExampleUser.copy(id = ExampleFuuid1, nickName = "fooaaabc")
+    val user3 = ExampleUser.copy(id = ExampleFuuid2, nickName = "aaabcaaaaaaaaaaaaaaaaaa")
+    val user4 = ExampleUser.copy(id = ExampleFuuid3, nickName = "aaabc")
+    val user5 = ExampleUser.copy(id = ExampleFuuid4, nickName = "aaabca")
+
+    val initialState = UsersRepoFake.UsersRepoState(users = Set(user1, user2, user3, user4, user5))
+    val collectionRepoState = CollectionsRepoFake.CollectionsRepoState()
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(initialState)
+      collectionsRepo       <- Ref.make(collectionRepoState)
+      user                  <- UsersService
+                                 .findUser(ExampleUserId, "aaabc", 2, 0, includeSelf = true)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(user.data)(
+      equalTo(
+        List(
+          (user4, None),
+          (user5, None)
+        )
+      )
+    ) &&
+      assert(finalUsersRepoState)(equalTo(initialState)) &&
+      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val findUsersByNicknameWithDrop = testM("should return users with matching nickname with drop") {
+    val user1 = ExampleUser.copy(nickName = "aaabcdefgh")
+    val user2 = ExampleUser.copy(id = ExampleFuuid1, nickName = "fooaaabc")
+    val user3 = ExampleUser.copy(id = ExampleFuuid2, nickName = "aaabcaaaaaaaaaaaaaaaaaa")
+    val user4 = ExampleUser.copy(id = ExampleFuuid3, nickName = "aaabc")
+    val user5 = ExampleUser.copy(id = ExampleFuuid4, nickName = "aaabca")
+
+    val initialState = UsersRepoFake.UsersRepoState(users = Set(user1, user2, user3, user4, user5))
+    val collectionRepoState = CollectionsRepoFake.CollectionsRepoState()
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(initialState)
+      collectionsRepo       <- Ref.make(collectionRepoState)
+      user                  <- UsersService
+                                 .findUser(ExampleUserId, "aaabc", 30, 2, includeSelf = true)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(user.data)(
+      equalTo(
+        List(
+          (user1, None),
+          (user3, None)
+        )
+      )
+    ) &&
+      assert(finalUsersRepoState)(equalTo(initialState)) &&
+      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val findUsersByNicknameWithoutSelf = testM("should return users with matching nickname without self") {
+    val user1 = ExampleUser.copy(nickName = "aaabcdefgh")
+    val user2 = ExampleUser.copy(id = ExampleFuuid1, nickName = "fooaaabc")
+    val user3 = ExampleUser.copy(id = ExampleFuuid2, nickName = "aaabcaaaaaaaaaaaaaaaaaa")
+    val user4 = ExampleUser.copy(id = ExampleFuuid3, nickName = "aaabc")
+    val user5 = ExampleUser.copy(id = ExampleFuuid4, nickName = "aaabca")
+
+    val initialState = UsersRepoFake.UsersRepoState(users = Set(user1, user2, user3, user4, user5))
+    val collectionRepoState = CollectionsRepoFake.CollectionsRepoState()
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(initialState)
+      collectionsRepo       <- Ref.make(collectionRepoState)
+      user                  <- UsersService
+                                 .findUser(ExampleUserId, "aaabc", 30, 0, includeSelf = false)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(user.data)(
+      equalTo(
+        List(
+          (user4, None),
+          (user5, None),
+          (user3, None)
+        )
+      )
+    ) &&
+      assert(finalUsersRepoState)(equalTo(initialState)) &&
+      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
+      assert(sentMessages)(isEmpty)
   }
 
   private val confirmSignUp = testM("should confirm registration") {
@@ -323,6 +510,395 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
   }
 
+  private val getUserContact = testM("should get users contacts") {
+    val secondUser = User(ExampleContact.contactId, "someEmailHash", "testNickName", Language.Pl)
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(users = Set(ExampleUser, secondUser), contacts = Set(ExampleContact))
+      usersRepo             <- Ref.make(initUsersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      user                  <- UsersService
+                                 .userContact(ExampleUserId, ExampleContact.contactId)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(user)(isSome(equalTo((secondUser, Some(ExampleContact))))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty) &&
+      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+  }
+
+  private val getPublicDataIfContactNotDefined = testM("should get only user public data if contact is not defined") {
+    val secondUser = User(ExampleContact.contactId, "someEmailHash", "testNickName", Language.Pl)
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(users = Set(ExampleUser, secondUser), contacts = Set.empty)
+      usersRepo             <- Ref.make(initUsersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      user                  <- UsersService
+                                 .userContact(ExampleUserId, ExampleContact.contactId)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(user)(isSome(equalTo((secondUser, None)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty) &&
+      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+  }
+
+  private val getUserContactForNonExistingUser = testM("should get None if user not found") {
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(users = Set(ExampleUser))
+      usersRepo             <- Ref.make(initUsersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      user                  <- UsersService
+                                 .userContact(ExampleUserId, ExampleContact.contactId)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(user)(isNone) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty) &&
+      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+  }
+
+  private val createContact = testM("should create contact") {
+    val dto = NewContactReq(ExampleContact.contactId, ExampleContact.alias.map(ContactAlias(_)))
+
+    val secondUser = ExampleUser.copy(id = ExampleContact.contactId)
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(users = Set(ExampleUser, secondUser))
+      usersRepo             <- Ref.make(initUsersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result                <- UsersService.createContactAs(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(result)(equalTo((ExampleContact, secondUser))) &&
+      assert(finalUsersRepoState.contacts)(hasSameElements(Set(ExampleContact))) &&
+      assert(finalUsersRepoState.users)(equalTo(initUsersRepoState.users)) &&
+      assert(finalUsersRepoState.auth)(equalTo(initUsersRepoState.auth)) &&
+      assert(finalUsersRepoState.tokens)(equalTo(initUsersRepoState.tokens)) &&
+      assert(sentMessages)(isEmpty) &&
+      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+  }
+
+  private val createContactAliasAlreadyExists = testM("should not create contact when alias already exists") {
+    val dto = NewContactReq(ExampleContact.contactId, ExampleContact.alias.map(ContactAlias(_)))
+
+    val secondUser = ExampleUser.copy(id = ExampleContact.contactId)
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(
+                             users = Set(ExampleUser, secondUser),
+                             contacts = Set(UserContact(ExampleUserId, ExampleFuuid1, ExampleContact.alias))
+                           )
+      usersRepo           <- Ref.make(initUsersRepoState)
+      collectionsRepo     <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result              <-
+        UsersService.createContactAs(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo)).either
+      finalUsersRepoState <- usersRepo.get
+    } yield assert(result)(isLeft(equalTo(ContactAliasAlreadyExists(ExampleUserId, "Teddy", ExampleFuuid1)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState))
+  }
+
+  private val createContactAlreadyExists = testM("should not create contact when already exists") {
+    val dto = NewContactReq(ExampleContact.contactId, Some(ContactAlias("Carol")))
+
+    val secondUser = ExampleUser.copy(id = ExampleContact.contactId)
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(
+                             users = Set(ExampleUser, secondUser),
+                             contacts = Set(ExampleContact)
+                           )
+      usersRepo           <- Ref.make(initUsersRepoState)
+      collectionsRepo     <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result              <-
+        UsersService.createContactAs(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo)).either
+      finalUsersRepoState <- usersRepo.get
+    } yield assert(result)(isLeft(equalTo(ContactAlreadyExists(ExampleUserId, ExampleContact.contactId)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState))
+  }
+
+  private val createContactUserNotFound = testM("should not create contact when user not found") {
+    val dto = NewContactReq(ExampleContact.contactId, Some(ContactAlias("OtherAlias")))
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(
+                             users = Set(ExampleUser),
+                             contacts = Set(UserContact(ExampleUserId, ExampleFuuid1, ExampleContact.alias))
+                           )
+      usersRepo           <- Ref.make(initUsersRepoState)
+      collectionsRepo     <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result              <-
+        UsersService.createContactAs(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo)).either
+      finalUsersRepoState <- usersRepo.get
+    } yield assert(result)(isLeft(equalTo(UserNotFound(ExampleContact.contactId)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState))
+  }
+
+  private val createContactAddSelf = testM("should not create contact adding self") {
+    val dto = NewContactReq(ExampleUserId, Some(ContactAlias("OtherAlias")))
+
+    val secondUser = ExampleUser.copy(id = ExampleContact.contactId)
+
+    for {
+      internalTopic       <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(
+                             users = Set(ExampleUser, secondUser),
+                             contacts = Set(UserContact(ExampleUserId, ExampleFuuid1, ExampleContact.alias))
+                           )
+      usersRepo           <- Ref.make(initUsersRepoState)
+      collectionsRepo     <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result              <-
+        UsersService.createContactAs(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo)).either
+      finalUsersRepoState <- usersRepo.get
+    } yield assert(result)(isLeft(equalTo(ForbiddenSelfToContacts(ExampleUserId)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState))
+  }
+
+  private val listContacts = testM("should list contacts") {
+    val user1 = ExampleUser.copy(id = ExampleFuuid1, nickName = "Alice")
+    val user2 = ExampleUser.copy(id = ExampleFuuid2, nickName = "Bob")
+    val user3 = ExampleUser.copy(id = ExampleFuuid3, nickName = "Carol")
+    val user4 = ExampleUser.copy(id = ExampleFuuid4, nickName = "Dave")
+    val user5 = ExampleUser.copy(id = ExampleFuuid5, nickName = "Eve")
+    val user6 = ExampleUser.copy(id = ExampleFuuid6, nickName = "Frank")
+    val user7 = ExampleUser.copy(id = ExampleFuuid7, nickName = "Grace")
+    val user8 = ExampleUser.copy(id = ExampleFuuid8, nickName = "Heidi")
+
+    val contact1 = UserContact(ExampleUserId, user1.id, None)
+    val contact2 = UserContact(ExampleUserId, user3.id, Some("Carlos"))
+    val contact3 = UserContact(user1.id, user4.id, Some("Dan"))
+    val contact4 = UserContact(ExampleUserId, user5.id, Some("Ivan"))
+    val contact5 = UserContact(ExampleUserId, user7.id, Some("Adam"))
+    val contact6 = UserContact(ExampleUserId, user8.id, None)
+
+    val initRepo = UsersRepoFake.UsersRepoState(
+      users = Set(user1, user2, user3, user4, user5, user6, user7, user8),
+      contacts = Set(contact1, contact2, contact3, contact4, contact5, contact6)
+    )
+
+    for {
+      internalTopic   <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo       <- Ref.make(initRepo)
+      collectionsRepo <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result          <-
+        UsersService.listContactsAs(ExampleUserId, 30, 0).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+    } yield assert(result)(
+      equalTo(
+        PaginationEnvelope(
+          List(
+            (contact5, user7),
+            (contact2, user3),
+            (contact4, user5),
+            (contact1, user1),
+            (contact6, user8)
+          ),
+          5
+        )
+      )
+    )
+  }
+
+  private val listContactsWithLimit = testM("should list contacts with limit") {
+    val user1 = ExampleUser.copy(id = ExampleFuuid1, nickName = "Alice")
+    val user2 = ExampleUser.copy(id = ExampleFuuid2, nickName = "Bob")
+    val user3 = ExampleUser.copy(id = ExampleFuuid3, nickName = "Carol")
+    val user4 = ExampleUser.copy(id = ExampleFuuid4, nickName = "Dave")
+    val user5 = ExampleUser.copy(id = ExampleFuuid5, nickName = "Eve")
+    val user6 = ExampleUser.copy(id = ExampleFuuid6, nickName = "Frank")
+    val user7 = ExampleUser.copy(id = ExampleFuuid7, nickName = "Grace")
+    val user8 = ExampleUser.copy(id = ExampleFuuid8, nickName = "Heidi")
+
+    val contact1 = UserContact(ExampleUserId, user1.id, None)
+    val contact2 = UserContact(ExampleUserId, user3.id, Some("Carlos"))
+    val contact3 = UserContact(user1.id, user4.id, Some("Dan"))
+    val contact4 = UserContact(ExampleUserId, user5.id, Some("Ivan"))
+    val contact5 = UserContact(ExampleUserId, user7.id, Some("Adam"))
+    val contact6 = UserContact(ExampleUserId, user8.id, None)
+
+    val initRepo = UsersRepoFake.UsersRepoState(
+      users = Set(user1, user2, user3, user4, user5, user6, user7, user8),
+      contacts = Set(contact1, contact2, contact3, contact4, contact5, contact6)
+    )
+
+    for {
+      internalTopic   <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo       <- Ref.make(initRepo)
+      collectionsRepo <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result          <- UsersService.listContactsAs(ExampleUserId, 3, 0).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+    } yield assert(result)(
+      equalTo(
+        PaginationEnvelope(
+          List(
+            (contact5, user7),
+            (contact2, user3),
+            (contact4, user5)
+          ),
+          5
+        )
+      )
+    )
+  }
+
+  private val listContactsWithDrop = testM("should list contacts with drop") {
+    val user1 = ExampleUser.copy(id = ExampleFuuid1, nickName = "Alice")
+    val user2 = ExampleUser.copy(id = ExampleFuuid2, nickName = "Bob")
+    val user3 = ExampleUser.copy(id = ExampleFuuid3, nickName = "Carol")
+    val user4 = ExampleUser.copy(id = ExampleFuuid4, nickName = "Dave")
+    val user5 = ExampleUser.copy(id = ExampleFuuid5, nickName = "Eve")
+    val user6 = ExampleUser.copy(id = ExampleFuuid6, nickName = "Frank")
+    val user7 = ExampleUser.copy(id = ExampleFuuid7, nickName = "Grace")
+    val user8 = ExampleUser.copy(id = ExampleFuuid8, nickName = "Heidi")
+
+    val contact1 = UserContact(ExampleUserId, user1.id, None)
+    val contact2 = UserContact(ExampleUserId, user3.id, Some("Carlos"))
+    val contact3 = UserContact(user1.id, user4.id, Some("Dan"))
+    val contact4 = UserContact(ExampleUserId, user5.id, Some("Ivan"))
+    val contact5 = UserContact(ExampleUserId, user7.id, Some("Adam"))
+    val contact6 = UserContact(ExampleUserId, user8.id, None)
+
+    val initRepo = UsersRepoFake.UsersRepoState(
+      users = Set(user1, user2, user3, user4, user5, user6, user7, user8),
+      contacts = Set(contact1, contact2, contact3, contact4, contact5, contact6)
+    )
+
+    for {
+      internalTopic   <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo       <- Ref.make(initRepo)
+      collectionsRepo <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result          <-
+        UsersService.listContactsAs(ExampleUserId, 30, 3).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+    } yield assert(result)(
+      equalTo(
+        PaginationEnvelope(
+          List(
+            (contact1, user1),
+            (contact6, user8)
+          ),
+          5
+        )
+      )
+    )
+  }
+
+  private val updateContact = testM("should update contact") {
+    val user2 = ExampleUser.copy(id = ExampleContact.contactId, emailHash = "foo")
+    val usersRepoState =
+      UsersRepoFake.UsersRepoState(
+        users = Set(ExampleUser, user2),
+        contacts = Set(ExampleContact)
+      )
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(usersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      contact               <- UsersService
+                                 .patchContactAs(ExampleUserId, ExampleContact.contactId, editContactDto)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(contact)(equalTo((ExampleContact.copy(alias = Some("newAlias")), user2))) &&
+      assert(finalUsersRepoState.contacts)(hasSameElements(Set(ExampleContact.copy(alias = Some("newAlias"))))) &&
+      assert(finalUsersRepoState.users)(equalTo(usersRepoState.users)) &&
+      assert(finalUsersRepoState.auth)(equalTo(usersRepoState.auth)) &&
+      assert(finalUsersRepoState.tokens)(equalTo(usersRepoState.tokens)) &&
+      assert(sentMessages)(isEmpty) &&
+      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+  }
+
+  private val updateContactNoUpdates = testM("should not update contact when no updates provided") {
+    val dto = PatchContactReq(None)
+
+    val user2 = ExampleUser.copy(id = ExampleContact.contactId, emailHash = "foo")
+    val usersRepoState =
+      UsersRepoFake.UsersRepoState(
+        users = Set(ExampleUser, user2),
+        contacts = Set(ExampleContact)
+      )
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(usersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      contact               <- UsersService
+                                 .patchContactAs(ExampleUserId, ExampleContact.contactId, dto)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+                                 .either
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(contact)(isLeft(equalTo(NoUpdates("contact", ExampleUserId, dto)))) &&
+      assert(finalUsersRepoState)(equalTo(usersRepoState)) &&
+      assert(sentMessages)(isEmpty) &&
+      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+  }
+
+  private val updateContactNotFound = testM("should not update contact if contact not found") {
+    val user2 = ExampleUser.copy(id = ExampleContact.contactId, emailHash = "foo")
+    val usersRepoState =
+      UsersRepoFake.UsersRepoState(
+        users = Set(ExampleUser, user2),
+        contacts = Set()
+      )
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(usersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      contact               <- UsersService
+                                 .patchContactAs(ExampleUserId, ExampleContact.contactId, editContactDto)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+                                 .either
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(contact)(isLeft(equalTo(ContactNotFound(ExampleUserId, ExampleContact.contactId)))) &&
+      assert(finalUsersRepoState)(equalTo(usersRepoState)) &&
+      assert(sentMessages)(isEmpty) &&
+      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+  }
+
+  private val updateContactAliasExists = testM("should not update contact if alias is already in use") {
+    val user2 = ExampleUser.copy(id = ExampleContact.contactId, emailHash = "foo")
+    val usersRepoState =
+      UsersRepoFake.UsersRepoState(
+        users = Set(ExampleUser, user2),
+        contacts = Set(ExampleContact, UserContact(ExampleUser.id, ExampleFuuid1, Some("newAlias")))
+      )
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(usersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      contact               <- UsersService
+                                 .patchContactAs(ExampleUserId, ExampleContact.contactId, editContactDto)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+                                 .either
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(contact)(isLeft(equalTo(ContactAliasAlreadyExists(ExampleUser.id, "newAlias", ExampleFuuid1)))) &&
+      assert(finalUsersRepoState)(equalTo(usersRepoState)) &&
+      assert(sentMessages)(isEmpty) &&
+      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+  }
+
   private val updateUserData = testM("should update user data") {
     val dto = PatchUserDataReq(nickName = Some(Nickname("Other name")), language = None)
 
@@ -357,6 +933,25 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(NoUpdates("user", ExampleUserId, dto)))) &&
+      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
+      assert(sentMessages)(isEmpty) &&
+      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+  }
+
+  private val updateUserDataWithNickNameConflict = testM("should not update user data on nickname conflict") {
+    val dto = PatchUserDataReq(nickName = Some(Nickname(ExampleUserNickName)), None)
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      initUsersRepoState = UsersRepoFake.UsersRepoState(users = Set(ExampleUser))
+      usersRepo             <- Ref.make(initUsersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result                <-
+        UsersService.patchUserData(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo)).either
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(result)(isLeft(equalTo(NickNameAlreadyRegistered(ExampleUserNickName)))) &&
       assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
       assert(sentMessages)(isEmpty) &&
       assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))

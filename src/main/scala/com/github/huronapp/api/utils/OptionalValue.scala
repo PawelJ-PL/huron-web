@@ -10,6 +10,10 @@ final case class OptionalValue[A](value: Option[A])
 
 object OptionalValue {
 
+  def empty[A]: OptionalValue[A] = OptionalValue(Option.empty[A])
+
+  def of[A](underlyingValue: A): OptionalValue[A] = OptionalValue(Option[A](underlyingValue))
+
   implicit val circeConfig: Configuration = Configuration.default.withStrictDecoding
 
   @annotation.nowarn("cat=unused")
