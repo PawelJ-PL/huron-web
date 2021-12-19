@@ -3,7 +3,7 @@ package com.github.huronapp.api.config.modules
 import cats.syntax.parallel._
 import ciris.{ConfigDecoder, ConfigValue, env}
 import zio.Task
-import zio.nio.core.file.Path
+import zio.nio.file.Path
 
 sealed trait FileSystemConfig
 

@@ -7,57 +7,53 @@ import com.github.huronapp.api.domain.collections.dto.{CollectionData, Encryptio
 import com.github.huronapp.api.http.{BaseEndpoint, ErrorResponse}
 import com.github.huronapp.api.utils.Implicits.fuuid._
 import io.chrisdavenport.fuuid.FUUID
-import sttp.capabilities
-import sttp.capabilities.zio.ZioStreams
 import sttp.model.StatusCode
-import sttp.tapir.Endpoint
+import sttp.tapir.{Endpoint, PublicEndpoint}
 import sttp.tapir.json.circe.jsonBody
 import sttp.tapir.ztapir._
 
 object CollectionsEndpoints extends BaseEndpoint {
 
-  private val collectionsEndpoint: Endpoint[Unit, Unit, Unit, Any] = apiEndpoint.tag("collections").in("collections")
+  private val collectionsEndpoint: PublicEndpoint[Unit, Unit, Unit, Any] = publicApiEndpoint.tag("collections").in("collections")
 
-  val listCollectionsEndpoint: Endpoint[(AuthenticationInputs, Option[Boolean]), ErrorResponse, List[CollectionData], Any] =
+  val listCollectionsEndpoint: Endpoint[AuthenticationInputs, Option[Boolean], ErrorResponse, List[CollectionData], Any] =
     collectionsEndpoint
       .summary("List collections available to user")
       .get
-      .prependIn(authRequestParts)
+      .securityIn(authRequestParts)
       .in(query[Option[Boolean]]("onlyAccepted").description("Should return only collections accepted by user (default false)"))
       .out(jsonBody[List[CollectionData]])
       .errorOut(oneOf[ErrorResponse](unauthorized))
 
-  val getCollectionDetailsEndpoint
-    : Endpoint[(AuthenticationInputs, FUUID), ErrorResponse, CollectionData, ZioStreams with capabilities.WebSockets] = collectionsEndpoint
-    .summary("Get collection details")
-    .get
-    .prependIn(authRequestParts)
-    .in(path[FUUID]("collectionId"))
-    .out(jsonBody[CollectionData])
-    .errorOut(
-      oneOf[ErrorResponse](
-        badRequest,
-        unauthorized,
-        forbidden
+  val getCollectionDetailsEndpoint: Endpoint[AuthenticationInputs, FUUID, ErrorResponse, CollectionData, Any] =
+    collectionsEndpoint
+      .summary("Get collection details")
+      .get
+      .securityIn(authRequestParts)
+      .in(path[FUUID]("collectionId"))
+      .out(jsonBody[CollectionData])
+      .errorOut(
+        oneOf[ErrorResponse](
+          badRequest,
+          unauthorized,
+          forbidden
+        )
       )
-    )
 
-  val createCollectionEndpoint
-    : Endpoint[(AuthenticationInputs, NewCollectionReq), ErrorResponse, CollectionData, ZioStreams with capabilities.WebSockets] =
+  val createCollectionEndpoint: Endpoint[AuthenticationInputs, NewCollectionReq, ErrorResponse, CollectionData, Any] =
     collectionsEndpoint
       .summary("Create new collection")
       .post
-      .prependIn(authRequestParts)
+      .securityIn(authRequestParts)
       .in(jsonBody[NewCollectionReq])
       .out(jsonBody[CollectionData])
       .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))
 
-  val getSingleCollectionKeyEndpoint
-    : Endpoint[(AuthenticationInputs, FUUID), ErrorResponse, EncryptionKeyData, ZioStreams with capabilities.WebSockets] =
+  val getSingleCollectionKeyEndpoint: Endpoint[AuthenticationInputs, FUUID, ErrorResponse, EncryptionKeyData, Any] =
     collectionsEndpoint
       .summary("Get encryption key for collection")
       .get
-      .prependIn(authRequestParts)
+      .securityIn(authRequestParts)
       .in(path[FUUID]("collectionId") / "encryption-key")
       .out(jsonBody[EncryptionKeyData])
       .errorOut(
@@ -65,21 +61,20 @@ object CollectionsEndpoints extends BaseEndpoint {
           badRequest,
           unauthorized,
           forbidden,
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Key not set for collection"))
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Key not set for collection"))
         )
       )
 
-  val getEncryptionKeysForAllCollectionsEndpoint
-    : Endpoint[AuthenticationInputs, ErrorResponse, List[EncryptionKeyData], ZioStreams with capabilities.WebSockets] =
+  val getEncryptionKeysForAllCollectionsEndpoint: Endpoint[AuthenticationInputs, Unit, ErrorResponse, List[EncryptionKeyData], Any] =
     collectionsEndpoint
       .summary("Get encryption keys for all collections")
       .get
-      .prependIn(authRequestParts)
+      .securityIn(authRequestParts)
       .in("encryption-key")
       .out(jsonBody[List[EncryptionKeyData]])
       .errorOut(oneOf[ErrorResponse](unauthorized))
 
-  val endpoints: NonEmptyList[Endpoint[_, _, _, ZioStreams with capabilities.WebSockets]] =
+  val endpoints: NonEmptyList[Endpoint[_, _, _, _, Any]] =
     NonEmptyList.of(
       listCollectionsEndpoint,
       getCollectionDetailsEndpoint,

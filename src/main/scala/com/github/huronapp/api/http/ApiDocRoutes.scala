@@ -4,7 +4,6 @@ import cats.data.NonEmptyList
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
-import sttp.capabilities
 import sttp.capabilities.zio.ZioStreams
 import sttp.tapir.Endpoint
 import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
@@ -26,12 +25,12 @@ object ApiDocRoutes {
 
   val routes: URIO[ApiDocRoutes, HttpRoutes[RouteEffect]] = ZIO.access[ApiDocRoutes](_.get.routes)
 
-  def live(endpoints: NonEmptyList[Endpoint[_, _, _, ZioStreams with capabilities.WebSockets]]): ZLayer[Any, Nothing, ApiDocRoutes] =
+  def live(endpoints: NonEmptyList[Endpoint[_, _, _, _, Any]]): ZLayer[Any, Nothing, ApiDocRoutes] =
     ZLayer.succeed(new Service with Http4sDsl[RouteEffect] {
 
       private val doc = OpenAPIDocsInterpreter().toOpenAPI(endpoints.toList, "Huron App", "").toYaml
 
-      private val swaggerEndpoint: List[ZServerEndpoint[Any, _, _, _, ZioStreams with capabilities.WebSockets]] =
+      private val swaggerEndpoint: List[ZServerEndpoint[Any, ZioStreams]] =
         SwaggerUI(doc, yamlName = "api-doc.yaml")
 
       private val swaggerRoutes = ZHttp4sServerInterpreter[Any]().from(swaggerEndpoint).toRoutes

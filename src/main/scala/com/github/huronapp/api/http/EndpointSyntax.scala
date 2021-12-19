@@ -1,53 +1,52 @@
 package com.github.huronapp.api.http
 
-import com.github.huronapp.api.auth.authentication.{AuthenticatedUser, AuthenticationInputs}
+import com.github.huronapp.api.auth.authentication.AuthenticatedUser
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import org.http4s.HttpRoutes
-import sttp.capabilities
 import sttp.capabilities.zio.ZioStreams
 import sttp.tapir.Endpoint
 import sttp.tapir.server.http4s.Http4sServerOptions
 import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
-import sttp.tapir.typelevel.ParamSubtract
 import sttp.tapir.ztapir._
 import zio.ZIO
 
 object EndpointSyntax {
 
-  implicit class ZendpointOps[I, E, O](zendpoint: Endpoint[I, E, O, ZioStreams with capabilities.WebSockets]) {
+  implicit class ZendpointOps[S, I, E, O](zendpoint: Endpoint[S, I, E, O, ZioStreams]) {
 
     def toRoutes(
       logic: I => ZIO[Any, E, O]
     )(
+      implicit serverOptions: Http4sServerOptions[RouteEffect, RouteEffect],
+      aIsUnit: S =:= Unit
+    ): HttpRoutes[RouteEffect] = {
+      val zserver: ZServerEndpoint[Any, ZioStreams] = zendpoint.zServerLogic(logic)
+      ZHttp4sServerInterpreter[Any](serverOptions).from(zserver).toRoutes
+    }
+
+    def toAuthenticatedRoutes(
+      auth: S => ZIO[Any, E, AuthenticatedUser]
+    )(
+      logic: AuthenticatedUser => I => ZIO[Any, E, O]
+    )(
       implicit serverOptions: Http4sServerOptions[RouteEffect, RouteEffect]
-    ): HttpRoutes[RouteEffect] =
-      ZHttp4sServerInterpreter[Any](serverOptions).from[I, E, O](zendpoint)(logic).toRoutes
+    ): HttpRoutes[RouteEffect] = {
+      val partialWithUserServerEndpoint = zendpoint.zServerSecurityLogic[Any, AuthenticatedUser](auth)
+      val serverEndpoint: ZServerEndpoint[Any, ZioStreams] = partialWithUserServerEndpoint.serverLogic[Any](logic)
+      ZHttp4sServerInterpreter[Any](serverOptions).from(serverEndpoint).toRoutes
+    }
 
-    def toAuthenticatedRoutes[IR](
-      auth: AuthenticationInputs => ZIO[Any, E, AuthenticatedUser]
+    def toAuthenticatedRoutes_(
+      auth: S => ZIO[Any, E, AuthenticatedUser]
     )(
-      logic: ((AuthenticatedUser, IR)) => ZIO[Any, E, O]
+      logic: I => ZIO[Any, E, O]
     )(
-      implicit serverOptions: Http4sServerOptions[RouteEffect, RouteEffect],
-      iMinusT: ParamSubtract.Aux[I, AuthenticationInputs, IR]
-    ): HttpRoutes[RouteEffect] =
-      ZHttp4sServerInterpreter[Any](serverOptions)
-        .from(zendpoint.zServerLogicPart[Any, AuthenticationInputs, IR, AuthenticatedUser](auth).andThen[Any](logic))
-        .toRoutes
-
-    def toAuthenticatedRoutes_[IR](
-      auth: AuthenticationInputs => ZIO[Any, E, AuthenticatedUser]
-    )(
-      logic: IR => ZIO[Any, E, O]
-    )(
-      implicit serverOptions: Http4sServerOptions[RouteEffect, RouteEffect],
-      iMinusT: ParamSubtract.Aux[I, AuthenticationInputs, IR]
-    ): HttpRoutes[RouteEffect] =
-      ZHttp4sServerInterpreter[Any](serverOptions)
-        .from(
-          zendpoint.zServerLogicPart[Any, AuthenticationInputs, IR, AuthenticatedUser](auth).andThen[Any] { case (_, rest) => logic(rest) }
-        )
-        .toRoutes
+      implicit serverOptions: Http4sServerOptions[RouteEffect, RouteEffect]
+    ): HttpRoutes[RouteEffect] = {
+      val partialWithUserServerEndpoint = zendpoint.zServerSecurityLogic[Any, AuthenticatedUser](auth)
+      val serverEndpoint: ZServerEndpoint[Any, ZioStreams] = partialWithUserServerEndpoint.serverLogic[Any](_ => input => logic(input))
+      ZHttp4sServerInterpreter[Any](serverOptions).from(serverEndpoint).toRoutes
+    }
 
   }
 

@@ -9,14 +9,8 @@ import com.github.huronapp.api.auth.authentication.SessionRepository.SessionRepo
 import com.github.huronapp.api.domain.users.UsersService.UsersService
 import com.github.huronapp.api.domain.users.dto.{
   ApiKeyDataResp,
-  NewContactReq,
-  NewPersonalApiKeyReq,
-  PatchContactReq,
-  PatchUserDataReq,
   PublicUserContactResp,
   PublicUserDataResp,
-  UpdateApiKeyDataReq,
-  UpdatePasswordReq,
   UserContactResponse,
   UserDataResp
 }
@@ -24,12 +18,7 @@ import com.github.huronapp.api.domain.users.dto.fields.{KeyPair => KeyPairDto}
 import com.github.huronapp.api.http.{BaseRouter, ErrorResponse}
 import com.github.huronapp.api.http.EndpointSyntax._
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
-import com.github.huronapp.api.http.pagination.{Paging, PagingResponseMetadata}
-import eu.timepit.refined.auto._
-import eu.timepit.refined.api.Refined
-import eu.timepit.refined.boolean.And
-import eu.timepit.refined.collection.MinSize
-import eu.timepit.refined.string.Trimmed
+import com.github.huronapp.api.http.pagination.PagingResponseMetadata
 import io.chrisdavenport.fuuid.FUUID
 import io.scalaland.chimney.dsl._
 import org.http4s.HttpRoutes
@@ -73,12 +62,10 @@ object UsersRoutes {
           private val findUserRoutes: HttpRoutes[RouteEffect] =
             UsersEndpoints
               .findUsersEndpoint
-              .toAuthenticatedRoutes[
-                (Paging, String Refined (Trimmed And MinSize[5]), Option[Boolean])
-              ](
+              .toAuthenticatedRoutes(
                 auth.asUser
-              ) {
-                case (user, (paging, filter, includeSelf)) =>
+              )(user => {
+                case (paging, filter, includeSelf) =>
                   usersService
                     .findUser(
                       user.userId,
@@ -95,7 +82,7 @@ object UsersRoutes {
                       val pagingMetadata = PagingResponseMetadata.of(paging, envelope)
                       (pagingMetadata, body)
                     }
-              }
+              })
 
           private val confirmRegistrationRoutes: HttpRoutes[RouteEffect] = UsersEndpoints
             .confirmRegistrationEndpoint
@@ -137,24 +124,25 @@ object UsersRoutes {
             ).valueWithMeta
 
           private val userLogoutRoutes: HttpRoutes[RouteEffect] =
-            UsersEndpoints.logoutEndpoint.toAuthenticatedRoutes[Unit](auth.asUser) {
-              case (user, _) =>
-                user match {
-                  case AuthenticatedUser.SessionAuthenticatedUser(session) =>
-                    sessionsRepo.deleteSession(session.sessionId).orDie.as(sessionCookie("invalid", 0))
-                  case _: AuthenticatedUser.ApiKeyUser                     =>
-                    ZIO.fail(ErrorResponse.Forbidden("Logout not allowed for this authentication method"))
-                }
+            UsersEndpoints.logoutEndpoint.toAuthenticatedRoutes(auth.asUser) { user => _ =>
+              user match {
+                case AuthenticatedUser.SessionAuthenticatedUser(session) =>
+                  sessionsRepo.deleteSession(session.sessionId).orDie.as(sessionCookie("invalid", 0))
+                case _: AuthenticatedUser.ApiKeyUser                     =>
+                  ZIO.fail(ErrorResponse.Forbidden("Logout not allowed for this authentication method"))
+              }
             }
 
-          private val userDataRoutes: HttpRoutes[RouteEffect] = UsersEndpoints.userDataEndpoint.toAuthenticatedRoutes[Unit](auth.asUser) {
-            case (user, _) =>
-              usersService
-                .userData(user.userId)
-                .someOrFail(ErrorResponse.NotFound("User not found"))
-                .map(_.transformInto[UserDataResp])
-                .map((_, csrfTokenForUser(user)))
-          }
+          private val userDataRoutes: HttpRoutes[RouteEffect] = UsersEndpoints
+            .userDataEndpoint
+            .toAuthenticatedRoutes(auth.asUser)(user =>
+              _ =>
+                usersService
+                  .userData(user.userId)
+                  .someOrFail(ErrorResponse.NotFound("User not found"))
+                  .map(_.transformInto[UserDataResp])
+                  .map((_, csrfTokenForUser(user)))
+            )
 
           private def csrfTokenForUser(user: AuthenticatedUser): Option[FUUID] =
             user match {
@@ -163,34 +151,43 @@ object UsersRoutes {
             }
 
           private val publicUserDataRoutes: HttpRoutes[RouteEffect] =
-            UsersEndpoints.publicUserDataEndpoint.toAuthenticatedRoutes[FUUID](auth.asUser) {
-              case (authenticatedUser, objectUserId) =>
-                usersService.userContact(authenticatedUser.userId, objectUserId).someOrFail(ErrorResponse.NotFound("User not found")).map {
-                  case (user, maybeContact) =>
-                    PublicUserDataResp(user.id, user.nickName, maybeContact.map(contact => PublicUserContactResp(contact.alias)))
-                }
-            }
+            UsersEndpoints
+              .publicUserDataEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(authenticatedUser =>
+                objectUserId =>
+                  usersService
+                    .userContact(authenticatedUser.userId, objectUserId)
+                    .someOrFail(ErrorResponse.NotFound("User not found"))
+                    .map {
+                      case (user, maybeContact) =>
+                        PublicUserDataResp(user.id, user.nickName, maybeContact.map(contact => PublicUserContactResp(contact.alias)))
+                    }
+              )
 
           private val updateUserRoutes: HttpRoutes[RouteEffect] =
-            UsersEndpoints.updateUserDataEndpoint.toAuthenticatedRoutes[PatchUserDataReq](auth.asUser) {
-              case (user, dto) =>
-                usersService
-                  .patchUserData(user.userId, dto)
-                  .map(_.transformInto[UserDataResp])
-                  .flatMapError(error =>
-                    logger.warn(s"Updating user data failed: ${error.logMessage}").as(UserErrorsMapping.patchUserError(error))
-                  )
-            }
+            UsersEndpoints
+              .updateUserDataEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(user =>
+                dto =>
+                  usersService
+                    .patchUserData(user.userId, dto)
+                    .map(_.transformInto[UserDataResp])
+                    .flatMapError(error =>
+                      logger.warn(s"Updating user data failed: ${error.logMessage}").as(UserErrorsMapping.patchUserError(error))
+                    )
+              )
 
           private val updateUserPasswordRoutes: HttpRoutes[RouteEffect] =
-            UsersEndpoints.updateUserPasswordEndpoint.toAuthenticatedRoutes[UpdatePasswordReq](auth.asUser) {
-              case (user, dto) =>
-                usersService
-                  .updatePasswordForUser(user.userId, dto)
-                  .flatMapError(error =>
-                    logger.warn(s"Updating user password failed: ${error.logMessage}").as(UserErrorsMapping.updatePasswordError(error))
-                  )
-            }
+            UsersEndpoints
+              .updateUserPasswordEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(user =>
+                dto =>
+                  usersService
+                    .updatePasswordForUser(user.userId, dto)
+                    .flatMapError(error =>
+                      logger.warn(s"Updating user password failed: ${error.logMessage}").as(UserErrorsMapping.updatePasswordError(error))
+                    )
+              )
 
           private val requestPasswordResetRoutes: HttpRoutes[RouteEffect] = UsersEndpoints
             .requestPasswordResetEndpoint
@@ -212,95 +209,109 @@ object UsersRoutes {
           }
 
           private val createApiKeyRoutes: HttpRoutes[RouteEffect] =
-            UsersEndpoints.createPersonalApiKeyEndpoint.toAuthenticatedRoutes[NewPersonalApiKeyReq](auth.asUser) {
-              case (user, dto) => usersService.createApiKeyForUser(user.userId, dto).map(_.transformInto[ApiKeyDataResp])
-            }
+            UsersEndpoints
+              .createPersonalApiKeyEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(user =>
+                dto => usersService.createApiKeyForUser(user.userId, dto).map(_.transformInto[ApiKeyDataResp])
+              )
 
           private val listApiKeyRoutes: HttpRoutes[RouteEffect] =
-            UsersEndpoints.listPersonalApiKeysEndpoint.toAuthenticatedRoutes[Unit](auth.asUser) {
-              case (user, _) =>
-                usersService.getApiKeysOf(user.userId, ApiKeyType.Personal).map(_.transformInto[List[ApiKeyDataResp]])
-            }
+            UsersEndpoints
+              .listPersonalApiKeysEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(user =>
+                _ => usersService.getApiKeysOf(user.userId, ApiKeyType.Personal).map(_.transformInto[List[ApiKeyDataResp]])
+              )
 
           private val deleteApiKeyRoutes: HttpRoutes[RouteEffect] =
-            UsersEndpoints.deleteApiKeyEndpoint.toAuthenticatedRoutes[FUUID](auth.asUser) {
-              case (user, keyId) =>
-                usersService
-                  .deleteApiKeyAs(user.userId, keyId)
-                  .flatMapError(error =>
-                    logger.warn(s"Unable to delete API key: ${error.logMessage}").as(UserErrorsMapping.deleteApiKeyError(error))
-                  )
-            }
+            UsersEndpoints
+              .deleteApiKeyEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(user =>
+                keyId =>
+                  usersService
+                    .deleteApiKeyAs(user.userId, keyId)
+                    .flatMapError(error =>
+                      logger.warn(s"Unable to delete API key: ${error.logMessage}").as(UserErrorsMapping.deleteApiKeyError(error))
+                    )
+              )
 
           private val updateApiKey: HttpRoutes[RouteEffect] =
-            UsersEndpoints.updateApiKeyEndpoint.toAuthenticatedRoutes[(FUUID, UpdateApiKeyDataReq)](auth.asUser) {
-              case (user, rest) =>
-                rest match {
-                  case (keyId, dto) =>
-                    usersService
-                      .updateApiKeyAs(user.userId, keyId, dto)
-                      .map(_.transformInto[ApiKeyDataResp])
-                      .flatMapError(error =>
-                        logger.warn(s"Unable to update API key: ${error.logMessage}").as(UserErrorsMapping.updateApiKeyError(error))
-                      )
-                }
-            }
+            UsersEndpoints
+              .updateApiKeyEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(user => {
+                case (keyId, dto) =>
+                  usersService
+                    .updateApiKeyAs(user.userId, keyId, dto)
+                    .map(_.transformInto[ApiKeyDataResp])
+                    .flatMapError(error =>
+                      logger.warn(s"Unable to update API key: ${error.logMessage}").as(UserErrorsMapping.updateApiKeyError(error))
+                    )
+              })
 
           private val getUsersKeyPair: HttpRoutes[RouteEffect] =
-            UsersEndpoints.userKeypairEndpoint.toAuthenticatedRoutes[Unit](auth.asUser) {
-              case (user, _) =>
-                usersService
-                  .getKeyPairOf(user.userId)
-                  .someOrFail(ErrorResponse.NotFound("Key pair not found"))
-                  .map(_.transformInto[KeyPairDto])
-            }
+            UsersEndpoints
+              .userKeypairEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(user =>
+                _ =>
+                  usersService
+                    .getKeyPairOf(user.userId)
+                    .someOrFail(ErrorResponse.NotFound("Key pair not found"))
+                    .map(_.transformInto[KeyPairDto])
+              )
 
           private val createContactRoutes: HttpRoutes[RouteEffect] =
-            UsersEndpoints.createContactEndpoint.toAuthenticatedRoutes[NewContactReq](auth.asUser) {
-              case (user, req) =>
-                usersService
-                  .createContactAs(user.userId, req)
-                  .map {
-                    case (contact, user) => UserContactResponse(user.id, user.nickName, contact.alias)
-                  }
-                  .flatMapError(error =>
-                    logger.warn(show"Unable to create contact: ${error.logMessage}").as(UserErrorsMapping.createContactError(error))
-                  )
-            }
+            UsersEndpoints
+              .createContactEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(user =>
+                req =>
+                  usersService
+                    .createContactAs(user.userId, req)
+                    .map {
+                      case (contact, user) => UserContactResponse(user.id, user.nickName, contact.alias)
+                    }
+                    .flatMapError(error =>
+                      logger.warn(show"Unable to create contact: ${error.logMessage}").as(UserErrorsMapping.createContactError(error))
+                    )
+              )
 
           private val listContactsRoutes: HttpRoutes[RouteEffect] =
-            UsersEndpoints.listContactsEndpoint.toAuthenticatedRoutes[Paging](auth.asUser) {
-              case (user, paging) =>
-                usersService.listContactsAs(user.userId, paging.limit, paging.dropCount).map { envelope =>
-                  val body = envelope.data.map {
-                    case (contact, user) => UserContactResponse(user.id, user.nickName, contact.alias)
+            UsersEndpoints
+              .listContactsEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(user =>
+                paging =>
+                  usersService.listContactsAs(user.userId, paging.limit, paging.dropCount).map { envelope =>
+                    val body = envelope.data.map {
+                      case (contact, user) => UserContactResponse(user.id, user.nickName, contact.alias)
+                    }
+                    val headers = PagingResponseMetadata.of(paging, envelope)
+                    (headers, body)
                   }
-                  val headers = PagingResponseMetadata.of(paging, envelope)
-                  (headers, body)
-                }
-            }
+              )
 
           private val deleteContactRoutes: HttpRoutes[RouteEffect] =
-            UsersEndpoints.deleteContactEndpoint.toAuthenticatedRoutes[FUUID](auth.asUser) {
-              case (user, contactId) =>
-                usersService
-                  .deleteContactAs(user.userId, contactId)
-                  .filterOrFail(identity)(ErrorResponse.NotFound("Contact not found"))
-                  .unit
-            }
+            UsersEndpoints
+              .deleteContactEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(user =>
+                contactId =>
+                  usersService
+                    .deleteContactAs(user.userId, contactId)
+                    .filterOrFail(identity)(ErrorResponse.NotFound("Contact not found"))
+                    .unit
+              )
 
           private val updateContactRoutes: HttpRoutes[RouteEffect] =
-            UsersEndpoints.editContactEndpoint.toAuthenticatedRoutes[(FUUID, PatchContactReq)](auth.asUser) {
-              case (user, (contactObjectId, dto)) =>
-                usersService
-                  .patchContactAs(user.userId, contactObjectId, dto)
-                  .map {
-                    case (contact, user) => UserContactResponse(user.id, user.nickName, contact.alias)
-                  }
-                  .flatMapError(error =>
-                    logger.warn(show"Unable to update contact data: ${error.logMessage}").as(UserErrorsMapping.editContactError(error))
-                  )
-            }
+            UsersEndpoints
+              .editContactEndpoint
+              .toAuthenticatedRoutes(auth.asUser)(user => {
+                case (contactObjectId, dto) =>
+                  usersService
+                    .patchContactAs(user.userId, contactObjectId, dto)
+                    .map {
+                      case (contact, user) => UserContactResponse(user.id, user.nickName, contact.alias)
+                    }
+                    .flatMapError(error =>
+                      logger.warn(show"Unable to update contact data: ${error.logMessage}").as(UserErrorsMapping.editContactError(error))
+                    )
+              })
 
           override val routes: HttpRoutes[RouteEffect] =
             registerUserRoutes <+>
