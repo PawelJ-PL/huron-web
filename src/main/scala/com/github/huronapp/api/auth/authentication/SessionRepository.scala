@@ -8,6 +8,7 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.huronapp.api.domain.users.UserSession
 import com.github.huronapp.api.utils.RandomUtils
 import com.github.huronapp.api.utils.RandomUtils.RandomUtils
+import io.chrisdavenport.fuuid.circe._
 import io.chrisdavenport.fuuid.FUUID
 import scalacache._
 import scalacache.caffeine.CaffeineCache
@@ -34,10 +35,11 @@ object SessionRepository {
   }
 
   val live: ZLayer[SessionsIndex with Clock with RandomUtils with Has[
-    Cache[Task, UserSession]
+    Cache[Task, FUUID, UserSession]
   ] with Logging, Nothing, Has[Service]] =
     ZLayer.fromServices[SessionsIndex.Service, Clock.Service, RandomUtils.Service, Cache[
       Task,
+      FUUID,
       UserSession
     ], Logger[String], SessionRepository.Service]((index, clock, random, sessionCache, logger) =>
       new Service {
@@ -81,25 +83,25 @@ private case object SessionNotFound extends Throwable
 object SessionCache {
   import zio.interop.catz._
 
-  val inMemory: ZLayer[Blocking with Clock with Has[SecurityConfig], Throwable, Has[Cache[Task, UserSession]]] =
-    ZLayer.fromServicesM[Blocking.Service, Clock.Service, SecurityConfig, Any, Throwable, Cache[Task, UserSession]] {
+  val inMemory: ZLayer[Blocking with Clock with Has[SecurityConfig], Throwable, Has[Cache[Task, FUUID, UserSession]]] =
+    ZLayer.fromServicesM[Blocking.Service, Clock.Service, SecurityConfig, Any, Throwable, Cache[Task, FUUID, UserSession]] {
       (blocking, clock, securityConfig) =>
         val ttl = java.time.Duration.ofNanos(securityConfig.sessionCookieTtl.toNanos)
-        val underlyingCache: Task[cache.Cache[String, Entry[UserSession]]] =
-          ZIO(Caffeine.newBuilder().expireAfterWrite(ttl).build[String, Entry[UserSession]])
+        val underlyingCache: Task[cache.Cache[FUUID, Entry[UserSession]]] =
+          ZIO(Caffeine.newBuilder().expireAfterWrite(ttl).build[FUUID, Entry[UserSession]])
         ZIO
           .runtime[Clock with Blocking]
-          .flatMap { implicit r: Runtime[Clock with Blocking] => underlyingCache.map(c => CaffeineCache[Task, UserSession](c)) }
+          .flatMap { implicit r: Runtime[Clock with Blocking] => underlyingCache.map(c => CaffeineCache[Task, FUUID, UserSession](c)) }
           .provideLayer(ZLayer.succeed(blocking) ++ ZLayer.succeed(clock))
     }
 
-  def redis(config: RedisSessionRepo): ZLayer[Blocking with Clock, Throwable, Has[Cache[Task, UserSession]]] = {
+  def redis(config: RedisSessionRepo): ZLayer[Blocking with Clock, Throwable, Has[Cache[Task, FUUID, UserSession]]] = {
     import scalacache.serialization.circe._
-    ZLayer.fromServicesM[Blocking.Service, Clock.Service, Any, Throwable, Cache[Task, UserSession]] { (blocking, clock) =>
+    ZLayer.fromServicesM[Blocking.Service, Clock.Service, Any, Throwable, Cache[Task, FUUID, UserSession]] { (blocking, clock) =>
       ZIO
         .runtime[Clock with Blocking]
         .flatMap { implicit r: Runtime[Clock with Blocking] =>
-          ZIO.effect(RedisCache[Task, UserSession](config.host, config.port))
+          ZIO.effect(RedisCache[Task, FUUID, UserSession](config.host, config.port))
         }
         .provideLayer(ZLayer.succeed(blocking) ++ ZLayer.succeed(clock))
     }

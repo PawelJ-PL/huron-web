@@ -18,8 +18,7 @@ import com.github.huronapp.api.domain.users.dto.{
   UpdateApiKeyDataReq,
   UpdatePasswordReq,
   UserContactResponse,
-  UserDataResp,
-  fields
+  UserDataResp
 }
 import com.github.huronapp.api.http.pagination.{Paging, PagingResponseMetadata}
 import com.github.huronapp.api.http.{BaseEndpoint, ErrorResponse}
@@ -30,19 +29,17 @@ import eu.timepit.refined.boolean.And
 import eu.timepit.refined.collection.MinSize
 import eu.timepit.refined.string.Trimmed
 import io.chrisdavenport.fuuid.FUUID
-import sttp.capabilities
-import sttp.capabilities.zio.ZioStreams
 import sttp.model.StatusCode
 import sttp.model.headers.CookieValueWithMeta
 import sttp.tapir.EndpointIO.Example
-import sttp.tapir.{Endpoint, oneOfMapping}
+import sttp.tapir.{Endpoint, PublicEndpoint}
 import sttp.tapir.json.circe.jsonBody
 import sttp.tapir.ztapir._
 import sttp.tapir.codec.refined._
 
 object UsersEndpoints extends BaseEndpoint {
 
-  private val usersEndpoint: Endpoint[Unit, Unit, Unit, Any] = apiEndpoint.tag("users").in("users")
+  private val usersEndpoint: Endpoint[Unit, Unit, Unit, Unit, Any] = publicApiEndpoint.tag("users").in("users")
 
   object Responses {
 
@@ -88,7 +85,7 @@ object UsersEndpoints extends BaseEndpoint {
   private val nickNameConflictExample =
     Example(Responses.nickNameConflict, Responses.nickNameConflict.reason, Responses.nickNameConflict.reason)
 
-  val registerUserEndpoint: Endpoint[NewUserReq, ErrorResponse, Unit, ZioStreams with capabilities.WebSockets] = usersEndpoint
+  val registerUserEndpoint: PublicEndpoint[NewUserReq, ErrorResponse, Unit, Any] = usersEndpoint
     .summary("Register new user")
     .post
     .in(
@@ -100,19 +97,20 @@ object UsersEndpoints extends BaseEndpoint {
     .errorOut(
       oneOf[ErrorResponse](
         badRequest,
-        oneOfMapping(StatusCode.Conflict, jsonBody[ErrorResponse.Conflict].examples(List(emailConflictExample, nickNameConflictExample)))
+        oneOfVariant(StatusCode.Conflict, jsonBody[ErrorResponse.Conflict].examples(List(emailConflictExample, nickNameConflictExample)))
       )
     )
 
   val findUsersEndpoint: Endpoint[
-    (AuthenticationInputs, Paging, Refined[String, And[Trimmed, MinSize[5]]], Option[Boolean]),
+    AuthenticationInputs,
+    (Paging, Refined[String, And[Trimmed, MinSize[5]]], Option[Boolean]),
     ErrorResponse,
     (PagingResponseMetadata, List[PublicUserDataResp]),
     Any
   ] = usersEndpoint
     .summary("Find users by nickname")
     .get
-    .prependIn(authRequestParts)
+    .securityIn(authRequestParts)
     .in(Paging.params(defaultLimit = 5, maxLimit = 10))
     .in(
       query[String Refined (Trimmed And MinSize[5])]("nickNameFilter").description("Start of a nickname. Must have at least 5 characters")
@@ -122,15 +120,14 @@ object UsersEndpoints extends BaseEndpoint {
     .out(jsonBody[List[PublicUserDataResp]])
     .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))
 
-  val confirmRegistrationEndpoint: Endpoint[String, ErrorResponse, Unit, ZioStreams with capabilities.WebSockets] = usersEndpoint
+  val confirmRegistrationEndpoint: PublicEndpoint[String, ErrorResponse, Unit, Any] = usersEndpoint
     .summary("Signup confirmation")
     .get
     .in("registrations" / path[String]("confirmationToken"))
     .out(statusCode(StatusCode.NoContent))
-    .errorOut(oneOf[ErrorResponse](oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Invalid token"))))
+    .errorOut(oneOf[ErrorResponse](oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Invalid token"))))
 
-  val loginEndpoint
-    : Endpoint[LoginReq, ErrorResponse, (UserDataResp, CookieValueWithMeta, String), ZioStreams with capabilities.WebSockets] =
+  val loginEndpoint: PublicEndpoint[LoginReq, ErrorResponse, (UserDataResp, CookieValueWithMeta, String), Any] =
     usersEndpoint
       .summary("User login")
       .post
@@ -142,68 +139,67 @@ object UsersEndpoints extends BaseEndpoint {
       .errorOut(
         oneOf[ErrorResponse](
           badRequest,
-          oneOfMapping(StatusCode.Unauthorized, jsonBody[ErrorResponse.Unauthorized].description("Invalid credentials"))
+          oneOfVariant(StatusCode.Unauthorized, jsonBody[ErrorResponse.Unauthorized].description("Invalid credentials"))
         )
       )
 
-  val logoutEndpoint: Endpoint[AuthenticationInputs, ErrorResponse, CookieValueWithMeta, ZioStreams with capabilities.WebSockets] =
+  val logoutEndpoint: Endpoint[AuthenticationInputs, Unit, ErrorResponse, CookieValueWithMeta, Any] =
     usersEndpoint
       .summary("Logout user")
       .delete
-      .prependIn(authRequestParts)
+      .securityIn(authRequestParts)
       .in("me" / "session")
       .out(statusCode(StatusCode.NoContent))
       .out(setCookie("session").description("Expired cookie with current session ID"))
       .errorOut(
         oneOf[ErrorResponse](
           unauthorized,
-          oneOfMapping(StatusCode.Forbidden, jsonBody[ErrorResponse.Forbidden].description("Logout only allowed for cookie authentication"))
+          oneOfVariant(StatusCode.Forbidden, jsonBody[ErrorResponse.Forbidden].description("Logout only allowed for cookie authentication"))
         )
       )
 
-  val userDataEndpoint
-    : Endpoint[AuthenticationInputs, ErrorResponse, (UserDataResp, Option[FUUID]), ZioStreams with capabilities.WebSockets] = usersEndpoint
-    .summary("Current users data")
-    .get
-    .prependIn(authRequestParts)
-    .in("me" / "data")
-    .out(jsonBody[UserDataResp])
-    .out(header[Option[FUUID]]("X-Csrf-Token"))
-    .errorOut(
-      oneOf[ErrorResponse](
-        unauthorized,
-        oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User data not found"))
+  val userDataEndpoint: Endpoint[AuthenticationInputs, Unit, ErrorResponse, (UserDataResp, Option[FUUID]), Any] =
+    usersEndpoint
+      .summary("Current users data")
+      .get
+      .securityIn(authRequestParts)
+      .in("me" / "data")
+      .out(jsonBody[UserDataResp])
+      .out(header[Option[FUUID]]("X-Csrf-Token"))
+      .errorOut(
+        oneOf[ErrorResponse](
+          unauthorized,
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User data not found"))
+        )
       )
-    )
 
-  val updateUserDataEndpoint
-    : Endpoint[(AuthenticationInputs, PatchUserDataReq), ErrorResponse, UserDataResp, ZioStreams with capabilities.WebSockets] =
+  val updateUserDataEndpoint: Endpoint[AuthenticationInputs, PatchUserDataReq, ErrorResponse, UserDataResp, Any] =
     usersEndpoint
       .summary("Update user")
       .patch
-      .prependIn(authRequestParts)
+      .securityIn(authRequestParts)
       .in("me" / "data")
       .in(jsonBody[PatchUserDataReq])
       .out(jsonBody[UserDataResp])
       .errorOut(
         oneOf[ErrorResponse](
           unauthorized,
-          oneOfMapping(StatusCode.BadRequest, jsonBody[ErrorResponse.BadRequest].description("No updates provided")),
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User not found")),
-          oneOfMapping(StatusCode.Conflict, jsonBody[ErrorResponse.Conflict].example(nickNameConflictExample))
+          oneOfVariant(StatusCode.BadRequest, jsonBody[ErrorResponse.BadRequest].description("No updates provided")),
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User not found")),
+          oneOfVariant(StatusCode.Conflict, jsonBody[ErrorResponse.Conflict].example(nickNameConflictExample))
         )
       )
 
-  val publicUserDataEndpoint: Endpoint[(AuthenticationInputs, FUUID), ErrorResponse, PublicUserDataResp, Any] = usersEndpoint
+  val publicUserDataEndpoint: Endpoint[AuthenticationInputs, FUUID, ErrorResponse, PublicUserDataResp, Any] = usersEndpoint
     .summary("Any users data")
     .get
-    .prependIn(authRequestParts)
+    .securityIn(authRequestParts)
     .in(path[FUUID]("userId") / "data")
     .out(jsonBody[PublicUserDataResp])
     .errorOut(
       oneOf[ErrorResponse](
         unauthorized,
-        oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User data not found"))
+        oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User data not found"))
       )
     )
 
@@ -242,37 +238,37 @@ object UsersEndpoints extends BaseEndpoint {
     Example(exampleResponse, exampleResponse.reason, exampleResponse.reason)
   }
 
-  val updateUserPasswordEndpoint
-    : Endpoint[(AuthenticationInputs, UpdatePasswordReq), ErrorResponse, Unit, ZioStreams with capabilities.WebSockets] = usersEndpoint
-    .summary("Change password")
-    .post
-    .prependIn(authRequestParts)
-    .in("me" / "password")
-    .in(jsonBody[UpdatePasswordReq])
-    .out(statusCode(StatusCode.NoContent))
-    .errorOut(
-      oneOf[ErrorResponse](
-        unauthorized,
-        badRequest,
-        oneOfMapping(StatusCode.Forbidden, jsonBody[ErrorResponse.Forbidden]),
-        oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User not found")),
-        oneOfMapping(
-          StatusCode.PreconditionFailed,
-          jsonBody[ErrorResponse.PreconditionFailed]
-            .examples(
-              List(
-                updatePasswordPasswordsEqualsExample,
-                updatePasswordInvalidCredentials,
-                updatePasswordInvalidEmail,
-                updatePasswordMissingKeys,
-                updatePasswordKeyVersionMismatch
+  val updateUserPasswordEndpoint =
+    usersEndpoint
+      .summary("Change password")
+      .post
+      .securityIn(authRequestParts)
+      .in("me" / "password")
+      .in(jsonBody[UpdatePasswordReq])
+      .out(statusCode(StatusCode.NoContent))
+      .errorOut(
+        oneOf[ErrorResponse](
+          unauthorized,
+          badRequest,
+          oneOfVariant(StatusCode.Forbidden, jsonBody[ErrorResponse.Forbidden]),
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User not found")),
+          oneOfVariant(
+            StatusCode.PreconditionFailed,
+            jsonBody[ErrorResponse.PreconditionFailed]
+              .examples(
+                List(
+                  updatePasswordPasswordsEqualsExample,
+                  updatePasswordInvalidCredentials,
+                  updatePasswordInvalidEmail,
+                  updatePasswordMissingKeys,
+                  updatePasswordKeyVersionMismatch
+                )
               )
-            )
+          )
         )
       )
-    )
 
-  val requestPasswordResetEndpoint: Endpoint[GeneratePasswordResetReq, ErrorResponse, Unit, ZioStreams with capabilities.WebSockets] =
+  val requestPasswordResetEndpoint: PublicEndpoint[GeneratePasswordResetReq, ErrorResponse, Unit, Any] =
     usersEndpoint
       .summary("Request password reset")
       .post
@@ -281,7 +277,7 @@ object UsersEndpoints extends BaseEndpoint {
       .out(statusCode(StatusCode.NoContent))
       .errorOut(oneOf[ErrorResponse](badRequest))
 
-  val passwordResetEndpoint: Endpoint[(String, PasswordResetReq), ErrorResponse, Unit, ZioStreams with capabilities.WebSockets] =
+  val passwordResetEndpoint: PublicEndpoint[(String, PasswordResetReq), ErrorResponse, Unit, Any] =
     usersEndpoint
       .summary("Reset password using token")
       .put
@@ -289,72 +285,69 @@ object UsersEndpoints extends BaseEndpoint {
       .in(jsonBody[PasswordResetReq])
       .out(statusCode(StatusCode.NoContent))
       .errorOut(
-        oneOf[ErrorResponse](badRequest, oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Token not found")))
+        oneOf[ErrorResponse](badRequest, oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Token not found")))
       )
 
-  val createPersonalApiKeyEndpoint
-    : Endpoint[(AuthenticationInputs, NewPersonalApiKeyReq), ErrorResponse, ApiKeyDataResp, ZioStreams with capabilities.WebSockets] =
+  val createPersonalApiKeyEndpoint: Endpoint[AuthenticationInputs, NewPersonalApiKeyReq, ErrorResponse, ApiKeyDataResp, Any] =
     usersEndpoint
       .summary("Create personal API key")
       .post
-      .prependIn(authRequestParts)
+      .securityIn(authRequestParts)
       .in("me" / "api-keys")
       .in(jsonBody[NewPersonalApiKeyReq])
       .out(jsonBody[ApiKeyDataResp])
       .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))
 
-  val listPersonalApiKeysEndpoint
-    : Endpoint[AuthenticationInputs, ErrorResponse, List[ApiKeyDataResp], ZioStreams with capabilities.WebSockets] = usersEndpoint
+  val listPersonalApiKeysEndpoint: Endpoint[AuthenticationInputs, Unit, ErrorResponse, List[ApiKeyDataResp], Any] = usersEndpoint
     .summary("List users API keys")
     .get
-    .prependIn(authRequestParts)
+    .securityIn(authRequestParts)
     .in("me" / "api-keys")
     .out(jsonBody[List[ApiKeyDataResp]])
     .errorOut(oneOf[ErrorResponse](unauthorized))
 
-  val deleteApiKeyEndpoint: Endpoint[(AuthenticationInputs, FUUID), ErrorResponse, Unit, ZioStreams with capabilities.WebSockets] =
+  val deleteApiKeyEndpoint =
     usersEndpoint
       .summary("Delete personal API key")
       .delete
-      .prependIn(authRequestParts)
+      .securityIn(authRequestParts)
       .in("me" / "api-keys" / path[FUUID]("apiKeyId"))
       .out(statusCode(StatusCode.NoContent))
       .errorOut(
         oneOf[ErrorResponse](
           badRequest,
           unauthorized,
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("API token not found"))
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("API token not found"))
         )
       )
 
-  val updateApiKeyEndpoint
-    : Endpoint[(AuthenticationInputs, FUUID, UpdateApiKeyDataReq), ErrorResponse, ApiKeyDataResp, ZioStreams with capabilities.WebSockets] =
+  val updateApiKeyEndpoint: Endpoint[AuthenticationInputs, (FUUID, UpdateApiKeyDataReq), ErrorResponse, ApiKeyDataResp, Any] =
     usersEndpoint
       .summary("Update personal API key")
       .patch
-      .prependIn(authRequestParts)
+      .securityIn(authRequestParts)
       .in("me" / "api-keys" / path[FUUID]("apiKeyId"))
       .in(jsonBody[UpdateApiKeyDataReq])
       .out(jsonBody[ApiKeyDataResp])
       .errorOut(
         oneOf[ErrorResponse](
           unauthorized,
-          oneOfMapping(StatusCode.BadRequest, jsonBody[ErrorResponse.BadRequest].description("No updates provided")),
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("API key not found"))
+          oneOfVariant(StatusCode.BadRequest, jsonBody[ErrorResponse.BadRequest].description("No updates provided")),
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("API key not found"))
         )
       )
 
-  val userKeypairEndpoint: Endpoint[AuthenticationInputs, ErrorResponse, fields.KeyPair, ZioStreams with capabilities.WebSockets] =
+  val userKeypairEndpoint =
     usersEndpoint
       .summary("Current users key pair")
       .get
-      .prependIn(authRequestParts)
+      .securityIn(authRequestParts)
       .in("me" / "keypair")
       .out(jsonBody[KeyPairDto])
       .errorOut(
         oneOf[ErrorResponse](
           unauthorized,
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Keypair not found for user"))
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Keypair not found for user"))
         )
       )
 
@@ -367,10 +360,10 @@ object UsersEndpoints extends BaseEndpoint {
   private val addSelfToContactsExample =
     Example(Responses.addSelfToContacts, Responses.addSelfToContacts.reason, Responses.addSelfToContacts.reason)
 
-  val createContactEndpoint: Endpoint[(AuthenticationInputs, NewContactReq), ErrorResponse, UserContactResponse, Any] = usersEndpoint
+  val createContactEndpoint: Endpoint[AuthenticationInputs, NewContactReq, ErrorResponse, UserContactResponse, Any] = usersEndpoint
     .summary("Create contact")
     .post
-    .prependIn(authRequestParts)
+    .securityIn(authRequestParts)
     .in("me" / "contacts")
     .in(jsonBody[NewContactReq])
     .out(jsonBody[UserContactResponse])
@@ -378,60 +371,61 @@ object UsersEndpoints extends BaseEndpoint {
       oneOf[ErrorResponse](
         unauthorized,
         badRequest,
-        oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User not found")),
-        oneOfMapping(
+        oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User not found")),
+        oneOfVariant(
           StatusCode.Conflict,
           jsonBody[ErrorResponse.Conflict].examples(List(contactConflictExample, contactAliasConflictExample))
         ),
-        oneOfMapping(StatusCode.PreconditionFailed, jsonBody[ErrorResponse.PreconditionFailed].example(addSelfToContactsExample))
+        oneOfVariant(StatusCode.PreconditionFailed, jsonBody[ErrorResponse.PreconditionFailed].example(addSelfToContactsExample))
       )
     )
 
-  val listContactsEndpoint
-    : Endpoint[(AuthenticationInputs, Paging), ErrorResponse, (PagingResponseMetadata, List[UserContactResponse]), Any] = usersEndpoint
-    .summary("List contacts")
-    .get
-    .prependIn(authRequestParts)
-    .in("me" / "contacts")
-    .in(Paging.params())
-    .out(PagingResponseMetadata.headers)
-    .out(jsonBody[List[UserContactResponse]])
-    .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))
+  val listContactsEndpoint =
+    usersEndpoint
+      .summary("List contacts")
+      .get
+      .securityIn(authRequestParts)
+      .in("me" / "contacts")
+      .in(Paging.params())
+      .out(PagingResponseMetadata.headers)
+      .out(jsonBody[List[UserContactResponse]])
+      .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))
 
-  val deleteContactEndpoint: Endpoint[(AuthenticationInputs, FUUID), ErrorResponse, Unit, Any] = usersEndpoint
+  val deleteContactEndpoint: Endpoint[AuthenticationInputs, FUUID, ErrorResponse, Unit, Any] = usersEndpoint
     .summary("Delete contact")
     .delete
-    .prependIn(authRequestParts)
+    .securityIn(authRequestParts)
     .in("me" / "contacts" / path[FUUID]("contactId"))
     .out(statusCode(StatusCode.NoContent))
     .errorOut(
       oneOf[ErrorResponse](
         badRequest,
         unauthorized,
-        oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Contact not found"))
+        oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Contact not found"))
       )
     )
 
-  val editContactEndpoint: Endpoint[(AuthenticationInputs, FUUID, PatchContactReq), ErrorResponse, UserContactResponse, Any] = usersEndpoint
-    .summary("Edit contact data")
-    .patch
-    .prependIn(authRequestParts)
-    .in("me" / "contacts" / path[FUUID]("contactId"))
-    .in(jsonBody[PatchContactReq])
-    .out(jsonBody[UserContactResponse])
-    .errorOut(
-      oneOf[ErrorResponse](
-        badRequest,
-        unauthorized,
-        oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Contact not found")),
-        oneOfMapping(
-          StatusCode.Conflict,
-          jsonBody[ErrorResponse.Conflict].examples(List(contactConflictExample, contactAliasConflictExample))
+  val editContactEndpoint =
+    usersEndpoint
+      .summary("Edit contact data")
+      .patch
+      .securityIn(authRequestParts)
+      .in("me" / "contacts" / path[FUUID]("contactId"))
+      .in(jsonBody[PatchContactReq])
+      .out(jsonBody[UserContactResponse])
+      .errorOut(
+        oneOf[ErrorResponse](
+          badRequest,
+          unauthorized,
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Contact not found")),
+          oneOfVariant(
+            StatusCode.Conflict,
+            jsonBody[ErrorResponse.Conflict].examples(List(contactConflictExample, contactAliasConflictExample))
+          )
         )
       )
-    )
 
-  val endpoints: NonEmptyList[Endpoint[_, _, _, ZioStreams with capabilities.WebSockets]] =
+  val endpoints: NonEmptyList[Endpoint[_, _, _, _, Any]] =
     NonEmptyList.of(
       registerUserEndpoint,
       findUsersEndpoint,

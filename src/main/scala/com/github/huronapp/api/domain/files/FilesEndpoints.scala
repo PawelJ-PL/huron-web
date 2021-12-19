@@ -35,8 +35,6 @@ import com.github.huronapp.api.utils.OptionalValue
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.Greater
 import io.chrisdavenport.fuuid.FUUID
-import sttp.capabilities
-import sttp.capabilities.zio.ZioStreams
 import sttp.model.StatusCode
 import sttp.tapir.codec.refined._
 import sttp.tapir.Endpoint
@@ -48,8 +46,8 @@ import java.time.Instant
 
 object FilesEndpoints extends BaseEndpoint {
 
-  private val filesEndpoint: Endpoint[CollectionId, Unit, Unit, Any] =
-    apiEndpoint.tag("files").in("collections" / path[CollectionId]("collectionId") / "files")
+  private val filesEndpoint: Endpoint[AuthenticationInputs, CollectionId, Unit, Unit, Any] =
+    publicApiEndpoint.tag("files").securityIn(authRequestParts).in("collections" / path[CollectionId]("collectionId") / "files")
 
   object Responses {
 
@@ -210,16 +208,10 @@ object FilesEndpoints extends BaseEndpoint {
   private val deleteLatestVersionExample =
     Example(Responses.deleteLatestVersion, Responses.deleteLatestVersion.reason, Responses.deleteLatestVersion.reason)
 
-  val createStorageUnitEndpoint: Endpoint[
-    (AuthenticationInputs, CollectionId, NewStorageUnitReq),
-    ErrorResponse,
-    StorageUnitData,
-    ZioStreams with capabilities.WebSockets
-  ] =
+  val createStorageUnitEndpoint: Endpoint[AuthenticationInputs, (CollectionId, NewStorageUnitReq), ErrorResponse, StorageUnitData, Any] =
     filesEndpoint
       .summary("Create new directory or upload file")
       .post
-      .prependIn(authRequestParts)
       .in(jsonBody[NewStorageUnitReq].examples(List(newDirectoryBodyExample, newFileBodyExample)))
       .out(jsonBody[StorageUnitData].examples(List(directoryDataExample, fileDataExample)))
       .errorOut(
@@ -227,8 +219,8 @@ object FilesEndpoints extends BaseEndpoint {
           badRequest,
           unauthorized,
           forbidden,
-          oneOfMapping(StatusCode.Conflict, jsonBody[ErrorResponse.Conflict].description("File or directory already exists")),
-          oneOfMapping(
+          oneOfVariant(StatusCode.Conflict, jsonBody[ErrorResponse.Conflict].description("File or directory already exists")),
+          oneOfVariant(
             StatusCode.PreconditionFailed,
             jsonBody[ErrorResponse.PreconditionFailed]
               .examples(List(parentNotFoundExample, notDirectoryExample, encryptionKeyVersionMismatchExample))
@@ -236,16 +228,11 @@ object FilesEndpoints extends BaseEndpoint {
         )
       )
 
-  val getStorageUnitEndpoint: Endpoint[
-    (AuthenticationInputs, CollectionId, FileId, Option[FileVersionId]),
-    ErrorResponse,
-    StorageUnitData,
-    ZioStreams with capabilities.WebSockets
-  ] =
+  val getStorageUnitEndpoint
+    : Endpoint[AuthenticationInputs, (CollectionId, FileId, Option[FileVersionId]), ErrorResponse, StorageUnitData, Any] =
     filesEndpoint
       .summary("Get file or directory metadata")
       .get
-      .prependIn(authRequestParts)
       .in(path[FileId]("fileId") / "metadata")
       .in(query[Option[FileVersionId]]("versionId"))
       .out(jsonBody[StorageUnitData].examples(List(directoryDataExample, fileDataExample)))
@@ -254,20 +241,14 @@ object FilesEndpoints extends BaseEndpoint {
           badRequest,
           unauthorized,
           forbidden,
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound])
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound])
         )
       )
 
-  val getFileContent: Endpoint[
-    (AuthenticationInputs, CollectionId, FileId, Option[FileVersionId]),
-    ErrorResponse,
-    FileContentData,
-    ZioStreams with capabilities.WebSockets
-  ] =
+  val getFileContent: Endpoint[AuthenticationInputs, (CollectionId, FileId, Option[FileVersionId]), ErrorResponse, FileContentData, Any] =
     filesEndpoint
       .summary("Get file content")
       .get
-      .prependIn(authRequestParts)
       .in(path[FileId]("fileId") / "content")
       .in(query[Option[FileVersionId]]("versionId"))
       .out(
@@ -285,31 +266,27 @@ object FilesEndpoints extends BaseEndpoint {
           badRequest,
           unauthorized,
           forbidden,
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
-          oneOfMapping(StatusCode.PreconditionFailed, jsonBody[ErrorResponse.PreconditionFailed].examples(List(notAFileExample)))
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
+          oneOfVariant(StatusCode.PreconditionFailed, jsonBody[ErrorResponse.PreconditionFailed].examples(List(notAFileExample)))
         )
       )
 
-  val getParentsEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId, Option[Refined[Int, Greater[0]]]), ErrorResponse, List[
-    DirectoryData
-  ], ZioStreams with capabilities.WebSockets] =
+  val getParentsEndpoint
+    : Endpoint[AuthenticationInputs, (CollectionId, FileId, Option[Refined[Int, Greater[0]]]), ErrorResponse, List[DirectoryData], Any] =
     filesEndpoint
       .summary("Get parents of file or directory")
       .get
-      .prependIn(authRequestParts)
       .in(path[FileId]("fileId") / "parents")
       .in(query[Option[Int Refined Greater[0]]]("depth"))
       .out(jsonBody[List[DirectoryData]].example(directoryDataExample.map(List(_))))
       .errorOut(
-        oneOf[ErrorResponse](badRequest, unauthorized, forbidden, oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]))
+        oneOf[ErrorResponse](badRequest, unauthorized, forbidden, oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]))
       )
 
-  val getRootChildrenEndpoint
-    : Endpoint[(AuthenticationInputs, CollectionId), ErrorResponse, List[StorageUnitData], ZioStreams with capabilities.WebSockets] =
+  val getRootChildrenEndpoint: Endpoint[AuthenticationInputs, CollectionId, ErrorResponse, List[StorageUnitData], Any] =
     filesEndpoint
       .summary("Get direct children of the root directory")
       .get
-      .prependIn(authRequestParts)
       .in("children")
       .out(jsonBody[List[StorageUnitData]])
       .errorOut(
@@ -317,16 +294,13 @@ object FilesEndpoints extends BaseEndpoint {
           badRequest,
           unauthorized,
           forbidden,
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound])
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound])
         )
       )
 
-  val getChildrenEndpoint: Endpoint[(AuthenticationInputs, CollectionId, FileId), ErrorResponse, List[
-    StorageUnitData
-  ], ZioStreams with capabilities.WebSockets] = filesEndpoint
+  val getChildrenEndpoint: Endpoint[AuthenticationInputs, (CollectionId, FileId), ErrorResponse, List[StorageUnitData], Any] = filesEndpoint
     .summary("Get direct children of directory")
     .get
-    .prependIn(authRequestParts)
     .in(path[FileId]("fileId") / "children")
     .out(jsonBody[List[StorageUnitData]])
     .errorOut(
@@ -334,21 +308,16 @@ object FilesEndpoints extends BaseEndpoint {
         badRequest,
         unauthorized,
         forbidden,
-        oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
-        oneOfMapping(StatusCode.PreconditionFailed, jsonBody[ErrorResponse.PreconditionFailed].examples(List(notDirectoryExample)))
+        oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
+        oneOfVariant(StatusCode.PreconditionFailed, jsonBody[ErrorResponse.PreconditionFailed].examples(List(notDirectoryExample)))
       )
     )
 
-  val updateMetadataEndpoint: Endpoint[
-    (AuthenticationInputs, CollectionId, FileId, UpdateStorageUnitMetadataReq),
-    ErrorResponse,
-    StorageUnitData,
-    ZioStreams with capabilities.WebSockets
-  ] =
+  val updateMetadataEndpoint
+    : Endpoint[AuthenticationInputs, (CollectionId, FileId, UpdateStorageUnitMetadataReq), ErrorResponse, StorageUnitData, Any] =
     filesEndpoint
       .summary("Update metadata")
       .patch
-      .prependIn(authRequestParts)
       .in(path[FileId]("fileId"))
       .in(
         jsonBody[UpdateStorageUnitMetadataReq].example(
@@ -365,12 +334,12 @@ object FilesEndpoints extends BaseEndpoint {
           badRequest,
           unauthorized,
           forbidden,
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
-          oneOfMapping(
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
+          oneOfVariant(
             StatusCode.Conflict,
             jsonBody[ErrorResponse.Conflict].description("File or directory already exists in new location")
           ),
-          oneOfMapping(
+          oneOfVariant(
             StatusCode.PreconditionFailed,
             jsonBody[ErrorResponse.PreconditionFailed]
               .examples(List(parentNotFoundExample, notDirectoryExample, circularParentExample))
@@ -378,16 +347,10 @@ object FilesEndpoints extends BaseEndpoint {
         )
       )
 
-  val newVersionEndpoint: Endpoint[
-    (AuthenticationInputs, CollectionId, FileId, NewVersionReq),
-    ErrorResponse,
-    FileData,
-    ZioStreams with capabilities.WebSockets
-  ] =
+  val newVersionEndpoint: Endpoint[AuthenticationInputs, (CollectionId, FileId, NewVersionReq), ErrorResponse, FileData, Any] =
     filesEndpoint
       .summary("Upload new file version")
       .post
-      .prependIn(authRequestParts)
       .in(path[FileId]("fileId") / "versions")
       .in(
         jsonBody[NewVersionReq].example(
@@ -404,24 +367,22 @@ object FilesEndpoints extends BaseEndpoint {
           badRequest,
           unauthorized,
           forbidden,
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
-          oneOfMapping(
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
+          oneOfVariant(
             StatusCode.UnprocessableEntity,
             jsonBody[ErrorResponse.UnprocessableEntity].examples(List(contentNotChangedExample))
           ),
-          oneOfMapping(
+          oneOfVariant(
             StatusCode.PreconditionFailed,
             jsonBody[ErrorResponse.PreconditionFailed].examples(List(encryptionKeyVersionMismatchExample))
           )
         )
       )
 
-  val listVersionsEndpoint
-    : Endpoint[(AuthenticationInputs, CollectionId, FileId), ErrorResponse, List[VersionData], ZioStreams with capabilities.WebSockets] =
+  val listVersionsEndpoint: Endpoint[AuthenticationInputs, (CollectionId, FileId), ErrorResponse, List[VersionData], Any] =
     filesEndpoint
       .summary("Get all versions of file")
       .get
-      .prependIn(authRequestParts)
       .in(path[FileId]("fileId") / "versions")
       .out(jsonBody[List[VersionData]])
       .errorOut(
@@ -429,23 +390,17 @@ object FilesEndpoints extends BaseEndpoint {
           badRequest,
           unauthorized,
           forbidden,
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
-          oneOfMapping(
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
+          oneOfVariant(
             StatusCode.PreconditionFailed,
             jsonBody[ErrorResponse.PreconditionFailed].examples(List(notAFileExample))
           )
         )
       )
 
-  val deleteFileEndpoint: Endpoint[
-    (AuthenticationInputs, CollectionId, FileId, Option[Boolean]),
-    ErrorResponse,
-    Unit,
-    ZioStreams with capabilities.WebSockets
-  ] = filesEndpoint
+  val deleteFileEndpoint: Endpoint[AuthenticationInputs, (CollectionId, FileId, Option[Boolean]), ErrorResponse, Unit, Any] = filesEndpoint
     .summary("Delete file or directory")
     .delete
-    .prependIn(authRequestParts)
     .in(path[FileId]("fileId"))
     .in(query[Option[Boolean]]("deleteNonEmpty").description("Allow to delete non empty directories. Default false"))
     .out(statusCode(StatusCode.NoContent))
@@ -454,17 +409,15 @@ object FilesEndpoints extends BaseEndpoint {
         badRequest,
         unauthorized,
         forbidden,
-        oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
-        oneOfMapping(StatusCode.PreconditionFailed, jsonBody[ErrorResponse].examples(List(recursivelyDeleteForbiddenExample)))
+        oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
+        oneOfVariant(StatusCode.PreconditionFailed, jsonBody[ErrorResponse].examples(List(recursivelyDeleteForbiddenExample)))
       )
     )
 
-  val deleteVersionEndpoint
-    : Endpoint[(AuthenticationInputs, CollectionId, FileId, FileVersionId), ErrorResponse, Unit, ZioStreams with capabilities.WebSockets] =
+  val deleteVersionEndpoint: Endpoint[AuthenticationInputs, (CollectionId, FileId, FileVersionId), ErrorResponse, Unit, Any] =
     filesEndpoint
       .summary("Delete single version of file")
       .delete
-      .prependIn(authRequestParts)
       .in(path[FileId]("fileId") / "versions" / path[FileVersionId]("versionId"))
       .out(statusCode(StatusCode.NoContent))
       .errorOut(
@@ -472,12 +425,12 @@ object FilesEndpoints extends BaseEndpoint {
           badRequest,
           unauthorized,
           forbidden,
-          oneOfMapping(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
-          oneOfMapping(StatusCode.PreconditionFailed, jsonBody[ErrorResponse].examples(List(deleteLatestVersionExample, notAFileExample)))
+          oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound]),
+          oneOfVariant(StatusCode.PreconditionFailed, jsonBody[ErrorResponse].examples(List(deleteLatestVersionExample, notAFileExample)))
         )
       )
 
-  val endpoints: NonEmptyList[Endpoint[_, _, _, ZioStreams with capabilities.WebSockets]] = NonEmptyList.of(
+  val endpoints: NonEmptyList[Endpoint[_, _, _, _, Any]] = NonEmptyList.of(
     createStorageUnitEndpoint,
     getStorageUnitEndpoint,
     getFileContent,

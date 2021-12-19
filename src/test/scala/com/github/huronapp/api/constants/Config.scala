@@ -15,7 +15,7 @@ import com.github.huronapp.api.config.{
 import com.github.huronapp.api.config.modules.{FileSystemConfig, SessionRepoConfig}
 import com.vdurmont.semver4j.Semver
 import org.http4s.implicits._
-import zio.nio.core.file.Path
+import zio.nio.file.Path
 
 import scala.concurrent.duration._
 

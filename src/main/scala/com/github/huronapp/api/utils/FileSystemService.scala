@@ -3,15 +3,15 @@ package com.github.huronapp.api.utils
 import com.github.huronapp.api.utils.tracing.KamonTracing
 import com.github.huronapp.api.utils.tracing.KamonTracing.KamonTracing
 import zio.blocking.Blocking
-import zio.nio.core.file.Path
+import zio.nio.file.Path
 import zio.{Chunk, Has, ZIO, ZLayer}
 import zio.macros.accessible
 import zio.nio.channels.AsynchronousFileChannel
 import zio.nio.file.Files
 
 import java.io.FileNotFoundException
-import java.nio.file.{NoSuchFileException, StandardOpenOption}
-import java.nio.file.attribute.{PosixFilePermission, PosixFilePermissions}
+import java.nio.file.{NoSuchFileException, OpenOption, StandardOpenOption}
+import java.nio.file.attribute.{FileAttribute, PosixFilePermission, PosixFilePermissions}
 import java.util
 
 @accessible
@@ -60,11 +60,13 @@ object FileSystemService {
               ZIO
                 .runtime
                 .map((runtime: zio.Runtime[Any]) => runtime.platform.executor.asECES)
-                .flatMap(eces =>
+                .flatMap { eces =>
+                  val opts: Set[OpenOption] = options.toSet
+                  val attributes: Set[FileAttribute[_]] = Set.empty
                   AsynchronousFileChannel
-                    .openWithExecutor(path, options.toSet, Some(eces))
+                    .open(path, opts, Some(eces), attributes)
                     .use(operation)
-                )
+                }
 
             override def saveFile(path: String, content: Array[Byte], allowOverwrite: Boolean = false): ZIO[Any, Throwable, Unit] = {
               val chunk = Chunk.fromArray(content)

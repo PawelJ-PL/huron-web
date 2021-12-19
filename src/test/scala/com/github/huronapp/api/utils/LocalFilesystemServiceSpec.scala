@@ -3,7 +3,7 @@ package com.github.huronapp.api.utils
 import com.github.huronapp.api.testdoubles.KamonTracingFake
 import com.github.huronapp.api.utils.FileSystemService.FileSystemService
 import zio.blocking.Blocking
-import zio.nio.core.file.Path
+import zio.nio.file.Path
 import zio.test.Assertion.{equalTo, isNone, isSome}
 import zio.{ZIO, ZLayer, ZManaged}
 import zio.test.assert

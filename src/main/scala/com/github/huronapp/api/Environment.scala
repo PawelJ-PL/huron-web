@@ -44,6 +44,7 @@ import zio.{Has, Hub, Queue, Task, ULayer, ZEnv, ZLayer}
 import zio.logging.Logging
 import zio.logging.slf4j.Slf4jLogger
 import com.github.huronapp.api.utils.outbox.{Task => OutboxTask}
+import io.chrisdavenport.fuuid.FUUID
 
 import java.time.Duration
 
@@ -134,7 +135,7 @@ object Environment {
 
   private def conditionalSessionStorage(
     config: SessionRepoConfig
-  ): ZLayer[Has[SecurityConfig] with Blocking with Clock, Throwable, Has[Cache[Task, UserSession]]] =
+  ): ZLayer[Has[SecurityConfig] with Blocking with Clock, Throwable, Has[Cache[Task, FUUID, UserSession]]] =
     config match {
       case SessionRepoConfig.InMemorySessionRepo      => SessionCache.inMemory
       case config: SessionRepoConfig.RedisSessionRepo => SessionCache.redis(config)
