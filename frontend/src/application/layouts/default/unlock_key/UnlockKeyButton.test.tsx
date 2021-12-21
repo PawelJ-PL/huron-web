@@ -55,6 +55,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -93,6 +94,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: null },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -139,6 +141,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -185,6 +188,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -227,6 +231,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -272,6 +277,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -313,6 +319,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -350,6 +357,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -390,6 +398,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -434,6 +443,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -472,6 +482,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -518,6 +529,7 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: "another-collection" },
         }
+        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(

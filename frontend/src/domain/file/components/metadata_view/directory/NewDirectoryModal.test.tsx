@@ -28,9 +28,9 @@ describe("New directory modal", () => {
         fireEvent.change(nameInput, { target: { value: "some-name" } })
 
         const confirmButton = await screen.findByText("Common:create-imperative")
-        await waitFor(() => fireEvent.click(confirmButton))
+        fireEvent.click(confirmButton)
 
-        expect(createDirMock).toHaveBeenCalledTimes(1)
+        await waitFor(() => expect(createDirMock).toHaveBeenCalledTimes(1))
         expect(createDirMock).toHaveBeenCalledWith({
             collectionId: exampleCollectionId,
             parent: exampleDirectoryData.id,

@@ -4,7 +4,7 @@ import { exampleUserEmail, exampleUserPassword } from "../../../testutils/consta
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { historyMock } from "../../../testutils/mocks/router-mock"
 import { ResetPasswordPage } from "./ResetPasswordPage"
-import * as chakraToast from "@chakra-ui/react"
+import * as chakraToast from "@chakra-ui/toast"
 import { toastMock } from "../../../testutils/mocks/toast-mock"
 
 // eslint-disable-next-line react/display-name
@@ -14,7 +14,7 @@ jest.mock("../../../application/components/common/UnexpectedErrorMessage")
 describe("Reset password page", () => {
     it("should reset status on unmount", () => {
         const clearResult = jest.fn()
-        const element = render(
+        const view = render(
             <ResetPasswordPage
                 t={tFunctionMock}
                 actionResult={{
@@ -28,7 +28,7 @@ describe("Reset password page", () => {
                 match={{ isExact: true, path: "/", url: "/", params: { token: "X-Y-Z" } }}
             />
         )
-        element.unmount()
+        view.unmount()
         expect(clearResult).toHaveBeenCalledTimes(1)
     })
 

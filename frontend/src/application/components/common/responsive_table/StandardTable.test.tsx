@@ -1,4 +1,4 @@
-import { render, within } from "@testing-library/react"
+import { render, within, screen } from "@testing-library/react"
 import React from "react"
 import { KeyValues } from "./ResponsiveTable"
 import StandardTable from "./StandardTable"
@@ -11,8 +11,8 @@ describe("Standard table", () => {
                 ["description", ["desc1", "desc2", "desc3"]],
                 ["owner", ["owner1", "owner2"]],
             ]
-            const element = render(<StandardTable data={data} />)
-            const rows = element.getAllByTestId(STANDARD_TABLE_ROW)
+            render(<StandardTable data={data} />)
+            const rows = screen.getAllByTestId(STANDARD_TABLE_ROW)
             const entries = rows.map((row) => {
                 const cells = within(row).getAllByTestId(STANDARD_TABLE_CELL)
                 return cells.map((c) => c.textContent)

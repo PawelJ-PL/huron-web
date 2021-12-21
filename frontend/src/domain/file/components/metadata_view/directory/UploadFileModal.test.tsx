@@ -75,10 +75,12 @@ describe("Upload file modal", () => {
         )
 
         const uploadInput = screen.getByTestId(UPLOAD_FILE_INPUT)
-        await waitFor(() => fireEvent.change(uploadInput, { target: { files: [exampleFileContent] } }))
+        fireEvent.change(uploadInput, { target: { files: [exampleFileContent] } })
 
-        const alertBox = screen.getByTestId("ALERT_BOX_MOCK")
-        expect(alertBox).toHaveTextContent(`TITLE: ${exampleFileContent.name}`)
+        await waitFor(() => {
+            const alertBox = screen.getByTestId("ALERT_BOX_MOCK")
+            expect(alertBox).toHaveTextContent(`TITLE: ${exampleFileContent.name}`)
+        })
     })
 
     it("should render too many files error", async () => {
@@ -100,12 +102,12 @@ describe("Upload file modal", () => {
         )
 
         const uploadInput = screen.getByTestId(UPLOAD_FILE_INPUT)
-        await waitFor(() =>
-            fireEvent.change(uploadInput, { target: { files: [exampleFileContent, exampleFileContent] } })
-        )
+        fireEvent.change(uploadInput, { target: { files: [exampleFileContent, exampleFileContent] } })
 
-        const alertBox = screen.getByTestId("ALERT_BOX_MOCK")
-        expect(alertBox).toHaveTextContent("TITLE: file-view:directory-content-list.load-file-error")
+        await waitFor(() => {
+            const alertBox = screen.getByTestId("ALERT_BOX_MOCK")
+            expect(alertBox).toHaveTextContent("TITLE: file-view:directory-content-list.load-file-error")
+        })
     })
 
     it("should upload new file", async () => {
@@ -131,6 +133,7 @@ describe("Upload file modal", () => {
         )
 
         const uploadInput = screen.getByTestId(UPLOAD_FILE_INPUT)
+        // eslint-disable-next-line testing-library/no-wait-for-side-effects
         await waitFor(() => fireEvent.change(uploadInput, { target: { files: [exampleFileContent] } }))
 
         const confirmButton = screen.getByText("file-view:directory-content-list.encrypt-and-send")
@@ -165,6 +168,7 @@ describe("Upload file modal", () => {
         )
 
         const uploadInput = screen.getByTestId(UPLOAD_FILE_INPUT)
+        // eslint-disable-next-line testing-library/no-wait-for-side-effects
         await waitFor(() => fireEvent.change(uploadInput, { target: { files: [exampleFileContent] } }))
 
         const confirmButton = screen.getByText("file-view:directory-content-list.encrypt-and-send")
@@ -199,6 +203,7 @@ describe("Upload file modal", () => {
         )
 
         const uploadInput = screen.getByTestId(UPLOAD_FILE_INPUT)
+        // eslint-disable-next-line testing-library/no-wait-for-side-effects
         await waitFor(() => fireEvent.change(uploadInput, { target: { files: [exampleFileContent] } }))
 
         const cancelButton = screen.getByText("Common:cancel-imperative")

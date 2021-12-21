@@ -7,8 +7,8 @@ describe("Translated app", () => {
     it("should change app language when profile language changed", () => {
         const changeLanguage = jest.fn()
         const i18n = i18nMock({ changeLanguage })
-        const element = render(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="pl" />)
-        element.rerender(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="en" />)
+        const view = render(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="pl" />)
+        view.rerender(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="en" />)
         expect(changeLanguage).toHaveBeenCalledTimes(1)
         expect(changeLanguage).toHaveBeenCalledWith("en")
     })
@@ -16,24 +16,24 @@ describe("Translated app", () => {
     it("should do nothing if new language not provided", () => {
         const changeLanguage = jest.fn()
         const i18n = i18nMock({ changeLanguage })
-        const element = render(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="pl" />)
-        element.rerender(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language={undefined} />)
+        const view = render(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="pl" />)
+        view.rerender(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language={undefined} />)
         expect(changeLanguage).not.toHaveBeenCalled()
     })
 
     it("should do nothing if new language is not supported", () => {
         const changeLanguage = jest.fn()
         const i18n = i18nMock({ changeLanguage })
-        const element = render(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="pl" />)
-        element.rerender(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="foo" />)
+        const view = render(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="pl" />)
+        view.rerender(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="foo" />)
         expect(changeLanguage).not.toHaveBeenCalled()
     })
 
     it("should do nothing if new language is the same than previous one", () => {
         const changeLanguage = jest.fn()
         const i18n = i18nMock({ changeLanguage })
-        const element = render(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="pl" />)
-        element.rerender(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="pl" />)
+        const view = render(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="pl" />)
+        view.rerender(<TranslatedApp t={tFunctionMock} i18n={i18n} tReady={true} language="pl" />)
         expect(changeLanguage).not.toHaveBeenCalled()
     })
 })

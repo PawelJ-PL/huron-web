@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import React from "react"
 import { MemoryRouter } from "react-router"
 import { exampleHashedEmail, exampleUserId, exampleUserNickname } from "../../../testutils/constants/user"
@@ -41,7 +41,7 @@ describe("Top bar", () => {
             )
             const profile = screen.getByText(exampleUserNickname)
             fireEvent.click(profile)
-            const logoutItem = await waitFor(() => screen.getByText("top-bar:account-menu-items.logout"))
+            const logoutItem = await screen.findByText("top-bar:account-menu-items.logout")
             fireEvent.click(logoutItem)
             expect(logoutFn).toHaveBeenCalledTimes(1)
         })
@@ -61,14 +61,14 @@ describe("Top bar", () => {
                     />
                 </MemoryRouter>
             )
-            await waitFor(() => screen.getByText("top-bar:logout-failed-message"))
+            await screen.findByText("top-bar:logout-failed-message")
             expect(clearStatus).toHaveBeenCalledTimes(2)
         })
 
         it("should reset logout status on unmount", () => {
             const logoutFn = jest.fn()
             const clearStatus = jest.fn()
-            const element = render(
+            const view = render(
                 <MemoryRouter>
                     <TopBar
                         t={tFunctionMock}
@@ -80,7 +80,7 @@ describe("Top bar", () => {
                     />
                 </MemoryRouter>
             )
-            element.unmount()
+            view.unmount()
             expect(clearStatus).toHaveBeenCalledTimes(2)
         })
     })

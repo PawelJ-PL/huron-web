@@ -38,6 +38,7 @@ describe("Single object view", () => {
         const view = screen.getByTestId("DIRECTORY_VIEW_MOCK")
         expect(view).toHaveTextContent(`Collection: ${exampleCollectionId}`)
         expect(view).toHaveTextContent(`Directory: ${exampleDirectoryTree.metadata.id}`)
+        // eslint-disable-next-line testing-library/no-node-access
         expect(view).toHaveTextContent(`Children: ${JSON.stringify(exampleDirectoryTree.children)}`)
     })
 })

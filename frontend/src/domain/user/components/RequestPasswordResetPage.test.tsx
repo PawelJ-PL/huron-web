@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router"
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { historyMock } from "../../../testutils/mocks/router-mock"
 import { RequestPasswordResetPage } from "./RequestPasswordResetPage"
-import * as chakraToast from "@chakra-ui/react"
+import * as chakraToast from "@chakra-ui/toast"
 import { toastMock } from "../../../testutils/mocks/toast-mock"
 
 // eslint-disable-next-line react/display-name
@@ -14,7 +14,7 @@ jest.mock("../../../application/components/common/UnexpectedErrorMessage")
 
 jest.mock("react-i18next", () => ({
     ...jest.requireActual("react-i18next"),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, react/display-name
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, react/display-name, testing-library/no-node-access
     Trans: (props: any) => <div>{props?.children}</div>,
 }))
 
@@ -22,7 +22,7 @@ describe("Request password reset page", () => {
     describe("mount and unmount", () => {
         it("should clear status on unmount", () => {
             const clearStatus = jest.fn()
-            const element = render(
+            const view = render(
                 <MemoryRouter>
                     <RequestPasswordResetPage
                         t={tFunctionMock}
@@ -33,7 +33,7 @@ describe("Request password reset page", () => {
                     />
                 </MemoryRouter>
             )
-            element.unmount()
+            view.unmount()
             expect(clearStatus).toHaveBeenCalledTimes(1)
         })
     })

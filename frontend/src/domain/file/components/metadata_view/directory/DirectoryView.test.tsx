@@ -47,7 +47,7 @@ describe("Directory view", () => {
         it("should reset rename result", () => {
             const resetRenameMock = jest.fn()
 
-            const elem = render(
+            const view = render(
                 <DirectoryView
                     childObjects={[exampleDirectoryData, exampleFileData]}
                     collectionId={exampleCollectionId}
@@ -66,7 +66,7 @@ describe("Directory view", () => {
                 />
             )
 
-            elem.unmount()
+            view.unmount()
 
             expect(resetRenameMock).toHaveBeenCalledTimes(2)
         })
@@ -74,7 +74,7 @@ describe("Directory view", () => {
         it("should reset delete result", () => {
             const resetDeleteMock = jest.fn()
 
-            const elem = render(
+            const view = render(
                 <DirectoryView
                     childObjects={[exampleDirectoryData, exampleFileData]}
                     collectionId={exampleCollectionId}
@@ -93,7 +93,7 @@ describe("Directory view", () => {
                 />
             )
 
-            elem.unmount()
+            view.unmount()
 
             expect(resetDeleteMock).toHaveBeenCalledTimes(2)
         })
@@ -101,7 +101,7 @@ describe("Directory view", () => {
         it("should reset version update request", () => {
             const resetVersionUpdateRequestMock = jest.fn()
 
-            const elem = render(
+            const view = render(
                 <DirectoryView
                     childObjects={[exampleDirectoryData, exampleFileData]}
                     collectionId={exampleCollectionId}
@@ -120,7 +120,7 @@ describe("Directory view", () => {
                 />
             )
 
-            elem.unmount()
+            view.unmount()
 
             expect(resetVersionUpdateRequestMock).toHaveBeenCalledTimes(2)
         })
@@ -128,7 +128,7 @@ describe("Directory view", () => {
         it("should reset version update result", () => {
             const resetVersionUpdateMock = jest.fn()
 
-            const elem = render(
+            const view = render(
                 <DirectoryView
                     childObjects={[exampleDirectoryData, exampleFileData]}
                     collectionId={exampleCollectionId}
@@ -147,7 +147,7 @@ describe("Directory view", () => {
                 />
             )
 
-            elem.unmount()
+            view.unmount()
 
             expect(resetVersionUpdateMock).toHaveBeenCalledTimes(2)
         })
@@ -155,7 +155,7 @@ describe("Directory view", () => {
         it("should reset download result", () => {
             const resetDownloadMock = jest.fn()
 
-            const elem = render(
+            const view = render(
                 <DirectoryView
                     childObjects={[exampleDirectoryData, exampleFileData]}
                     collectionId={exampleCollectionId}
@@ -174,7 +174,7 @@ describe("Directory view", () => {
                 />
             )
 
-            elem.unmount()
+            view.unmount()
 
             expect(resetDownloadMock).toHaveBeenCalledTimes(2)
         })

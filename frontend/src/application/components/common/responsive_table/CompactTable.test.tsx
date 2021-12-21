@@ -1,5 +1,5 @@
-import { render, within } from "@testing-library/react"
 import React from "react"
+import { render, within, screen } from "@testing-library/react"
 import CompactTable from "./CompactTable"
 import { KeyValues } from "./ResponsiveTable"
 import { COMPACT_TABLE_RECORD, COMPACT_TABLE_FIELD_HEADER, COMPACT_TABLE_FIELD_CONTENT } from "./testids"
@@ -12,8 +12,8 @@ describe("Compact table", () => {
                 ["description", ["desc1", "desc2", "desc3"]],
                 ["owner", ["owner1", "owner2"]],
             ]
-            const element = render(<CompactTable data={data} />)
-            const records = Array.from(element.getAllByTestId(COMPACT_TABLE_RECORD))
+            render(<CompactTable data={data} />)
+            const records = Array.from(screen.getAllByTestId(COMPACT_TABLE_RECORD))
             const recordEntries = records.map((r) => {
                 const headers = within(r)
                     .getAllByTestId(COMPACT_TABLE_FIELD_HEADER)

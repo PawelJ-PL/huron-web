@@ -20,7 +20,7 @@ describe("Compact directory list", () => {
         it("should reset selected files", () => {
             const setSelectedFilesMock = jest.fn()
 
-            const elem = render(
+            const view = render(
                 <MemoryRouter>
                     <CompactDirectoryList
                         childObjects={[
@@ -37,7 +37,7 @@ describe("Compact directory list", () => {
                 </MemoryRouter>
             )
 
-            elem.unmount()
+            view.unmount()
 
             expect(setSelectedFilesMock).toHaveBeenCalledTimes(2)
             expect(setSelectedFilesMock).toHaveBeenNthCalledWith(1, [])
@@ -69,9 +69,13 @@ describe("Compact directory list", () => {
             const file3CheckBox = screen.getByTestId(`${SELECT_FILE_CHECKBOX}_${exampleChildFile1.id}`)
             const file4CheckBox = screen.getByTestId(`${SELECT_FILE_CHECKBOX}_${exampleChildDirectory1.id}`)
 
+            // eslint-disable-next-line testing-library/no-node-access
             expect(file1CheckBox.firstChild).toBeChecked()
+            // eslint-disable-next-line testing-library/no-node-access
             expect(file2CheckBox.firstChild).toBeChecked()
+            // eslint-disable-next-line testing-library/no-node-access
             expect(file3CheckBox.firstChild).not.toBeChecked()
+            // eslint-disable-next-line testing-library/no-node-access
             expect(file4CheckBox.firstChild).not.toBeChecked()
         })
 

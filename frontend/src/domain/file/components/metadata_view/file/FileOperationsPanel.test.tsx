@@ -49,7 +49,7 @@ describe("File operations panel", () => {
     it("should reset all results on mount and unmount", () => {
         const resetAllMock = jest.fn()
 
-        const elem = render(
+        const view = render(
             <FileOperationsPanel
                 t={tFunctionMock}
                 history={historyMock()}
@@ -68,7 +68,7 @@ describe("File operations panel", () => {
             />
         )
 
-        elem.unmount()
+        view.unmount()
 
         expect(resetAllMock).toHaveBeenCalledTimes(2)
     })

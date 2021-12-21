@@ -191,7 +191,7 @@ describe("Collections containers", () => {
     it("should clean collections on unmount", () => {
         const cleanCollectionsMock = jest.fn()
 
-        const element = render(
+        const view = render(
             <CollectionsContainer
                 collections={{ status: "FINISHED", params: true, data: [] }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
@@ -204,7 +204,7 @@ describe("Collections containers", () => {
                 cleanCollectionsData={cleanCollectionsMock}
             />
         )
-        element.unmount()
+        view.unmount()
         expect(cleanCollectionsMock).toHaveBeenCalledTimes(1)
     })
 

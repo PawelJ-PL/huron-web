@@ -183,7 +183,7 @@ describe("Collection files container", () => {
     it("should reset tree on unmount", () => {
         const resetTreeMock = jest.fn()
 
-        const element = render(
+        const view = render(
             <CollectionFilesContainer
                 collection={exampleCollection}
                 fileTreeResult={{ status: "NOT_STARTED" }}
@@ -196,7 +196,7 @@ describe("Collection files container", () => {
             />
         )
 
-        element.unmount()
+        view.unmount()
 
         expect(resetTreeMock).toHaveBeenCalledTimes(1)
     })
