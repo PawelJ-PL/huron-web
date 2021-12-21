@@ -23,7 +23,7 @@ describe("File view", () => {
     it("should reset all on mount and unmount", () => {
         const resetAllMock = jest.fn()
 
-        const elem = render(
+        const view = render(
             <FileView
                 metadata={exampleFileData}
                 i18n={i18nMock()}
@@ -42,7 +42,7 @@ describe("File view", () => {
             />
         )
 
-        elem.unmount()
+        view.unmount()
 
         expect(resetAllMock).toHaveBeenCalledTimes(2)
     })

@@ -69,9 +69,9 @@ describe("Rename modal", () => {
 
         const submitButton = screen.getByText("Common:confirm-imperative")
 
-        await waitFor(() => fireEvent.click(submitButton))
+        fireEvent.click(submitButton)
 
-        expect(clearRequestMock).toHaveBeenCalledTimes(1)
+        await waitFor(() => expect(clearRequestMock).toHaveBeenCalledTimes(1))
         expect(renameMock).toHaveBeenCalledTimes(1)
         expect(renameMock).toHaveBeenCalledWith(exampleFileData, "new-name")
     })
@@ -91,9 +91,9 @@ describe("Rename modal", () => {
 
         const submitButton = screen.getByText("Common:confirm-imperative")
 
-        await waitFor(() => fireEvent.click(submitButton))
+        fireEvent.click(submitButton)
 
-        expect(clearRequestMock).toHaveBeenCalledTimes(1)
+        await waitFor(() => expect(clearRequestMock).toHaveBeenCalledTimes(1))
         expect(renameMock).not.toHaveBeenCalled()
     })
 })

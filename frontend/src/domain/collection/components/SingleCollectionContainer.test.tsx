@@ -304,7 +304,7 @@ describe("Single collection container", () => {
     it("should reset remove preferred collection status on unmount", () => {
         const resetRemovePreferredCollectionStatusMock = jest.fn()
 
-        const element = render(
+        const view = render(
             <SingleCollectionContainer
                 match={exampleRouteMatch}
                 history={historyMock()}
@@ -320,7 +320,7 @@ describe("Single collection container", () => {
             />
         )
 
-        element.unmount()
+        view.unmount()
 
         expect(resetRemovePreferredCollectionStatusMock).toHaveBeenCalledTimes(2)
     })

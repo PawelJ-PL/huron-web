@@ -4,7 +4,7 @@ import { LOADER_PAGE } from "../../../application/pages/testids"
 import { i18nMock, tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { historyMock } from "../../../testutils/mocks/router-mock"
 import { AccountActivationContainer } from "./AccountActivationContainer"
-import * as chakraToast from "@chakra-ui/react"
+import * as chakraToast from "@chakra-ui/toast"
 import { toastMock } from "../../../testutils/mocks/toast-mock"
 
 describe("Account activation container", () => {
@@ -29,7 +29,7 @@ describe("Account activation container", () => {
 
         it("should reset status on unmount", () => {
             const resetFn = jest.fn()
-            const element = render(
+            const view = render(
                 <AccountActivationContainer
                     history={historyMock()}
                     match={{ isExact: true, url: "/", path: "/", params: { token: "X-Y-Z" } }}
@@ -41,7 +41,7 @@ describe("Account activation container", () => {
                     tReady={true}
                 />
             )
-            element.unmount()
+            view.unmount()
             expect(resetFn).toHaveBeenCalledTimes(1)
         })
     })

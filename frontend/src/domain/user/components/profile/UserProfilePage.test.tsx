@@ -3,7 +3,7 @@ import React from "react"
 import { exampleHashedEmail, exampleUserId, exampleUserNickname } from "../../../../testutils/constants/user"
 import { tFunctionMock } from "../../../../testutils/mocks/i18n-mock"
 import { UserProfilePage } from "./UserProfilePage"
-import * as chakraToast from "@chakra-ui/react"
+import * as chakraToast from "@chakra-ui/toast"
 import { toastMock } from "../../../../testutils/mocks/toast-mock"
 
 // eslint-disable-next-line react/display-name
@@ -73,7 +73,7 @@ describe("User profile page", () => {
 
         it("should reset refresh status on unmount", () => {
             const resetRefreshStatus = jest.fn()
-            const element = render(
+            const view = render(
                 <UserProfilePage
                     resetUpdateProfileState={jest.fn()}
                     refreshData={jest.fn()}
@@ -88,7 +88,7 @@ describe("User profile page", () => {
                     }}
                 />
             )
-            element.unmount()
+            view.unmount()
             expect(resetRefreshStatus).toHaveBeenCalledTimes(2)
         })
     })

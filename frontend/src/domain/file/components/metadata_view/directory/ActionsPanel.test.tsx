@@ -377,7 +377,7 @@ describe("Actions panel", () => {
         it("should trigger reset create dir result", () => {
             const resetCreateDirResultMock = jest.fn()
 
-            const elem = render(
+            const view = render(
                 <ActionsPanel
                     collectionId={exampleCollectionId}
                     thisDirectoryId={exampleDirectoryId}
@@ -393,7 +393,7 @@ describe("Actions panel", () => {
                 />
             )
 
-            elem.unmount()
+            view.unmount()
 
             expect(resetCreateDirResultMock).toHaveBeenCalledTimes(1)
         })
@@ -401,7 +401,7 @@ describe("Actions panel", () => {
         it("should trigger reset upload result", () => {
             const resetUploadResultMock = jest.fn()
 
-            const elem = render(
+            const view = render(
                 <ActionsPanel
                     collectionId={exampleCollectionId}
                     thisDirectoryId={exampleDirectoryId}
@@ -417,7 +417,7 @@ describe("Actions panel", () => {
                 />
             )
 
-            elem.unmount()
+            view.unmount()
 
             expect(resetUploadResultMock).toHaveBeenCalledTimes(1)
         })

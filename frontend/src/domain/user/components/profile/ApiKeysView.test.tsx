@@ -38,7 +38,7 @@ describe("Api keys view", () => {
 
         it("should reset result on unmount", () => {
             const resetResult = jest.fn()
-            const element = render(
+            const view = render(
                 <ApiKeysView
                     apiKeys={{ status: "PENDING", params: void 0 }}
                     t={tFunctionMock}
@@ -46,7 +46,7 @@ describe("Api keys view", () => {
                     resetKeysResult={resetResult}
                 />
             )
-            element.unmount()
+            view.unmount()
             expect(resetResult).toHaveBeenCalledTimes(1)
         })
     })

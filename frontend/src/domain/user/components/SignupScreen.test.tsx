@@ -6,7 +6,7 @@ import { i18nMock, tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { historyMock } from "../../../testutils/mocks/router-mock"
 import { toastMock } from "../../../testutils/mocks/toast-mock"
 import { SignupScreen } from "./SignupScreen"
-import * as chakraToast from "@chakra-ui/react"
+import * as chakraToast from "@chakra-ui/toast"
 
 // eslint-disable-next-line react/display-name
 jest.mock("./SignupForm", () => () => <div></div>)
@@ -14,14 +14,14 @@ jest.mock("../../../application/components/common/UnexpectedErrorMessage")
 
 jest.mock("react-i18next", () => ({
     ...jest.requireActual("react-i18next"),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, react/display-name
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, react/display-name, testing-library/no-node-access
     Trans: (props: any) => <div>{props?.children}</div>,
 }))
 
 describe("Signup screen", () => {
     it("should clear status on unmount", () => {
         const resetResult = jest.fn()
-        const element = render(
+        const view = render(
             <MemoryRouter>
                 <SignupScreen
                     signupResult={{
@@ -42,7 +42,7 @@ describe("Signup screen", () => {
                 />
             </MemoryRouter>
         )
-        element.unmount()
+        view.unmount()
         expect(resetResult).toHaveBeenCalledTimes(1)
     })
 

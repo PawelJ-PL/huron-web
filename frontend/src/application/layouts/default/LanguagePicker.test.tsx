@@ -1,5 +1,5 @@
 import React from "react"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { LanguagePicker } from "./LanguagePicker"
 import { i18nMock } from "../../../testutils/mocks/i18n-mock"
 import { LANGUAGE_MENU_ITEM_PREFIX, LANGUAGE_SELECTION } from "./testids"
@@ -17,7 +17,7 @@ describe("Language picker", () => {
         render(<LanguagePicker i18n={i18n} updateProfileLanguage={updateLang} />)
         const langSelection = screen.getByTestId(LANGUAGE_SELECTION)
         fireEvent.click(langSelection)
-        const englishMenuEntry = await waitFor(() => screen.getByTestId(LANGUAGE_MENU_ITEM_PREFIX + "_ENGLISH"))
+        const englishMenuEntry = await screen.findByTestId(LANGUAGE_MENU_ITEM_PREFIX + "_ENGLISH")
         fireEvent.click(englishMenuEntry)
         expect(changeLanguage).toHaveBeenLastCalledWith("en")
         expect(updateLang).toHaveBeenCalledWith("en")
@@ -30,7 +30,7 @@ describe("Language picker", () => {
         render(<LanguagePicker i18n={i18n} updateProfileLanguage={updateLang} />)
         const langSelection = screen.getByTestId(LANGUAGE_SELECTION)
         fireEvent.click(langSelection)
-        const englishMenuEntry = await waitFor(() => screen.getByTestId(LANGUAGE_MENU_ITEM_PREFIX + "_POLSKI"))
+        const englishMenuEntry = await screen.findByTestId(LANGUAGE_MENU_ITEM_PREFIX + "_POLSKI")
         fireEvent.click(englishMenuEntry)
         expect(changeLanguage).not.toHaveBeenCalled()
         expect(updateLang).not.toHaveBeenCalled()
