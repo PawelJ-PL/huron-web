@@ -19,6 +19,7 @@ import AlertBox from "../../../../application/components/common/AlertBox"
 import { NoUpdatesProvides } from "../../../../application/api/ApiError"
 import { UPDATE_PROFILE_LANGUAGE_SELECT } from "./testids"
 import UnexpectedErrorMessage from "../../../../application/components/common/UnexpectedErrorMessage"
+import { NicknameAlreadyRegistered } from "../../api/errors"
 
 const langOptions = [
     { value: "En", text: "English" },
@@ -64,6 +65,7 @@ export const UpdateProfileForm: React.FC<Props> = ({
         handleSubmit,
         formState: { errors, isValidating, dirtyFields },
         reset,
+        setError,
     } = useForm<FormData>({
         resolver: zodResolver(formSchema),
         shouldUnregister: true,
@@ -88,7 +90,16 @@ export const UpdateProfileForm: React.FC<Props> = ({
         }
     }, [updateResult, currentData, reset])
 
+    useEffect(() => {
+        if (updateResult.status === "FAILED" && updateResult.error instanceof NicknameAlreadyRegistered) {
+            setError("nickname", { message: t("signup-page:nickname-already-registered") })
+        }
+    }, [updateResult, setError, t])
+
     const renderError = (error: Error) => {
+        if (error instanceof NicknameAlreadyRegistered) {
+            return null
+        }
         if (error instanceof NoUpdatesProvides) {
             return (
                 <AlertBox

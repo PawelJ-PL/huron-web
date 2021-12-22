@@ -7,7 +7,7 @@ import { connect } from "react-redux"
 import { RouteComponentProps, withRouter } from "react-router"
 import { Dispatch } from "redux"
 import { AppState } from "../../../application/store"
-import { UserAlreadyRegistered } from "../api/errors"
+import { EmailAlreadyRegistered, NicknameAlreadyRegistered } from "../api/errors"
 import { registerNewUserAction, resetRegistrationStatusAction } from "../store/Actions"
 import SignupForm from "./SignupForm"
 import UserFormBox from "./UserFormBox"
@@ -62,22 +62,39 @@ export const SignupScreen: React.FC<Props> = ({ signupResult, i18n, signup, rese
         </Trans>
     )
 
+    const renderExpectedError = (error: Error) => {
+        let text: string | undefined = undefined
+        if (error instanceof EmailAlreadyRegistered) {
+            text = t("signup-page:user-already-registered")
+        } else if (error instanceof NicknameAlreadyRegistered) {
+            text = t("signup-page:nickname-already-registered")
+        }
+
+        if (text) {
+            return (
+                <Text fontSize="xs" color="red.500">
+                    {text}
+                </Text>
+            )
+        } else {
+            return null
+        }
+    }
+
     return (
         <UserFormBox outsideElement={loginLink}>
-            {signupResult.status === "FAILED" && !(signupResult.error instanceof UserAlreadyRegistered) && (
-                <UnexpectedErrorMessage
-                    error={signupResult.error}
-                    alertProps={{ marginTop: "0.3rem" }}
-                    onClose={resetResult}
-                />
-            )}
+            {signupResult.status === "FAILED" &&
+                !(signupResult.error instanceof EmailAlreadyRegistered) &&
+                !(signupResult.error instanceof NicknameAlreadyRegistered) && (
+                    <UnexpectedErrorMessage
+                        error={signupResult.error}
+                        alertProps={{ marginTop: "0.3rem" }}
+                        onClose={resetResult}
+                    />
+                )}
             <SignupForm onSubmit={generateKeysAndSignup} submitInProgress={signupResult.status === "PENDING"} />
             <Box minHeight="2.5em" marginTop="1rem">
-                {signupResult.status === "FAILED" && signupResult.error instanceof UserAlreadyRegistered && (
-                    <Text fontSize="xs" color="red.500">
-                        {t("signup-page:user-already-registered")}
-                    </Text>
-                )}
+                {signupResult.status === "FAILED" && renderExpectedError(signupResult.error)}
             </Box>
         </UserFormBox>
     )
