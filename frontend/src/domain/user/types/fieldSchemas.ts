@@ -5,7 +5,7 @@ import { ZodType, z } from "zod"
 export function nicknameSchema(t: TFunction): ZodType<string> {
     return z
         .string()
-        .min(3, { message: t("common:field-min-length", { minChars: 3 }) })
+        .min(5, { message: t("common:field-min-length", { minChars: 5 }) })
         .max(30, { message: t("common:field-max-length", { maxChars: 30 }) })
         .regex(onlyLettersRegex, t("common:field-letters-only"))
 }

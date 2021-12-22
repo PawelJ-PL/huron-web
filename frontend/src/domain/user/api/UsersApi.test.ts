@@ -1,4 +1,10 @@
-import { InvalidCredentials, InvalidEmail, PasswordsAreEqual, UserAlreadyRegistered } from "./errors"
+import {
+    InvalidCredentials,
+    InvalidEmail,
+    PasswordsAreEqual,
+    EmailAlreadyRegistered,
+    NicknameAlreadyRegistered,
+} from "./errors"
 import {
     exampleEncryptedPrivateKey,
     exampleHashedEmail,
@@ -109,10 +115,10 @@ describe("Users api", () => {
             server.close()
         })
 
-        it("should set error UserAlreadyRegistered on 409", async () => {
+        it("should set error EmailAlreadyRegistered on 409 with EmailAlreadyRegistered reason", async () => {
             const server = setupServer(
                 rest.post("http://127.0.0.1:8080/api/v1/users", (_, res, ctx) => {
-                    return res(ctx.status(409))
+                    return res(ctx.status(409), ctx.json({ reason: "EmailAlreadyRegistered" }))
                 })
             )
             server.listen()
@@ -124,7 +130,27 @@ describe("Users api", () => {
                 { algorithm: "Rsa", publicKey: examplePublicKey, encryptedPrivateKey: exampleEncryptedPrivateKey },
                 "Pl"
             )
-            await expect(result).rejects.toEqual(new UserAlreadyRegistered(exampleUserEmail))
+            await expect(result).rejects.toEqual(new EmailAlreadyRegistered(exampleUserEmail))
+
+            server.close()
+        })
+
+        it("should set error NicknameAlreadyRegistered on 409 with NickNameAlreadyRegistered reason", async () => {
+            const server = setupServer(
+                rest.post("http://127.0.0.1:8080/api/v1/users", (_, res, ctx) => {
+                    return res(ctx.status(409), ctx.json({ reason: "NickNameAlreadyRegistered" }))
+                })
+            )
+            server.listen()
+
+            const result = UsersApi.registerUser(
+                exampleUserNickname,
+                exampleUserEmail,
+                exampleUserPassword,
+                { algorithm: "Rsa", publicKey: examplePublicKey, encryptedPrivateKey: exampleEncryptedPrivateKey },
+                "Pl"
+            )
+            await expect(result).rejects.toEqual(new NicknameAlreadyRegistered(exampleUserNickname))
 
             server.close()
         })
@@ -369,6 +395,23 @@ describe("Users api", () => {
                 collectionEncryptionKeys: [],
             })
             await assertHttpErrorWithStatusCode(result, 500)
+
+            server.close()
+        })
+    })
+
+    describe("update password", () => {
+        it("should set proper error on nickname conflict", async () => {
+            const server = setupServer(
+                rest.patch("http://127.0.0.1:8080/api/v1/users/me/data", (_, res, ctx) => {
+                    return res(ctx.status(409), ctx.json({ reason: "NickNameAlreadyRegistered" }))
+                })
+            )
+            server.listen()
+
+            const result = UsersApi.updateProfile({ nickName: exampleUserNickname })
+
+            await expect(result).rejects.toEqual(new NicknameAlreadyRegistered(exampleUserNickname))
 
             server.close()
         })

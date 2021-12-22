@@ -50,6 +50,7 @@
         "invalid-email-format": "Niepoprawny format adresu",
         "password-min-length": "Hasło musi zawierać przynajmniej {{minChars}} znaków",
         "user-already-registered": "Podany adres został już zarejestrowany",
+        "nickname-already-registered": "Pseudonim został już zarejestrowany",
         "signup-success-message": "Rejestracja zakończona powodzeniem. Sprawdź swoją skrzynkę e-mail w celu aktywacji konta.",
         "show-password-button-label": "Pokaż hasło",
         "hide-password-button-label": "Ukryj hasło",

@@ -1,9 +1,17 @@
 import { ApiError } from "./../../../application/api/ApiError"
-export class UserAlreadyRegistered extends ApiError {
+export class EmailAlreadyRegistered extends ApiError {
     constructor(email: string) {
         super(`User ${email} already registered`)
-        Object.setPrototypeOf(this, UserAlreadyRegistered.prototype)
-        this.name = "UserAlreadyRegistered"
+        Object.setPrototypeOf(this, EmailAlreadyRegistered.prototype)
+        this.name = "EmailAlreadyRegistered"
+    }
+}
+
+export class NicknameAlreadyRegistered extends ApiError {
+    constructor(nickname: string) {
+        super(`Nickname ${nickname} already registered`)
+        this.name = new.target.name
+        Object.setPrototypeOf(this, new.target.prototype)
     }
 }
 

@@ -50,6 +50,7 @@
         "invalid-email-format": "Invalid address format",
         "password-min-length": "Password must be at least {{minChars}} characters",
         "user-already-registered": "Email already registered.",
+        "nickname-already-registered": "Nickname already registered",
         "signup-success-message": "Registration successfully completed. Check your email for account activation.",
         "show-password-button-label": "Show password",
         "hide-password-button-label": "Hide password",

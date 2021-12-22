@@ -7,7 +7,13 @@ import { HTTPError } from "ky"
 import { client } from "../../../application/api/BaseClient"
 import { UserData, UserDataSchema } from "./../types/UserData"
 import { z } from "zod"
-import { InvalidCredentials, InvalidEmail, PasswordsAreEqual, UserAlreadyRegistered } from "./errors"
+import {
+    InvalidCredentials,
+    InvalidEmail,
+    PasswordsAreEqual,
+    EmailAlreadyRegistered,
+    NicknameAlreadyRegistered,
+} from "./errors"
 
 export type UserDataWithToken = {
     userData: UserData
@@ -64,13 +70,17 @@ const api = {
         return client
             .post("users", { json: { nickName, email, password, language, keyPair } })
             .then(() => void 0)
-            .catch((err) => {
-                if (err instanceof HTTPError && err.response.status === 409) {
-                    return Promise.reject(new UserAlreadyRegistered(email))
-                } else {
-                    return Promise.reject(err)
-                }
-            })
+            .catch((err) =>
+                errorResponseReasonToError(err, new EmailAlreadyRegistered(email), 409, "EmailAlreadyRegistered")
+            )
+            .catch((err) =>
+                errorResponseReasonToError(
+                    err,
+                    new NicknameAlreadyRegistered(nickName),
+                    409,
+                    "NickNameAlreadyRegistered"
+                )
+            )
     },
     activateAccount(token: string): Promise<boolean> {
         return client
@@ -88,7 +98,17 @@ const api = {
             .catch((err) => errorResponseToData(err, false, 404))
     },
     updateProfile(data: { nickName?: string | null; language?: string | null }): Promise<UserData> {
-        return client.patch(`users/me/data`, { json: data }).then((resp) => validatedResponse(resp, UserDataSchema))
+        return client
+            .patch(`users/me/data`, { json: data })
+            .then((resp) => validatedResponse(resp, UserDataSchema))
+            .catch((err) =>
+                errorResponseReasonToError(
+                    err,
+                    new NicknameAlreadyRegistered(data.nickName ?? "unknown"),
+                    409,
+                    "NickNameAlreadyRegistered"
+                )
+            )
     },
     getApiKeys(): Promise<ApiKeyDescription[]> {
         return client.get("users/me/api-keys").then((resp) => validatedResponse(resp, z.array(ApiKeyDescriptionSchema)))

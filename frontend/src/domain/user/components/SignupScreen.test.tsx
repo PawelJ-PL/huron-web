@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import React from "react"
 import { MemoryRouter } from "react-router"
 import { exampleUserEmail, exampleUserNickname, exampleUserPassword } from "../../../testutils/constants/user"
@@ -7,6 +7,7 @@ import { historyMock } from "../../../testutils/mocks/router-mock"
 import { toastMock } from "../../../testutils/mocks/toast-mock"
 import { SignupScreen } from "./SignupScreen"
 import * as chakraToast from "@chakra-ui/toast"
+import { EmailAlreadyRegistered, NicknameAlreadyRegistered } from "../api/errors"
 
 // eslint-disable-next-line react/display-name
 jest.mock("./SignupForm", () => () => <div></div>)
@@ -78,5 +79,57 @@ describe("Signup screen", () => {
         expect(historyPush).toHaveBeenCalledWith("/")
 
         useToastMock.mockRestore()
+    })
+
+    it("should render proper message if email already registered", () => {
+        render(
+            <MemoryRouter>
+                <SignupScreen
+                    signupResult={{
+                        status: "FAILED",
+                        params: {
+                            nickname: exampleUserNickname,
+                            email: exampleUserEmail,
+                            password: exampleUserPassword,
+                        },
+                        error: new EmailAlreadyRegistered(exampleUserEmail),
+                    }}
+                    signup={jest.fn()}
+                    resetResult={jest.fn()}
+                    t={tFunctionMock}
+                    i18n={i18nMock()}
+                    tReady={true}
+                    history={historyMock()}
+                />
+            </MemoryRouter>
+        )
+
+        screen.getByText("signup-page:user-already-registered")
+    })
+
+    it("should render proper message if nickname already registered", () => {
+        render(
+            <MemoryRouter>
+                <SignupScreen
+                    signupResult={{
+                        status: "FAILED",
+                        params: {
+                            nickname: exampleUserNickname,
+                            email: exampleUserEmail,
+                            password: exampleUserPassword,
+                        },
+                        error: new NicknameAlreadyRegistered(exampleUserNickname),
+                    }}
+                    signup={jest.fn()}
+                    resetResult={jest.fn()}
+                    t={tFunctionMock}
+                    i18n={i18nMock()}
+                    tReady={true}
+                    history={historyMock()}
+                />
+            </MemoryRouter>
+        )
+
+        screen.getByText("signup-page:nickname-already-registered")
     })
 })
