@@ -3,7 +3,6 @@ import React from "react"
 import { MemoryRouter } from "react-router"
 import { exampleHashedEmail, exampleUserId, exampleUserNickname } from "../../../testutils/constants/user"
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
-import { historyMock } from "../../../testutils/mocks/router-mock"
 import { TopBar } from "./TopBar"
 
 jest.mock("@chakra-ui/media-query", () => ({
@@ -31,7 +30,6 @@ describe("Top bar", () => {
                 <MemoryRouter>
                     <TopBar
                         t={tFunctionMock}
-                        history={historyMock()}
                         userData={userData}
                         logoutStatus="NOT_STARTED"
                         logout={logoutFn}
@@ -53,7 +51,6 @@ describe("Top bar", () => {
                 <MemoryRouter>
                     <TopBar
                         t={tFunctionMock}
-                        history={historyMock()}
                         userData={userData}
                         logoutStatus="FAILED"
                         logout={logoutFn}
@@ -72,7 +69,6 @@ describe("Top bar", () => {
                 <MemoryRouter>
                     <TopBar
                         t={tFunctionMock}
-                        history={historyMock()}
                         userData={userData}
                         logoutStatus="NOT_STARTED"
                         logout={logoutFn}

@@ -1,7 +1,6 @@
 import React, { useEffect } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
-import { RouteComponentProps, withRouter } from "react-router"
 import { Dispatch } from "redux"
 import { AppState } from "../../../application/store"
 import { Collection } from "../../collection/types/Collection"
@@ -12,23 +11,17 @@ import EmptyPlaceholder from "../../../application/components/common/EmptyPlaceh
 import Loader from "../../../application/components/common/Loader"
 import SingleObjectView from "./metadata_view/SingleObjectView"
 import UnexpectedErrorMessage from "../../../application/components/common/UnexpectedErrorMessage"
+import { useParams } from "react-router-dom"
 
 type Props = {
     collection: Collection
-} & RouteComponentProps<{ fileId?: string }> &
-    ReturnType<typeof mapStateToProps> &
+} & ReturnType<typeof mapStateToProps> &
     ReturnType<typeof mapDispatchToProps> &
     Pick<WithTranslation, "t">
 
-export const CollectionFilesContainer: React.FC<Props> = ({
-    collection,
-    match,
-    fileTreeResult,
-    fetchTree,
-    resetTree,
-    t,
-}) => {
-    const maybeFileId = match.params.fileId
+export const CollectionFilesContainer: React.FC<Props> = ({ collection, fileTreeResult, fetchTree, resetTree, t }) => {
+    const routeParams = useParams<{ collectionId: string; fileId?: string }>()
+    const maybeFileId = routeParams.fileId
 
     useEffect(() => {
         fetchTree(collection.id, maybeFileId ?? null)
@@ -66,4 +59,4 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     resetTree: () => dispatch(resetCurrentObjectTreeAction()),
 })
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(withTranslation()(CollectionFilesContainer)))
+export default connect(mapStateToProps, mapDispatchToProps)(withTranslation()(CollectionFilesContainer))

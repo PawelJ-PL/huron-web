@@ -4,7 +4,7 @@ import { useToast } from "@chakra-ui/react"
 import React, { useEffect } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
-import { RouteComponentProps, withRouter } from "react-router"
+import { useNavigate, useParams } from "react-router-dom"
 import { Dispatch } from "redux"
 import UnexpectedErrorMessage from "../../../application/components/common/UnexpectedErrorMessage"
 import { AppState } from "../../../application/store"
@@ -14,21 +14,12 @@ import UserFormBox from "./UserFormBox"
 
 const SUCCESS_TOAST_ID = "password-reset-success"
 
-type Props = Pick<WithTranslation, "t"> &
-    ReturnType<typeof mapStateToProps> &
-    ReturnType<typeof mapDispatchToProps> &
-    Pick<RouteComponentProps<{ token: string }>, "match" | "history">
+type Props = Pick<WithTranslation, "t"> & ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps>
 
-export const ResetPasswordPage: React.FC<Props> = ({
-    t,
-    actionResult,
-    resetPassword,
-    clearActionResult,
-    history,
-    match: {
-        params: { token },
-    },
-}) => {
+export const ResetPasswordPage: React.FC<Props> = ({ t, actionResult, resetPassword, clearActionResult }) => {
+    const navigate = useNavigate()
+    const { token = "" } = useParams<{ token: string }>()
+
     useEffect(() => {
         return () => {
             clearActionResult()
@@ -47,9 +38,9 @@ export const ResetPasswordPage: React.FC<Props> = ({
                     status: "success",
                 })
             }
-            history.replace("/")
+            navigate("/", { replace: true })
         }
-    }, [actionResult, t, history, toast])
+    }, [actionResult, t, navigate, toast])
 
     return (
         <UserFormBox>
@@ -88,4 +79,4 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     clearActionResult: () => dispatch(clearResetPasswordStatusAction()),
 })
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(withTranslation()(ResetPasswordPage)))
+export default connect(mapStateToProps, mapDispatchToProps)(withTranslation()(ResetPasswordPage))

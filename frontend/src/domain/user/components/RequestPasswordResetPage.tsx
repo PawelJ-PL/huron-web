@@ -3,29 +3,26 @@ import { useToast } from "@chakra-ui/react"
 import React, { useEffect } from "react"
 import { Trans, WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
-import { RouteComponentProps, withRouter } from "react-router"
 import { Dispatch } from "redux"
 import { AppState } from "../../../application/store"
 import { clearPasswordResetRequestStatusAction, requestPasswordResetAction } from "../store/Actions"
 import RequestPasswordResetForm from "./RequestPasswordResetForm"
 import UserFormBox from "./UserFormBox"
-import { Link as RouterLink } from "react-router-dom"
+import { Link as RouterLink, useNavigate } from "react-router-dom"
 import UnexpectedErrorMessage from "../../../application/components/common/UnexpectedErrorMessage"
 
 const SUCCESS_TOAST_ID = "request-success"
 
-type Props = Pick<WithTranslation, "t"> &
-    ReturnType<typeof mapStateToProps> &
-    ReturnType<typeof mapDispatchToProps> &
-    Pick<RouteComponentProps, "history">
+type Props = Pick<WithTranslation, "t"> & ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps>
 
 export const RequestPasswordResetPage: React.FC<Props> = ({
     t,
     actionResult,
     sendResetPasswordRequest,
     clearStatus,
-    history,
 }) => {
+    const navigate = useNavigate()
+
     useEffect(() => {
         return () => {
             clearStatus()
@@ -40,9 +37,9 @@ export const RequestPasswordResetPage: React.FC<Props> = ({
             if (!toast.isActive(SUCCESS_TOAST_ID)) {
                 toast({ title: t("password-reset-request-page:request-success-message"), id: SUCCESS_TOAST_ID })
             }
-            history.push("/")
+            navigate("/")
         }
-    }, [actionResult, t, toast, history])
+    }, [actionResult, t, toast, navigate])
 
     const loginLink = (
         <Trans ns="password-reset-request-page" i18nKey="back-to-login">
@@ -88,4 +85,4 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     clearStatus: () => dispatch(clearPasswordResetRequestStatusAction()),
 })
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(withTranslation()(RequestPasswordResetPage)))
+export default connect(mapStateToProps, mapDispatchToProps)(withTranslation()(RequestPasswordResetPage))

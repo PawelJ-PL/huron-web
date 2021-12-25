@@ -1,33 +1,31 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import React from "react"
 import { exampleCollection, exampleCollectionId } from "../../../testutils/constants/collection"
+import { renderWithRoute } from "../../../testutils/helpers"
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
-import { historyMock } from "../../../testutils/mocks/router-mock"
 import { CollectionsContainer } from "./CollectionsContainer"
 
 // eslint-disable-next-line react/display-name
 jest.mock("./AutoCreateCollectionModal", () => () => <div data-testid="create-collection-modal"></div>)
-
-jest.mock("react-router", () => ({
-    ...jest.requireActual("react-router"),
-    // eslint-disable-next-line react/display-name, @typescript-eslint/no-explicit-any
-    Redirect: (props: any) => <div data-testid="redirect-component">{props.to}</div>,
-}))
 
 // eslint-disable-next-line react/display-name, @typescript-eslint/no-explicit-any
 jest.mock("./SelectCollectionModal", () => (props: any) => (
     <div data-testid="select-collection-modal">{JSON.stringify(props.availableCollections)}</div>
 ))
 
+// eslint-disable-next-line testing-library/render-result-naming-convention
+const renderWithPath = renderWithRoute("/")
+
 describe("Collections containers", () => {
+    beforeEach(() => window.history.replaceState({}, "", "/"))
+
     it("should render create collection modal if collections list is empty", () => {
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "FINISHED", params: true, data: [] }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock()}
                 fetchCollections={jest.fn()}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={jest.fn()}
@@ -39,33 +37,30 @@ describe("Collections containers", () => {
     })
 
     it("should redirect to collection if only one collection exists", () => {
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "FINISHED", params: true, data: [exampleCollection] }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock()}
                 fetchCollections={jest.fn()}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={jest.fn()}
                 cleanCollectionsData={jest.fn()}
             />
         )
-        const redirectComponent = screen.getByTestId("redirect-component")
-        expect(redirectComponent.textContent).toEqual(`/collection/${exampleCollectionId}`)
+        expect(window.location.pathname).toBe(`/collection/${exampleCollectionId}`)
     })
 
     it("should render select collection modal if collections more than one collection exists", () => {
         const collection1 = exampleCollection
         const collection2 = { ...exampleCollection, id: "a7a478e8-e264-4594-b237-3ee854cf210d" }
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "FINISHED", params: true, data: [collection1, collection2] }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock()}
                 fetchCollections={jest.fn()}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={jest.fn()}
@@ -77,13 +72,12 @@ describe("Collections containers", () => {
     })
 
     it("should render error message if collections fetch failed", () => {
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "FAILED", params: true, error: new Error("Some error") }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock()}
                 fetchCollections={jest.fn()}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={jest.fn()}
@@ -95,13 +89,12 @@ describe("Collections containers", () => {
     })
 
     it("should render loader if collection fetch is in progress", () => {
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "PENDING", params: true }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock()}
                 fetchCollections={jest.fn()}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={jest.fn()}
@@ -115,13 +108,12 @@ describe("Collections containers", () => {
     it("should read preferred collection on mount if operation status is NOT_STARTED", () => {
         const getPreferredCollectionMock = jest.fn()
 
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "FINISHED", params: true, data: [] }}
                 preferredCollection={{ status: "NOT_STARTED" }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock()}
                 fetchCollections={jest.fn()}
                 getPreferredCollection={getPreferredCollectionMock}
                 removePreferredCollection={jest.fn()}
@@ -134,13 +126,12 @@ describe("Collections containers", () => {
     it("should read preferred collection on mount if operation status is FAILED", () => {
         const getPreferredCollectionMock = jest.fn()
 
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "FINISHED", params: true, data: [] }}
                 preferredCollection={{ status: "FAILED", params: void 0, error: new Error("Some error") }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock()}
                 fetchCollections={jest.fn()}
                 getPreferredCollection={getPreferredCollectionMock}
                 removePreferredCollection={jest.fn()}
@@ -153,13 +144,12 @@ describe("Collections containers", () => {
     it("should not read preferred collection on mount if operation status is FINISHED", () => {
         const getPreferredCollectionMock = jest.fn()
 
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "FINISHED", params: true, data: [] }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock()}
                 fetchCollections={jest.fn()}
                 getPreferredCollection={getPreferredCollectionMock}
                 removePreferredCollection={jest.fn()}
@@ -172,13 +162,12 @@ describe("Collections containers", () => {
     it("should not read preferred collection on mount if operation status is PENDING", () => {
         const getPreferredCollectionMock = jest.fn()
 
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "FINISHED", params: true, data: [] }}
                 preferredCollection={{ status: "PENDING", params: void 0 }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock()}
                 fetchCollections={jest.fn()}
                 getPreferredCollection={getPreferredCollectionMock}
                 removePreferredCollection={jest.fn()}
@@ -191,13 +180,12 @@ describe("Collections containers", () => {
     it("should clean collections on unmount", () => {
         const cleanCollectionsMock = jest.fn()
 
-        const view = render(
+        const view = renderWithPath(
             <CollectionsContainer
                 collections={{ status: "FINISHED", params: true, data: [] }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock()}
                 fetchCollections={jest.fn()}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={jest.fn()}
@@ -209,24 +197,21 @@ describe("Collections containers", () => {
     })
 
     it("should redirect to preferred collection", () => {
-        const historyPushMock = jest.fn()
         const removePreferredCollectionMock = jest.fn()
         const fetchCollectionsMock = jest.fn()
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "NOT_STARTED" }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: exampleCollectionId }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollections={fetchCollectionsMock}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
                 cleanCollectionsData={jest.fn()}
             />
         )
-        expect(historyPushMock).toHaveBeenCalledTimes(1)
-        expect(historyPushMock).toHaveBeenCalledWith(`/collection/${exampleCollectionId}`)
+        expect(window.location.pathname).toBe(`/collection/${exampleCollectionId}`)
         expect(removePreferredCollectionMock).not.toHaveBeenCalled()
         expect(fetchCollectionsMock).not.toHaveBeenCalled()
     })
@@ -235,13 +220,12 @@ describe("Collections containers", () => {
         const historyPushMock = jest.fn()
         const removePreferredCollectionMock = jest.fn()
         const fetchCollectionsMock = jest.fn()
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "NOT_STARTED" }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: "fooBar" }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollections={fetchCollectionsMock}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
@@ -257,13 +241,12 @@ describe("Collections containers", () => {
         const historyPushMock = jest.fn()
         const removePreferredCollectionMock = jest.fn()
         const fetchCollectionsMock = jest.fn()
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "NOT_STARTED" }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollections={fetchCollectionsMock}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
@@ -279,13 +262,12 @@ describe("Collections containers", () => {
         const historyPushMock = jest.fn()
         const removePreferredCollectionMock = jest.fn()
         const fetchCollectionsMock = jest.fn()
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "PENDING", params: true }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollections={fetchCollectionsMock}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
@@ -301,13 +283,12 @@ describe("Collections containers", () => {
         const historyPushMock = jest.fn()
         const removePreferredCollectionMock = jest.fn()
         const fetchCollectionsMock = jest.fn()
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "FAILED", params: true, error: new Error("Some error") }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollections={fetchCollectionsMock}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
@@ -323,13 +304,12 @@ describe("Collections containers", () => {
         const historyPushMock = jest.fn()
         const removePreferredCollectionMock = jest.fn()
         const fetchCollectionsMock = jest.fn()
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "FINISHED", params: true, data: [] }}
                 preferredCollection={{ status: "FINISHED", params: void 0, data: null }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollections={fetchCollectionsMock}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
@@ -345,13 +325,12 @@ describe("Collections containers", () => {
         const historyPushMock = jest.fn()
         const removePreferredCollectionMock = jest.fn()
         const fetchCollectionsMock = jest.fn()
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "NOT_STARTED" }}
                 preferredCollection={{ status: "FAILED", params: void 0, error: new Error("Some error") }}
                 removePreferredCollectionResult={{ status: "NOT_STARTED" }}
                 t={tFunctionMock}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollections={fetchCollectionsMock}
                 getPreferredCollection={jest.fn()}
                 removePreferredCollection={removePreferredCollectionMock}
@@ -365,13 +344,12 @@ describe("Collections containers", () => {
 
     it("should get preferred collection if remove finished", () => {
         const getPreferredCollectionMock = jest.fn()
-        render(
+        renderWithPath(
             <CollectionsContainer
                 collections={{ status: "NOT_STARTED" }}
                 preferredCollection={{ status: "FAILED", params: void 0, error: new Error("Some error") }}
                 removePreferredCollectionResult={{ status: "FINISHED", params: undefined, data: undefined }}
                 t={tFunctionMock}
-                history={historyMock()}
                 fetchCollections={jest.fn()}
                 getPreferredCollection={getPreferredCollectionMock}
                 removePreferredCollection={jest.fn()}

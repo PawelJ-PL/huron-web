@@ -4,27 +4,25 @@ import capitalize from "lodash/capitalize"
 import React, { useEffect } from "react"
 import { Trans, WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
-import { RouteComponentProps, withRouter } from "react-router"
 import { Dispatch } from "redux"
 import { AppState } from "../../../application/store"
 import { EmailAlreadyRegistered, NicknameAlreadyRegistered } from "../api/errors"
 import { registerNewUserAction, resetRegistrationStatusAction } from "../store/Actions"
 import SignupForm from "./SignupForm"
 import UserFormBox from "./UserFormBox"
-import { Link as RouterLink } from "react-router-dom"
+import { Link as RouterLink, useNavigate } from "react-router-dom"
 import UnexpectedErrorMessage from "../../../application/components/common/UnexpectedErrorMessage"
 
-type Props = ReturnType<typeof mapStateToProps> &
-    ReturnType<typeof mapDispatchToProps> &
-    WithTranslation &
-    Pick<RouteComponentProps, "history">
+type Props = ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps> & WithTranslation
 
 const SUCCESS_TOAST_ID = "signup-success"
 
-export const SignupScreen: React.FC<Props> = ({ signupResult, i18n, signup, resetResult, t, history }) => {
+export const SignupScreen: React.FC<Props> = ({ signupResult, i18n, signup, resetResult, t }) => {
     const selectedLanguage = capitalize(i18n.languages[0].split("-")[0])
 
     const toast = useToast({ position: "top", duration: 7000, isClosable: true })
+
+    const navigate = useNavigate()
 
     useEffect(() => {
         return () => {
@@ -35,12 +33,12 @@ export const SignupScreen: React.FC<Props> = ({ signupResult, i18n, signup, rese
 
     useEffect(() => {
         if (signupResult.status === "FINISHED") {
-            history.push("/")
+            navigate("/")
             if (!toast.isActive(SUCCESS_TOAST_ID)) {
                 toast({ title: t("signup-page:signup-success-message"), id: SUCCESS_TOAST_ID })
             }
         }
-    }, [signupResult, toast, t, history])
+    }, [signupResult, toast, t, navigate])
 
     const generateKeysAndSignup = (formData: {
         nickname: string
@@ -110,4 +108,4 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     resetResult: () => dispatch(resetRegistrationStatusAction()),
 })
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(withTranslation()(SignupScreen)))
+export default connect(mapStateToProps, mapDispatchToProps)(withTranslation()(SignupScreen))

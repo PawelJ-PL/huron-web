@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import React from "react"
 import { exampleCollection, exampleCollectionId } from "../../../testutils/constants/collection"
+import { renderWithRoute } from "../../../testutils/helpers"
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
-import { historyMock } from "../../../testutils/mocks/router-mock"
 import { Collection } from "../types/Collection"
 import { SingleCollectionContainer } from "./SingleCollectionContainer"
 
@@ -17,19 +17,20 @@ jest.mock("../../file/components/CollectionFilesContainer", () => (props: { coll
     </div>
 ))
 
-const exampleRouteMatch = {
-    params: { collectionId: exampleCollectionId },
-    isExact: true,
-    path: "/collection/:collectionId",
-    url: `/collection/${exampleCollectionId}`,
-}
+const startPath = `/collection/${exampleCollectionId}`
+const routePathTemplate = "/collection/:collectionId"
+
+// eslint-disable-next-line testing-library/render-result-naming-convention
+const renderWithPath = renderWithRoute(routePathTemplate)
 
 describe("Single collection container", () => {
+    beforeEach(() => {
+        window.history.replaceState({}, "", startPath)
+    })
+
     it("should render collection view", () => {
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{ status: "FINISHED", params: exampleCollectionId, data: exampleCollection }}
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
@@ -46,10 +47,8 @@ describe("Single collection container", () => {
     })
 
     it("should render error message", () => {
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{
                     status: "FAILED",
                     params: exampleCollectionId,
@@ -71,10 +70,8 @@ describe("Single collection container", () => {
     })
 
     it("should render loader if fetch status is NOT_STARTED", () => {
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{ status: "NOT_STARTED" }}
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
@@ -91,10 +88,8 @@ describe("Single collection container", () => {
     })
 
     it("should render loader if fetch status is PENDING", () => {
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{ status: "PENDING", params: exampleCollectionId }}
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
@@ -111,10 +106,8 @@ describe("Single collection container", () => {
     })
 
     it("should render loader if collection not found", () => {
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{ status: "FINISHED", params: exampleCollectionId, data: null }}
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
@@ -131,10 +124,8 @@ describe("Single collection container", () => {
     })
 
     it("should render loader if fetched collection ID does not match current collection", () => {
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{
                     status: "FINISHED",
                     params: "f32655b7-da2b-4e8e-a645-3f3f01c766e5",
@@ -157,10 +148,8 @@ describe("Single collection container", () => {
     it("should fetch collection data on mount if status is NOT_STARTED", () => {
         const fetchCollectionMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{ status: "NOT_STARTED" }}
                 fetchCollectionData={fetchCollectionMock}
                 setActiveCollection={jest.fn()}
@@ -180,10 +169,8 @@ describe("Single collection container", () => {
     it("should fetch collection data on mount if status is FAILED", () => {
         const fetchCollectionMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{
                     status: "FAILED",
                     params: exampleCollectionId,
@@ -207,10 +194,8 @@ describe("Single collection container", () => {
     it("should not fetch collection data on mount if status is PENDING", () => {
         const fetchCollectionMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{ status: "PENDING", params: exampleCollectionId }}
                 fetchCollectionData={fetchCollectionMock}
                 setActiveCollection={jest.fn()}
@@ -229,10 +214,8 @@ describe("Single collection container", () => {
     it("should not fetch collection data on mount if status is FINISHED", () => {
         const fetchCollectionMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{
                     status: "FINISHED",
                     params: exampleCollectionId,
@@ -252,13 +235,11 @@ describe("Single collection container", () => {
         expect(fetchCollectionMock).not.toHaveBeenCalled()
     })
 
-    it("should fetch collection data on mount if current collection is differen than fetched one", () => {
+    it("should fetch collection data on mount if current collection is different than fetched one", () => {
         const fetchCollectionMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{
                     status: "FINISHED",
                     params: "f32655b7-da2b-4e8e-a645-3f3f01c766e5",
@@ -282,10 +263,8 @@ describe("Single collection container", () => {
     it("should reset remove preferred collection status on mount", () => {
         const resetRemovePreferredCollectionStatusMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{ status: "NOT_STARTED" }}
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
@@ -304,10 +283,8 @@ describe("Single collection container", () => {
     it("should reset remove preferred collection status on unmount", () => {
         const resetRemovePreferredCollectionStatusMock = jest.fn()
 
-        const view = render(
+        const view = renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock()}
                 fetchCollectionResult={{ status: "NOT_STARTED" }}
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={jest.fn()}
@@ -332,10 +309,8 @@ describe("Single collection container", () => {
         const removePreferredCollectionMock = jest.fn()
         const historyPushMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollectionResult={{ status: "FINISHED", params: exampleCollectionId, data: exampleCollection }}
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
@@ -363,10 +338,8 @@ describe("Single collection container", () => {
         const removePreferredCollectionMock = jest.fn()
         const historyPushMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollectionResult={{ status: "NOT_STARTED" }}
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
@@ -392,10 +365,8 @@ describe("Single collection container", () => {
         const removePreferredCollectionMock = jest.fn()
         const historyPushMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollectionResult={{ status: "PENDING", params: exampleCollectionId }}
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
@@ -421,10 +392,8 @@ describe("Single collection container", () => {
         const removePreferredCollectionMock = jest.fn()
         const historyPushMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollectionResult={{
                     status: "FAILED",
                     params: exampleCollectionId,
@@ -454,10 +423,8 @@ describe("Single collection container", () => {
         const removePreferredCollectionMock = jest.fn()
         const historyPushMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollectionResult={{
                     status: "FINISHED",
                     params: "f32655b7-da2b-4e8e-a645-3f3f01c766e5",
@@ -485,12 +452,9 @@ describe("Single collection container", () => {
         const setPreferredCollectionMock = jest.fn()
         const removeActiveCollectionMock = jest.fn()
         const removePreferredCollectionMock = jest.fn()
-        const historyPushMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollectionResult={{ status: "FINISHED", params: exampleCollectionId, data: null }}
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
@@ -502,11 +466,12 @@ describe("Single collection container", () => {
                 t={tFunctionMock}
             />
         )
+
         expect(setActiveCollectionMock).not.toHaveBeenCalled()
         expect(setPreferredCollectionMock).not.toHaveBeenCalled()
         expect(removeActiveCollectionMock).toHaveBeenCalledTimes(1)
         expect(removePreferredCollectionMock).toHaveBeenCalledTimes(1)
-        expect(historyPushMock).not.toHaveBeenCalled()
+        expect(window.location.pathname).toBe(startPath)
     })
 
     it("should redirect to home if remove preferred collection finished", () => {
@@ -514,12 +479,9 @@ describe("Single collection container", () => {
         const setPreferredCollectionMock = jest.fn()
         const removeActiveCollectionMock = jest.fn()
         const removePreferredCollectionMock = jest.fn()
-        const historyPushMock = jest.fn()
 
-        render(
+        renderWithPath(
             <SingleCollectionContainer
-                match={exampleRouteMatch}
-                history={historyMock({ push: historyPushMock })}
                 fetchCollectionResult={{ status: "NOT_STARTED" }}
                 fetchCollectionData={jest.fn()}
                 setActiveCollection={setActiveCollectionMock}
@@ -531,11 +493,11 @@ describe("Single collection container", () => {
                 t={tFunctionMock}
             />
         )
+        // const rrr = renderWithStoreAndRouter(unknown, )
         expect(setActiveCollectionMock).not.toHaveBeenCalled()
         expect(setPreferredCollectionMock).not.toHaveBeenCalled()
         expect(removeActiveCollectionMock).not.toHaveBeenCalled()
         expect(removePreferredCollectionMock).not.toHaveBeenCalled()
-        expect(historyPushMock).toHaveBeenCalledTimes(1)
-        expect(historyPushMock).toHaveBeenCalledWith("/")
+        expect(window.location.pathname).toBe("/")
     })
 })

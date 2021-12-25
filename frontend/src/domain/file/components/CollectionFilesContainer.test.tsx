@@ -1,15 +1,13 @@
 import React from "react"
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import { exampleCollection, exampleCollectionId } from "../../../testutils/constants/collection"
-import { historyMock } from "../../../testutils/mocks/router-mock"
 import { CollectionFilesContainer } from "./CollectionFilesContainer"
-import * as H from "history"
-import { match } from "react-router"
 import { exampleDirectoryTree, exampleFileId } from "../../../testutils/constants/files"
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { FileNotFound } from "../api/errors"
 import { Collection } from "../../collection/types/Collection"
 import { ObjectTree } from "../types/ObjectTree"
+import { renderWithRoute } from "../../../testutils/helpers"
 
 jest.mock("../../../application/components/common/UnexpectedErrorMessage")
 
@@ -25,23 +23,23 @@ jest.mock("./metadata_view/SingleObjectView", () => (props: { collection: Collec
     </div>
 ))
 
-const exampleLocation: H.Location<unknown> = {
-    pathname: "/collection/:collectionId/file/:fileId",
-    search: "",
-    state: {},
-    hash: "",
-}
+const startRoute = `/collection/${exampleCollectionId}/file/${exampleFileId}`
+const routeTemplate = "/collection/:collectionId/file/:fileId"
 
-const exampleMatch: match<{ fileId?: string }> = {
-    isExact: true,
-    path: exampleLocation.pathname,
-    url: `/collection/${exampleCollectionId}/file/${exampleFileId}`,
-    params: { fileId: exampleFileId },
-}
+// eslint-disable-next-line testing-library/render-result-naming-convention
+const renderWithPath = renderWithRoute(routeTemplate)
+
+const startRouteRoot = `/collection/${exampleCollectionId}`
+const routeTemplateRoot = "/collection/:collectionId"
+
+// eslint-disable-next-line testing-library/render-result-naming-convention
+const renderWithPathForRoot = renderWithRoute(routeTemplateRoot)
 
 describe("Collection files container", () => {
+    beforeEach(() => window.history.replaceState({}, "", startRoute))
+
     it("should render unexpected error message", () => {
-        render(
+        renderWithPath(
             <CollectionFilesContainer
                 collection={exampleCollection}
                 fileTreeResult={{
@@ -49,9 +47,6 @@ describe("Collection files container", () => {
                     params: { collectionId: exampleCollectionId, objectId: null },
                     error: new Error("Some error"),
                 }}
-                history={historyMock()}
-                location={exampleLocation}
-                match={exampleMatch}
                 fetchTree={jest.fn()}
                 resetTree={jest.fn()}
                 t={tFunctionMock}
@@ -62,7 +57,7 @@ describe("Collection files container", () => {
     })
 
     it("should render file not found placeholder", () => {
-        render(
+        renderWithPath(
             <CollectionFilesContainer
                 collection={exampleCollection}
                 fileTreeResult={{
@@ -70,9 +65,6 @@ describe("Collection files container", () => {
                     params: { collectionId: exampleCollectionId, objectId: null },
                     error: new FileNotFound(exampleFileId, exampleCollectionId),
                 }}
-                history={historyMock()}
-                location={exampleLocation}
-                match={exampleMatch}
                 fetchTree={jest.fn()}
                 resetTree={jest.fn()}
                 t={tFunctionMock}
@@ -83,13 +75,10 @@ describe("Collection files container", () => {
     })
 
     it("should render loader if fetch status is NOT_STARTED", () => {
-        render(
+        renderWithPath(
             <CollectionFilesContainer
                 collection={exampleCollection}
                 fileTreeResult={{ status: "NOT_STARTED" }}
-                history={historyMock()}
-                location={exampleLocation}
-                match={exampleMatch}
                 fetchTree={jest.fn()}
                 resetTree={jest.fn()}
                 t={tFunctionMock}
@@ -100,13 +89,10 @@ describe("Collection files container", () => {
     })
 
     it("should render loader if fetch status is PENDING", () => {
-        render(
+        renderWithPath(
             <CollectionFilesContainer
                 collection={exampleCollection}
                 fileTreeResult={{ status: "PENDING", params: { collectionId: exampleCollectionId, objectId: null } }}
-                history={historyMock()}
-                location={exampleLocation}
-                match={exampleMatch}
                 fetchTree={jest.fn()}
                 resetTree={jest.fn()}
                 t={tFunctionMock}
@@ -117,7 +103,7 @@ describe("Collection files container", () => {
     })
 
     it("should render object view", () => {
-        render(
+        renderWithPath(
             <CollectionFilesContainer
                 collection={exampleCollection}
                 fileTreeResult={{
@@ -125,9 +111,6 @@ describe("Collection files container", () => {
                     params: { collectionId: exampleCollectionId, objectId: null },
                     data: exampleDirectoryTree,
                 }}
-                history={historyMock()}
-                location={exampleLocation}
-                match={exampleMatch}
                 fetchTree={jest.fn()}
                 resetTree={jest.fn()}
                 t={tFunctionMock}
@@ -141,13 +124,10 @@ describe("Collection files container", () => {
     it("should fetch tree on mount", () => {
         const fetchTreeMock = jest.fn()
 
-        render(
+        renderWithPath(
             <CollectionFilesContainer
                 collection={exampleCollection}
                 fileTreeResult={{ status: "NOT_STARTED" }}
-                history={historyMock()}
-                location={exampleLocation}
-                match={exampleMatch}
                 fetchTree={fetchTreeMock}
                 resetTree={jest.fn()}
                 t={tFunctionMock}
@@ -159,17 +139,13 @@ describe("Collection files container", () => {
     })
 
     it("should fetch tree with null file ID on mount", () => {
+        window.history.replaceState({}, "", startRouteRoot)
         const fetchTreeMock = jest.fn()
 
-        const updatedMatch = { ...exampleMatch, params: { fileId: undefined } }
-
-        render(
+        renderWithPathForRoot(
             <CollectionFilesContainer
                 collection={exampleCollection}
                 fileTreeResult={{ status: "NOT_STARTED" }}
-                history={historyMock()}
-                location={exampleLocation}
-                match={updatedMatch}
                 fetchTree={fetchTreeMock}
                 resetTree={jest.fn()}
                 t={tFunctionMock}
@@ -183,13 +159,10 @@ describe("Collection files container", () => {
     it("should reset tree on unmount", () => {
         const resetTreeMock = jest.fn()
 
-        const view = render(
+        const view = renderWithPath(
             <CollectionFilesContainer
                 collection={exampleCollection}
                 fileTreeResult={{ status: "NOT_STARTED" }}
-                history={historyMock()}
-                location={exampleLocation}
-                match={exampleMatch}
                 fetchTree={jest.fn()}
                 resetTree={resetTreeMock}
                 t={tFunctionMock}

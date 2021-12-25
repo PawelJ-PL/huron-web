@@ -1,20 +1,27 @@
-import { render } from "@testing-library/react"
 import React from "react"
 import { exampleUserEmail, exampleUserPassword } from "../../../testutils/constants/user"
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
-import { historyMock } from "../../../testutils/mocks/router-mock"
 import { ResetPasswordPage } from "./ResetPasswordPage"
 import * as chakraToast from "@chakra-ui/toast"
 import { toastMock } from "../../../testutils/mocks/toast-mock"
+import { renderWithRoute } from "../../../testutils/helpers"
 
 // eslint-disable-next-line react/display-name
 jest.mock("./ResetPasswordForm", () => () => <div></div>)
 jest.mock("../../../application/components/common/UnexpectedErrorMessage")
 
+const startRoute = "/set-password/X-Y-Z"
+const pathTemplate = "/set-password/:token"
+
+// eslint-disable-next-line testing-library/render-result-naming-convention
+const renderWithPath = renderWithRoute(pathTemplate)
+
 describe("Reset password page", () => {
+    beforeEach(() => window.history.replaceState({}, "", startRoute))
+
     it("should reset status on unmount", () => {
         const clearResult = jest.fn()
-        const view = render(
+        const view = renderWithPath(
             <ResetPasswordPage
                 t={tFunctionMock}
                 actionResult={{
@@ -24,8 +31,6 @@ describe("Reset password page", () => {
                 }}
                 resetPassword={jest.fn()}
                 clearActionResult={clearResult}
-                history={historyMock()}
-                match={{ isExact: true, path: "/", url: "/", params: { token: "X-Y-Z" } }}
             />
         )
         view.unmount()
@@ -35,9 +40,8 @@ describe("Reset password page", () => {
     it("should redirect to home page and show toast on success", () => {
         const toast = jest.fn()
         const useToastMock = jest.spyOn(chakraToast, "useToast").mockImplementation(() => toastMock(toast))
-        const historyReplace = jest.fn()
 
-        render(
+        renderWithPath(
             <ResetPasswordPage
                 t={tFunctionMock}
                 actionResult={{
@@ -47,12 +51,9 @@ describe("Reset password page", () => {
                 }}
                 resetPassword={jest.fn()}
                 clearActionResult={jest.fn()}
-                history={historyMock({ replace: historyReplace })}
-                match={{ isExact: true, path: "/", url: "/", params: { token: "X-Y-Z" } }}
             />
         )
-        expect(historyReplace).toHaveBeenCalledTimes(1)
-        expect(historyReplace).toHaveBeenCalledWith("/")
+        expect(window.location.pathname).toBe("/")
         expect(toast).toHaveBeenCalledTimes(1)
         expect(toast).toHaveBeenCalledWith({
             title: "reset-password-page:password-has-been-reset",

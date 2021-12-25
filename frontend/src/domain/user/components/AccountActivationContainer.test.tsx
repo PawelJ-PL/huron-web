@@ -1,20 +1,26 @@
-import { render, screen } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import React from "react"
 import { LOADER_PAGE } from "../../../application/pages/testids"
 import { i18nMock, tFunctionMock } from "../../../testutils/mocks/i18n-mock"
-import { historyMock } from "../../../testutils/mocks/router-mock"
 import { AccountActivationContainer } from "./AccountActivationContainer"
 import * as chakraToast from "@chakra-ui/toast"
 import { toastMock } from "../../../testutils/mocks/toast-mock"
+import { renderWithRoute } from "../../../testutils/helpers"
+
+const startPath = "/account-activation/X-Y-Z"
+const pathTemplate = "/account-activation/:token"
+
+// eslint-disable-next-line testing-library/render-result-naming-convention
+const renderWithPath = renderWithRoute(pathTemplate)
 
 describe("Account activation container", () => {
+    beforeEach(() => window.history.replaceState({}, "", startPath))
+
     describe("mount and unmount", () => {
         it("should send activation request on mount", () => {
             const activateFn = jest.fn()
-            render(
+            renderWithPath(
                 <AccountActivationContainer
-                    history={historyMock()}
-                    match={{ isExact: true, url: "/", path: "/", params: { token: "X-Y-Z" } }}
                     activationResult={{ status: "NOT_STARTED" }}
                     activateUser={activateFn}
                     resetStatus={jest.fn()}
@@ -29,10 +35,8 @@ describe("Account activation container", () => {
 
         it("should reset status on unmount", () => {
             const resetFn = jest.fn()
-            const view = render(
+            const view = renderWithPath(
                 <AccountActivationContainer
-                    history={historyMock()}
-                    match={{ isExact: true, url: "/", path: "/", params: { token: "X-Y-Z" } }}
                     activationResult={{ status: "NOT_STARTED" }}
                     activateUser={jest.fn()}
                     resetStatus={resetFn}
@@ -48,10 +52,8 @@ describe("Account activation container", () => {
 
     describe("render decision", () => {
         it("should render loader", () => {
-            render(
+            renderWithPath(
                 <AccountActivationContainer
-                    history={historyMock()}
-                    match={{ isExact: true, url: "/", path: "/", params: { token: "X-Y-Z" } }}
                     activationResult={{ status: "PENDING", params: "X-Y-Z" }}
                     activateUser={jest.fn()}
                     resetStatus={jest.fn()}
@@ -64,10 +66,8 @@ describe("Account activation container", () => {
         })
 
         it("should render error page on failure", () => {
-            render(
+            renderWithPath(
                 <AccountActivationContainer
-                    history={historyMock()}
-                    match={{ isExact: true, url: "/", path: "/", params: { token: "X-Y-Z" } }}
                     activationResult={{ status: "FAILED", params: "X-Y-Z", error: new Error("Some error") }}
                     activateUser={jest.fn()}
                     resetStatus={jest.fn()}
@@ -81,13 +81,10 @@ describe("Account activation container", () => {
         })
 
         it("should navigate to home and show toast on valid token", () => {
-            const historyReplace = jest.fn()
             const toast = jest.fn()
             const useToastMock = jest.spyOn(chakraToast, "useToast").mockImplementation(() => toastMock(toast))
-            render(
+            renderWithPath(
                 <AccountActivationContainer
-                    history={historyMock({ replace: historyReplace })}
-                    match={{ isExact: true, url: "/", path: "/", params: { token: "X-Y-Z" } }}
                     activationResult={{ status: "FINISHED", params: "X-Y-Z", data: true }}
                     activateUser={jest.fn()}
                     resetStatus={jest.fn()}
@@ -96,8 +93,7 @@ describe("Account activation container", () => {
                     tReady={true}
                 />
             )
-            expect(historyReplace).toHaveBeenCalledTimes(1)
-            expect(historyReplace).toHaveBeenCalledWith("/")
+            expect(window.location.pathname).toBe("/")
             expect(toast).toHaveBeenCalledTimes(1)
             expect(toast).toHaveBeenCalledWith({
                 id: "activation-success",
@@ -108,13 +104,10 @@ describe("Account activation container", () => {
         })
 
         it("should navigate to home and show toast on invalid token", () => {
-            const historyReplace = jest.fn()
             const toast = jest.fn()
             const useToastMock = jest.spyOn(chakraToast, "useToast").mockImplementation(() => toastMock(toast))
-            render(
+            renderWithPath(
                 <AccountActivationContainer
-                    history={historyMock({ replace: historyReplace })}
-                    match={{ isExact: true, url: "/", path: "/", params: { token: "X-Y-Z" } }}
                     activationResult={{ status: "FINISHED", params: "X-Y-Z", data: false }}
                     activateUser={jest.fn()}
                     resetStatus={jest.fn()}
@@ -123,8 +116,7 @@ describe("Account activation container", () => {
                     tReady={true}
                 />
             )
-            expect(historyReplace).toHaveBeenCalledTimes(1)
-            expect(historyReplace).toHaveBeenCalledWith("/")
+            expect(window.location.pathname).toBe("/")
             expect(toast).toHaveBeenCalledTimes(1)
             expect(toast).toHaveBeenCalledWith({
                 id: "activation-failure",

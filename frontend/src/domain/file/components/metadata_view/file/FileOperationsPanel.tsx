@@ -9,7 +9,6 @@ import { FaFileUpload } from "react-icons/fa"
 import { FaEdit } from "react-icons/fa"
 import { FaTrashAlt } from "react-icons/fa"
 import { connect } from "react-redux"
-import { RouteComponentProps, withRouter } from "react-router"
 import { Dispatch } from "redux"
 import AlertBox from "../../../../../application/components/common/AlertBox"
 import LoadingOverlay from "../../../../../application/components/common/LoadingOverlay"
@@ -30,17 +29,16 @@ import DeleteFilesConfirmation from "../directory/DeleteFilesConfirmation"
 import RenameModal from "../directory/RenameModal"
 import UploadFileModal from "../directory/UploadFileModal"
 import FileSaver from "file-saver"
+import { useNavigate } from "react-router-dom"
 
 type Props = {
     file: FileMetadata
 } & Pick<WithTranslation, "t"> &
     ReturnType<typeof mapStateToProps> &
-    ReturnType<typeof mapDispatchToProps> &
-    RouteComponentProps
+    ReturnType<typeof mapDispatchToProps>
 
 export const FileOperationsPanel: React.FC<Props> = ({
     t,
-    history,
     encryptionKeyResult,
     file,
     renameFile,
@@ -52,6 +50,8 @@ export const FileOperationsPanel: React.FC<Props> = ({
     fileDownloadResult,
     resetDownloadResult,
 }) => {
+    const navigate = useNavigate()
+
     useEffect(() => {
         resetAllActionsResults()
         return () => {
@@ -66,15 +66,15 @@ export const FileOperationsPanel: React.FC<Props> = ({
             deleteResult.params.collectionId === file.collectionId &&
             deleteResult.params.fileIds.includes(file.id)
         ) {
-            history.push(`/collection/${file.collectionId}`)
+            navigate(`/collection/${file.collectionId}`)
         }
 
         if (deleteResult.status === "FAILED" && deleteResult.params.collectionId === file.collectionId) {
             if (deleteResult.error instanceof FileDeleteFailed && deleteResult.error.deleted.includes(file.id)) {
-                history.push(`/collection/${file.collectionId}`)
+                navigate(`/collection/${file.collectionId}`)
             }
         }
-    }, [deleteResult, file, history])
+    }, [deleteResult, file, navigate])
 
     useEffect(() => {
         if (fileDownloadResult.status === "FINISHED") {
@@ -175,4 +175,4 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     resetDownloadResult: () => dispatch(resetDownloadFileResultAction()),
 })
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(withTranslation()(FileOperationsPanel)))
+export default connect(mapStateToProps, mapDispatchToProps)(withTranslation()(FileOperationsPanel))

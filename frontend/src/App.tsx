@@ -1,7 +1,6 @@
 import React from "react"
 import AuthDecisionContainer from "./application/AuthDecisionContainer"
-import { Router } from "react-router-dom"
-import { history } from "./application/history"
+import { BrowserRouter } from "react-router-dom"
 import { ChakraProvider } from "@chakra-ui/react"
 import { theme } from "./application/theme"
 import { Provider } from "react-redux"
@@ -12,11 +11,11 @@ function App(): JSX.Element {
     return (
         <Provider store={applicationStore}>
             <ChakraProvider theme={theme}>
-                <Router history={history}>
+                <BrowserRouter>
                     <TranslatedApp>
                         <AuthDecisionContainer />
                     </TranslatedApp>
-                </Router>
+                </BrowserRouter>
             </ChakraProvider>
         </Provider>
     )
