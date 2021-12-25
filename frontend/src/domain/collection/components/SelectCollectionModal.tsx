@@ -5,17 +5,18 @@ import React, { useState } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { Collection } from "../types/Collection"
 import capitalize from "lodash/capitalize"
-import { RouteComponentProps, withRouter } from "react-router"
+import { useNavigate } from "react-router-dom"
 
 type Props = {
     availableCollections: Collection[]
     selectedCollection?: string
     onClose?: () => void
-} & Pick<WithTranslation, "t"> &
-    RouteComponentProps
+} & Pick<WithTranslation, "t">
 
-const SelectCollectionModal: React.FC<Props> = ({ availableCollections, t, history, onClose, selectedCollection }) => {
+const SelectCollectionModal: React.FC<Props> = ({ availableCollections, t, onClose, selectedCollection }) => {
     const [selected, setSelected] = useState(selectedCollection ?? availableCollections[0].id)
+
+    const navigate = useNavigate()
 
     return (
         <Modal isOpen={true} onClose={onClose ?? (() => void 0)}>
@@ -42,7 +43,7 @@ const SelectCollectionModal: React.FC<Props> = ({ availableCollections, t, histo
                             if (onClose) {
                                 onClose()
                             }
-                            history.push(`/collection/${selected}`)
+                            navigate(`/collection/${selected}`)
                         }}
                     >
                         {capitalize(t("common:confirm-imperative"))}
@@ -53,4 +54,4 @@ const SelectCollectionModal: React.FC<Props> = ({ availableCollections, t, histo
     )
 }
 
-export default withRouter(withTranslation()(SelectCollectionModal))
+export default withTranslation()(SelectCollectionModal)

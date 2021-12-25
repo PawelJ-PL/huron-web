@@ -2,7 +2,7 @@ import { useToast } from "@chakra-ui/react"
 import React, { useEffect } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
-import { RouteComponentProps } from "react-router"
+import { useNavigate, useParams } from "react-router"
 import { Dispatch } from "redux"
 import ErrorPage from "../../../application/pages/ErrorPage"
 import FullScreenLoaderPage from "../../../application/pages/FullScreenLoaderPage"
@@ -12,22 +12,13 @@ import { activateAccountAction, resetActivationStatusAction } from "../store/Act
 const ACTIVATION_SUCCEED_TOAST_ID = "activation-success"
 const ACTIVATION_FAIL_TOAST_ID = "activation-failure"
 
-type Props = Pick<RouteComponentProps<{ token: string }>, "match" | "history"> &
-    ReturnType<typeof mapStateToProps> &
-    ReturnType<typeof mapDispatchToProps> &
-    WithTranslation
+type Props = ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps> & WithTranslation
 
-export const AccountActivationContainer: React.FC<Props> = ({
-    match: {
-        params: { token },
-    },
-    history,
-    activationResult,
-    activateUser,
-    resetStatus,
-    t,
-}) => {
+export const AccountActivationContainer: React.FC<Props> = ({ activationResult, activateUser, resetStatus, t }) => {
     const toast = useToast({ isClosable: true })
+
+    const { token = "" } = useParams<{ token: string }>()
+    const navigate = useNavigate()
 
     useEffect(() => {
         activateUser(token)
@@ -45,17 +36,17 @@ export const AccountActivationContainer: React.FC<Props> = ({
                     status: "success",
                     id: ACTIVATION_SUCCEED_TOAST_ID,
                 })
-                history.replace("/")
+                navigate("/")
             } else {
                 toast({
                     title: t("activation-page:activation-failed-message"),
                     status: "warning",
                     id: ACTIVATION_FAIL_TOAST_ID,
                 })
-                history.replace("/")
+                navigate("/")
             }
         }
-    }, [activationResult, t, toast, history])
+    }, [activationResult, t, toast, navigate])
 
     if (activationResult.status === "FAILED") {
         return (

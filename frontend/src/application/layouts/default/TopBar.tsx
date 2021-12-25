@@ -6,7 +6,7 @@ import { Menu, MenuButton, MenuDivider, MenuGroup, MenuItem, MenuList } from "@c
 import React, { useEffect } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
-import { Link as RouterLink, RouteComponentProps, withRouter } from "react-router-dom"
+import { Link as RouterLink, useNavigate } from "react-router-dom"
 import Logo from "../../../resources/logo_transparent.png"
 import { AppState } from "../../store"
 import LanguagePicker from "./LanguagePicker"
@@ -17,15 +17,14 @@ import { useToast } from "@chakra-ui/react"
 import UnlockKeyButton from "./unlock_key/UnlockKeyButton"
 import SelectCollectionButton from "./SelectCollectionButton"
 
-type Props = ReturnType<typeof mapStateToProps> &
-    ReturnType<typeof mapDispatchToProps> &
-    Pick<WithTranslation, "t"> &
-    Pick<RouteComponentProps, "history">
+type Props = ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps> & Pick<WithTranslation, "t">
 
-export const TopBar: React.FC<Props> = ({ userData, t, history, logout, clearLogoutStatus, logoutStatus }) => {
+export const TopBar: React.FC<Props> = ({ userData, t, logout, clearLogoutStatus, logoutStatus }) => {
     const showUserName = useBreakpointValue({ base: false, sm: true })
 
     const toast = useToast({ position: "top", isClosable: true })
+
+    const navigate = useNavigate()
 
     useEffect(() => {
         clearLogoutStatus()
@@ -84,7 +83,7 @@ export const TopBar: React.FC<Props> = ({ userData, t, history, logout, clearLog
                         </MenuButton>
                         <MenuList background="brand.400">
                             <MenuGroup>
-                                <MenuItem _hover={{ color: "black" }} onClick={() => history.push("/profile")}>
+                                <MenuItem _hover={{ color: "black" }} onClick={() => navigate("/profile")}>
                                     {t("top-bar:account-menu-items.profile")}
                                 </MenuItem>
                             </MenuGroup>
@@ -112,4 +111,4 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     clearLogoutStatus: () => dispatch(resetApiLogoutStatusAction()),
 })
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(withTranslation()(TopBar)))
+export default connect(mapStateToProps, mapDispatchToProps)(withTranslation()(TopBar))

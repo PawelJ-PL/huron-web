@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, screen } from "@testing-library/react"
 import React from "react"
 import {
     exampleChildFile1,
@@ -7,28 +7,18 @@ import {
     exampleFileId,
 } from "../../../../../testutils/constants/files"
 import { tFunctionMock } from "../../../../../testutils/mocks/i18n-mock"
-import { historyMock } from "../../../../../testutils/mocks/router-mock"
 import { FileOperationsPanel } from "./FileOperationsPanel"
-import * as H from "history"
-import { match } from "react-router"
 import { exampleCollectionId, exampleEncryptionKey } from "../../../../../testutils/constants/collection"
 import { FileDeleteFailed } from "../../../types/errors"
 import FileSaver from "file-saver"
 import { examplePrivateKey } from "../../../../../testutils/constants/user"
+import { renderWithRoute } from "../../../../../testutils/helpers"
 
-const exampleLocation: H.Location<unknown> = {
-    pathname: "/collection/:collectionId/file/:fileId",
-    search: "",
-    state: {},
-    hash: "",
-}
+const startRoute = `/collection/${exampleCollectionId}/file/${exampleFileData}`
+const pathTemplate = "/collection/:collectionId/file/:fileId"
 
-const exampleMatch: match<{ fileId?: string }> = {
-    isExact: true,
-    path: exampleLocation.pathname,
-    url: `/collection/${exampleCollectionId}/file/${exampleFileId}`,
-    params: { fileId: exampleFileId },
-}
+// eslint-disable-next-line testing-library/render-result-naming-convention
+const renderWithPath = renderWithRoute(pathTemplate)
 
 // eslint-disable-next-line react/display-name
 jest.mock("../directory/RenameModal", () => () => <div data-testid="RENAME_MODAL_MOCK"></div>)
@@ -46,13 +36,14 @@ jest.mock("../../../../../application/components/common/LoadingOverlay")
 jest.mock("../../../../../application/components/common/AlertBox")
 
 describe("File operations panel", () => {
+    beforeEach(() => window.history.replaceState({}, "", startRoute))
+
     it("should reset all results on mount and unmount", () => {
         const resetAllMock = jest.fn()
 
-        const view = render(
+        const view = renderWithPath(
             <FileOperationsPanel
                 t={tFunctionMock}
-                history={historyMock()}
                 file={exampleFileData}
                 encryptionKeyResult={{ status: "NOT_STARTED" }}
                 renameFile={jest.fn()}
@@ -63,8 +54,6 @@ describe("File operations panel", () => {
                 downloadFile={jest.fn()}
                 fileDownloadResult={{ status: "NOT_STARTED" }}
                 resetDownloadResult={jest.fn()}
-                location={exampleLocation}
-                match={exampleMatch}
             />
         )
 
@@ -75,12 +64,9 @@ describe("File operations panel", () => {
 
     describe("redirect on delete", () => {
         it("should redirect on delete success if file ID is in deleted array", () => {
-            const historyPushMock = jest.fn()
-
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock({ push: historyPushMock })}
                     file={exampleFileData}
                     encryptionKeyResult={{ status: "NOT_STARTED" }}
                     renameFile={jest.fn()}
@@ -95,22 +81,18 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
-            expect(historyPushMock).toHaveBeenCalledTimes(1)
-            expect(historyPushMock).toHaveBeenCalledWith(`/collection/${exampleCollectionId}`)
+            expect(window.location.pathname).toBe(`/collection/${exampleCollectionId}`)
         })
 
         it("should not redirect on delete success if file ID not in deleted array", () => {
             const historyPushMock = jest.fn()
 
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock({ push: historyPushMock })}
                     file={exampleFileData}
                     encryptionKeyResult={{ status: "NOT_STARTED" }}
                     renameFile={jest.fn()}
@@ -125,8 +107,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -134,12 +114,9 @@ describe("File operations panel", () => {
         })
 
         it("should redirect on delete failed if file ID is in deleted array", () => {
-            const historyPushMock = jest.fn()
-
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock({ push: historyPushMock })}
                     file={exampleFileData}
                     encryptionKeyResult={{ status: "NOT_STARTED" }}
                     renameFile={jest.fn()}
@@ -157,22 +134,18 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
-            expect(historyPushMock).toHaveBeenCalledTimes(1)
-            expect(historyPushMock).toHaveBeenCalledWith(`/collection/${exampleCollectionId}`)
+            expect(window.location.pathname).toBe(`/collection/${exampleCollectionId}`)
         })
 
         it("should not redirect on delete failed if file ID not in deleted array", () => {
             const historyPushMock = jest.fn()
 
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock({ push: historyPushMock })}
                     file={exampleFileData}
                     encryptionKeyResult={{ status: "NOT_STARTED" }}
                     renameFile={jest.fn()}
@@ -190,8 +163,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -204,10 +175,9 @@ describe("File operations panel", () => {
 
         const resetDownloadResetMock = jest.fn()
 
-        render(
+        renderWithPath(
             <FileOperationsPanel
                 t={tFunctionMock}
-                history={historyMock()}
                 file={exampleFileData}
                 encryptionKeyResult={{ status: "NOT_STARTED" }}
                 renameFile={jest.fn()}
@@ -230,8 +200,6 @@ describe("File operations panel", () => {
                     },
                 }}
                 resetDownloadResult={resetDownloadResetMock}
-                location={exampleLocation}
-                match={exampleMatch}
             />
         )
 
@@ -250,10 +218,9 @@ describe("File operations panel", () => {
 
     describe("loader", () => {
         it("should be hidden if no action is in progress", () => {
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{ status: "NOT_STARTED" }}
                     renameFile={jest.fn()}
@@ -264,8 +231,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -274,10 +239,9 @@ describe("File operations panel", () => {
         })
 
         it("should be visible if action is in progress", () => {
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{ status: "NOT_STARTED" }}
                     renameFile={jest.fn()}
@@ -288,8 +252,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -300,10 +262,9 @@ describe("File operations panel", () => {
 
     describe("locked key warning", () => {
         it("should be visible if key is locked", () => {
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{ status: "NOT_STARTED" }}
                     renameFile={jest.fn()}
@@ -314,8 +275,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -324,10 +283,9 @@ describe("File operations panel", () => {
         })
 
         it("should be hidden if key is unlocked", () => {
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{
                         status: "FINISHED",
@@ -342,8 +300,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -354,10 +310,9 @@ describe("File operations panel", () => {
 
     describe("download button", () => {
         it("should be disabled if key is locked", () => {
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{ status: "NOT_STARTED" }}
                     renameFile={jest.fn()}
@@ -368,8 +323,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -378,10 +331,9 @@ describe("File operations panel", () => {
         })
 
         it("should be enabled if key is unlocked", () => {
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{
                         status: "FINISHED",
@@ -396,8 +348,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -408,10 +358,9 @@ describe("File operations panel", () => {
         it("should trigger file download on click", () => {
             const downloadFileMock = jest.fn()
 
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{
                         status: "FINISHED",
@@ -426,8 +375,6 @@ describe("File operations panel", () => {
                     downloadFile={downloadFileMock}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -440,10 +387,9 @@ describe("File operations panel", () => {
 
     describe("version upload button", () => {
         it("should be disabled if key is locked", () => {
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{ status: "NOT_STARTED" }}
                     renameFile={jest.fn()}
@@ -454,8 +400,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -464,10 +408,9 @@ describe("File operations panel", () => {
         })
 
         it("should be enabled if key is unlocked", () => {
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{
                         status: "FINISHED",
@@ -482,8 +425,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -492,10 +433,9 @@ describe("File operations panel", () => {
         })
 
         it("should open modal on click", () => {
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{
                         status: "FINISHED",
@@ -510,8 +450,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -529,10 +467,9 @@ describe("File operations panel", () => {
         it("should trigger rename on click", () => {
             const renameMock = jest.fn()
 
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{ status: "NOT_STARTED" }}
                     renameFile={renameMock}
@@ -543,8 +480,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 
@@ -560,10 +495,9 @@ describe("File operations panel", () => {
         it("should trigger delete on click", () => {
             const deleteMock = jest.fn()
 
-            render(
+            renderWithPath(
                 <FileOperationsPanel
                     t={tFunctionMock}
-                    history={historyMock()}
                     file={exampleFileData}
                     encryptionKeyResult={{ status: "NOT_STARTED" }}
                     renameFile={jest.fn()}
@@ -574,8 +508,6 @@ describe("File operations panel", () => {
                     downloadFile={jest.fn()}
                     fileDownloadResult={{ status: "NOT_STARTED" }}
                     resetDownloadResult={jest.fn()}
-                    location={exampleLocation}
-                    match={exampleMatch}
                 />
             )
 

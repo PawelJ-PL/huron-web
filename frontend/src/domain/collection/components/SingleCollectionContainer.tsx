@@ -1,7 +1,7 @@
 import React, { useEffect } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
-import { RouteComponentProps, withRouter } from "react-router"
+import { useNavigate, useParams } from "react-router"
 import { Dispatch } from "redux"
 import AlertBox from "../../../application/components/common/AlertBox"
 import Loader from "../../../application/components/common/Loader"
@@ -15,16 +15,9 @@ import {
     setPreferredCollectionIdAction,
 } from "../store/Actions"
 
-type Props = Pick<RouteComponentProps<{ collectionId: string }>, "match" | "history"> &
-    ReturnType<typeof mapStateToProps> &
-    ReturnType<typeof mapDispatchToProps> &
-    Pick<WithTranslation, "t">
+type Props = ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps> & Pick<WithTranslation, "t">
 
 export const SingleCollectionContainer: React.FC<Props> = ({
-    match: {
-        params: { collectionId },
-    },
-    history,
     fetchCollectionData,
     fetchCollectionResult,
     setPreferredCollection,
@@ -35,6 +28,9 @@ export const SingleCollectionContainer: React.FC<Props> = ({
     resetRemovePreferredCollectionResult,
     t,
 }) => {
+    const navigate = useNavigate()
+    const { collectionId = "" } = useParams<{ collectionId: string }>()
+
     useEffect(() => {
         resetRemovePreferredCollectionResult()
         if (
@@ -66,16 +62,15 @@ export const SingleCollectionContainer: React.FC<Props> = ({
         fetchCollectionResult,
         setPreferredCollection,
         removePreferredCollection,
-        history,
         setActiveCollection,
         removeActiveCollection,
     ])
 
     useEffect(() => {
         if (removePreferredCollectionResult.status === "FINISHED") {
-            history.push("/")
+            navigate("/")
         }
-    }, [removePreferredCollectionResult, history])
+    }, [removePreferredCollectionResult, navigate])
 
     if (
         fetchCollectionResult.status === "FINISHED" &&
@@ -106,4 +101,4 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     removeActiveCollection: () => dispatch(setActiveCollectionAction(null)),
 })
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(withTranslation()(SingleCollectionContainer)))
+export default connect(mapStateToProps, mapDispatchToProps)(withTranslation()(SingleCollectionContainer))

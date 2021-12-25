@@ -9,28 +9,22 @@ import { AppRoute } from "./AppRoute"
 export const userRoutes: AppRoute[] = [
     {
         path: "/",
-        exact: true,
         withLayout: true,
-        component: CollectionsContainer,
+        element: <CollectionsContainer />,
     },
     {
         path: "/profile",
-        exact: true,
         withLayout: true,
-        component: UserProfilePage,
+        element: <UserProfilePage />,
     },
     {
         path: "/collection/:collectionId",
-        exact: true,
         withLayout: true,
-        render: (props) => <SingleCollectionContainer key={props.match.params.collectionId} />,
+        element: <SingleCollectionContainer />,
     },
     {
         path: "/collection/:collectionId/file/:fileId",
-        exact: true,
         withLayout: true,
-        render: (props) => (
-            <SingleCollectionContainer key={`${props.match.params.collectionId}-${props.match.params.fileId}`} />
-        ),
+        element: <SingleCollectionContainer />,
     },
 ]

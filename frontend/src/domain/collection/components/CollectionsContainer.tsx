@@ -1,7 +1,7 @@
 import React, { useEffect } from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
-import { Redirect, RouteComponentProps, withRouter } from "react-router"
+import { Navigate, useNavigate } from "react-router-dom"
 import { Dispatch } from "redux"
 import AlertBox from "../../../application/components/common/AlertBox"
 import Loader from "../../../application/components/common/Loader"
@@ -15,10 +15,7 @@ import {
 import AutoCreateCollectionModal from "./AutoCreateCollectionModal"
 import SelectCollectionModal from "./SelectCollectionModal"
 
-type Props = ReturnType<typeof mapStateToProps> &
-    ReturnType<typeof mapDispatchToProps> &
-    Pick<WithTranslation, "t"> &
-    Pick<RouteComponentProps, "history">
+type Props = ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps> & Pick<WithTranslation, "t">
 
 export const CollectionsContainer: React.FC<Props> = ({
     collections,
@@ -26,11 +23,12 @@ export const CollectionsContainer: React.FC<Props> = ({
     t,
     preferredCollection,
     getPreferredCollection,
-    history,
     removePreferredCollection,
     removePreferredCollectionResult,
     cleanCollectionsData,
 }) => {
+    const navigate = useNavigate()
+
     useEffect(() => {
         if (preferredCollection.status !== "FINISHED" && preferredCollection.status !== "PENDING") {
             getPreferredCollection()
@@ -44,7 +42,7 @@ export const CollectionsContainer: React.FC<Props> = ({
     useEffect(() => {
         if (preferredCollection.status === "FINISHED" && preferredCollection.data !== null) {
             if (/^[0-9A-Fa-f-]+$/.test(preferredCollection.data)) {
-                history.push(`/collection/${preferredCollection.data}`)
+                navigate(`/collection/${preferredCollection.data}`)
             } else {
                 removePreferredCollection()
             }
@@ -53,7 +51,7 @@ export const CollectionsContainer: React.FC<Props> = ({
                 fetchCollections()
             }
         }
-    }, [preferredCollection, collections, fetchCollections, history, removePreferredCollection])
+    }, [preferredCollection, collections, fetchCollections, navigate, removePreferredCollection])
 
     useEffect(() => {
         if (removePreferredCollectionResult.status === "FINISHED") {
@@ -64,7 +62,7 @@ export const CollectionsContainer: React.FC<Props> = ({
     if (collections.status === "FINISHED" && collections.data.length < 1) {
         return <AutoCreateCollectionModal />
     } else if (collections.status === "FINISHED" && collections.data.length === 1) {
-        return <Redirect to={`/collection/${collections.data[0].id}`} />
+        return <Navigate to={`/collection/${collections.data[0].id}`} />
     } else if (collections.status === "FINISHED" && collections.data.length > 1) {
         return <SelectCollectionModal availableCollections={collections.data} />
     } else if (collections.status === "FAILED") {
@@ -87,4 +85,4 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     cleanCollectionsData: () => dispatch(resetAvailableCollectionsListAction()),
 })
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(withTranslation()(CollectionsContainer)))
+export default connect(mapStateToProps, mapDispatchToProps)(withTranslation()(CollectionsContainer))
