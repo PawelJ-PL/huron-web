@@ -12,6 +12,9 @@ import Loader from "../../../application/components/common/Loader"
 import SingleObjectView from "./metadata_view/SingleObjectView"
 import UnexpectedErrorMessage from "../../../application/components/common/UnexpectedErrorMessage"
 import { useParams } from "react-router-dom"
+import { fetchMultipleUsersPublicDataAction } from "../../user/store/Actions"
+import { isFileTree } from "../types/ObjectTree"
+import { FileMetadata } from "../types/FilesystemUnitMetadata"
 
 type Props = {
     collection: Collection
@@ -19,7 +22,15 @@ type Props = {
     ReturnType<typeof mapDispatchToProps> &
     Pick<WithTranslation, "t">
 
-export const CollectionFilesContainer: React.FC<Props> = ({ collection, fileTreeResult, fetchTree, resetTree, t }) => {
+export const CollectionFilesContainer: React.FC<Props> = ({
+    collection,
+    fileTreeResult,
+    fetchTree,
+    resetTree,
+    t,
+    fetchAuthors,
+    knownUsers,
+}) => {
     const routeParams = useParams<{ collectionId: string; fileId?: string }>()
     const maybeFileId = routeParams.fileId
 
@@ -33,6 +44,20 @@ export const CollectionFilesContainer: React.FC<Props> = ({ collection, fileTree
     useEffect(() => {
         fetchTree(collection.id, maybeFileId ?? null)
     }, [maybeFileId, fetchTree, collection])
+
+    useEffect(() => {
+        if (fileTreeResult.status === "FINISHED" && !isFileTree(fileTreeResult.data)) {
+            const authorIds = fileTreeResult.data.children
+                .filter((child): child is FileMetadata => child["@type"] === "FileData")
+                .map((f) => f.versionAuthor)
+                .filter((author): author is string => author !== undefined && author !== null)
+            const uniqueAuthorIds = Array.from(new Set(authorIds))
+            const unknownUsers = uniqueAuthorIds.filter((id) => !Object.keys(knownUsers).includes(id))
+            if (unknownUsers.length > 0) {
+                fetchAuthors(unknownUsers)
+            }
+        }
+    }, [fileTreeResult, knownUsers, fetchAuthors])
 
     const renderError = (error: Error) => {
         if (error instanceof FileNotFound) {
@@ -53,12 +78,14 @@ export const CollectionFilesContainer: React.FC<Props> = ({ collection, fileTree
 
 const mapStateToProps = (state: AppState) => ({
     fileTreeResult: state.files.currentObjectTree,
+    knownUsers: state.users.knownUsers,
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
     fetchTree: (collectionId: string, fileId: string | null) =>
         dispatch(fetchObjectTreeAction.started({ collectionId, objectId: fileId })),
     resetTree: () => dispatch(resetCurrentObjectTreeAction()),
+    fetchAuthors: (authorIds: string[]) => dispatch(fetchMultipleUsersPublicDataAction.started(authorIds)),
 })
 
 export default connect(mapStateToProps, mapDispatchToProps)(withTranslation()(CollectionFilesContainer))

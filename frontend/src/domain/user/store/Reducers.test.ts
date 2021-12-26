@@ -1,7 +1,9 @@
+import { setActiveCollectionAction } from "./../../collection/store/Actions"
 import { ApiKeyDescription } from "./../types/ApiKey"
 import { NotLoggedIn } from "../../../application/api/ApiError"
 import {
     exampleApiKey,
+    exampleContactAlias,
     exampleHashedEmail,
     examplePrivateKey,
     examplePublicKey,
@@ -15,17 +17,24 @@ import {
     clearMasterKeyAction,
     computeMasterKeyAction,
     createApiKeyAction,
+    createContactAction,
     deleteApiKeyAction,
+    deleteContactAction,
+    editContactAction,
     fetchAndDecryptKeyPairAction,
     fetchCurrentUserAction,
+    fetchMultipleUsersPublicDataAction,
     localLogoutAction,
     loginAction,
     refreshUserDataAction,
     registerNewUserAction,
+    requestContactDeleteAction,
+    requestContactEditAction,
     resetLoginResultAction,
     resetPasswordAction,
     resetRefreshUserDataStatusAction,
     updateApiKeyAction,
+    updateContactsFilterAction,
     updateUserDataAction,
 } from "./Actions"
 import { usersReducer } from "./Reducers"
@@ -593,6 +602,557 @@ describe("User reducers", () => {
             }
             const result = usersReducer(state, action)
             expect(result.keyPair).toStrictEqual({ status: "NOT_STARTED" })
+        })
+    })
+
+    describe("known users reducer", () => {
+        const emptyState: ReturnType<typeof usersReducer> = { ...defaultState, knownUsers: {} }
+        const pendingState: ReturnType<typeof usersReducer> = {
+            ...defaultState,
+            knownUsers: {
+                foo: { status: "PENDING", params: "foo" },
+                bar: { status: "PENDING", params: "bar" },
+            },
+        }
+        const nullState: ReturnType<typeof usersReducer> = {
+            ...defaultState,
+            knownUsers: {
+                foo: { status: "FINISHED", params: "foo", data: null },
+                bar: { status: "FINISHED", params: "foo", data: undefined },
+            },
+        }
+        const errorState: ReturnType<typeof usersReducer> = {
+            ...defaultState,
+            knownUsers: {
+                foo: { status: "FAILED", params: "foo", error: new Error("Some error") },
+                bar: { status: "FAILED", params: "bar", error: new Error("Other error") },
+            },
+        }
+        const finishedState: ReturnType<typeof usersReducer> = {
+            ...defaultState,
+            knownUsers: {
+                foo: {
+                    status: "FINISHED",
+                    params: "foo",
+                    data: { userId: "foo", nickName: "n1", contactData: { alias: "a1" } },
+                },
+                bar: {
+                    status: "FINISHED",
+                    params: "bar",
+                    data: { userId: "bar", nickName: "n2", contactData: { alias: "a2" } },
+                },
+            },
+        }
+
+        describe("on fetch users pending state", () => {
+            const action = fetchMultipleUsersPublicDataAction.started(["foo", "bar"])
+
+            it("should add pending result to empty state", () => {
+                const result = usersReducer(emptyState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    foo: { status: "PENDING", params: "foo" },
+                    bar: { status: "PENDING", params: "bar" },
+                })
+            })
+
+            it("should update error result with pending", () => {
+                const result = usersReducer(errorState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    foo: { status: "PENDING", params: "foo" },
+                    bar: { status: "PENDING", params: "bar" },
+                })
+            })
+
+            it("should not update finished status with pending", () => {
+                const result = usersReducer(finishedState, action)
+                expect(result.knownUsers).toStrictEqual(finishedState.knownUsers)
+            })
+
+            it("should not update null status with pending", () => {
+                const result = usersReducer(nullState, action)
+                expect(result.knownUsers).toStrictEqual(nullState.knownUsers)
+            })
+        })
+
+        describe("on fetch users failed state", () => {
+            const action = fetchMultipleUsersPublicDataAction.failed({
+                params: ["foo", "bar"],
+                error: new Error("New error"),
+            })
+
+            it("should add error result to empty state", () => {
+                const result = usersReducer(emptyState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    foo: { status: "FAILED", params: "foo", error: new Error("New error") },
+                    bar: { status: "FAILED", params: "bar", error: new Error("New error") },
+                })
+            })
+
+            it("should update pending result with new error", () => {
+                const result = usersReducer(pendingState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    foo: { status: "FAILED", params: "foo", error: new Error("New error") },
+                    bar: { status: "FAILED", params: "bar", error: new Error("New error") },
+                })
+            })
+
+            it("should update error result with new error", () => {
+                const result = usersReducer(errorState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    foo: { status: "FAILED", params: "foo", error: new Error("New error") },
+                    bar: { status: "FAILED", params: "bar", error: new Error("New error") },
+                })
+            })
+
+            it("should not update finished status with error", () => {
+                const result = usersReducer(finishedState, action)
+                expect(result.knownUsers).toStrictEqual(finishedState.knownUsers)
+            })
+
+            it("should not update null status with error", () => {
+                const result = usersReducer(nullState, action)
+                expect(result.knownUsers).toStrictEqual(nullState.knownUsers)
+            })
+        })
+
+        describe("on fetch users finished state", () => {
+            const newResult = {
+                foo: { userId: "foo", nickName: "xxx", contactData: { alias: "qwerty" } },
+                bar: { userId: "bar", nickName: "yyy", contactData: { alias: "asdfg" } },
+            }
+
+            const action = fetchMultipleUsersPublicDataAction.done({
+                params: ["foo", "bar"],
+                result: newResult,
+            })
+
+            it("should add finished result to empty state", () => {
+                const result = usersReducer(emptyState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    foo: { status: "FINISHED", params: "foo", data: newResult.foo },
+                    bar: { status: "FINISHED", params: "bar", data: newResult.bar },
+                })
+            })
+
+            it("should update pending result with finished", () => {
+                const result = usersReducer(pendingState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    foo: { status: "FINISHED", params: "foo", data: newResult.foo },
+                    bar: { status: "FINISHED", params: "bar", data: newResult.bar },
+                })
+            })
+
+            it("should update error result with finished", () => {
+                const result = usersReducer(errorState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    foo: { status: "FINISHED", params: "foo", data: newResult.foo },
+                    bar: { status: "FINISHED", params: "bar", data: newResult.bar },
+                })
+            })
+
+            it("should update finished status with new result", () => {
+                const result = usersReducer(finishedState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    foo: { status: "FINISHED", params: "foo", data: newResult.foo },
+                    bar: { status: "FINISHED", params: "bar", data: newResult.bar },
+                })
+            })
+
+            it("should update null status with finished", () => {
+                const result = usersReducer(nullState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    foo: { status: "FINISHED", params: "foo", data: newResult.foo },
+                    bar: { status: "FINISHED", params: "bar", data: newResult.bar },
+                })
+            })
+        })
+
+        describe("on create contact finished", () => {
+            it("should do nothing if user not fetched before", () => {
+                const action = createContactAction.done({
+                    params: { userId: "baz", alias: "qaz" },
+                    result: { userId: "baz", nickName: "qux", alias: "qaz" },
+                })
+                const result = usersReducer(finishedState, action)
+                expect(result.knownUsers).toStrictEqual(finishedState.knownUsers)
+            })
+
+            it("should do nothing if fetched user has empty value", () => {
+                const action = createContactAction.done({
+                    params: { userId: "foo", alias: "qaz" },
+                    result: { userId: "foo", nickName: "qux", alias: "qaz" },
+                })
+                const result = usersReducer(nullState, action)
+                expect(result.knownUsers).toStrictEqual(nullState.knownUsers)
+            })
+
+            it("should do nothing if current status is pending", () => {
+                const action = createContactAction.done({
+                    params: { userId: "foo", alias: "qaz" },
+                    result: { userId: "foo", nickName: "qux", alias: "qaz" },
+                })
+                const result = usersReducer(pendingState, action)
+                expect(result.knownUsers).toStrictEqual(pendingState.knownUsers)
+            })
+
+            it("should update nickname and alias if already fetched", () => {
+                const action = createContactAction.done({
+                    params: { userId: "foo", alias: "qaz" },
+                    result: { userId: "foo", nickName: "qux", alias: "qaz" },
+                })
+                const result = usersReducer(finishedState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    ...finishedState.knownUsers,
+                    foo: {
+                        status: "FINISHED",
+                        params: "foo",
+                        data: { userId: "foo", nickName: "qux", contactData: { alias: "qaz" } },
+                    },
+                })
+            })
+        })
+
+        describe("on delete contact finished", () => {
+            it("should do nothing if user not fetched before", () => {
+                const action = deleteContactAction.done({ params: "baz" })
+                const result = usersReducer(finishedState, action)
+                expect(result.knownUsers).toStrictEqual(finishedState.knownUsers)
+            })
+
+            it("should do nothing if fetched user has empty value", () => {
+                const action = deleteContactAction.done({ params: "foo" })
+                const result = usersReducer(nullState, action)
+                expect(result.knownUsers).toStrictEqual(nullState.knownUsers)
+            })
+
+            it("should do nothing if current status is pending", () => {
+                const action = deleteContactAction.done({ params: "foo" })
+                const result = usersReducer(pendingState, action)
+                expect(result.knownUsers).toStrictEqual(pendingState.knownUsers)
+            })
+
+            it("should set contact data to null if already fetched", () => {
+                const action = deleteContactAction.done({ params: "foo" })
+                const result = usersReducer(finishedState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    ...finishedState.knownUsers,
+                    foo: {
+                        status: "FINISHED",
+                        params: "foo",
+                        data: { userId: "foo", nickName: "n1", contactData: null },
+                    },
+                })
+            })
+        })
+
+        describe("on collection change", () => {
+            it("should reset data", () => {
+                const action = setActiveCollectionAction("new-collection")
+                const result = usersReducer(finishedState, action)
+                expect(result.knownUsers).toStrictEqual({})
+            })
+        })
+
+        describe("on contact edit finished", () => {
+            it("should update contact data", () => {
+                const params = { contactId: "foo", data: { alias: { value: "new-alias" } } }
+                const action = editContactAction.done({
+                    params,
+                    result: { userId: "foo", nickName: "n1", alias: "new-alias" },
+                })
+                const result = usersReducer(finishedState, action)
+                expect(result.knownUsers).toStrictEqual({
+                    ...finishedState.knownUsers,
+                    foo: {
+                        status: "FINISHED",
+                        params: "foo",
+                        data: { userId: "foo", nickName: "n1", contactData: { alias: "new-alias" } },
+                    },
+                })
+            })
+            it("should should do nothing if user not fetched before", () => {
+                const params = { contactId: "baz", data: { alias: { value: "new-alias" } } }
+                const action = editContactAction.done({
+                    params,
+                    result: { userId: "baz", nickName: "n1", alias: "new-alias" },
+                })
+                const result = usersReducer(finishedState, action)
+                expect(result.knownUsers).toStrictEqual(finishedState.knownUsers)
+            })
+            it("should do nothing if fetching not finished yet", () => {
+                const params = { contactId: "foo", data: { alias: { value: "new-alias" } } }
+                const action = editContactAction.done({
+                    params,
+                    result: { userId: "foo", nickName: "n1", alias: "new-alias" },
+                })
+                const result = usersReducer(pendingState, action)
+                expect(result.knownUsers).toStrictEqual(pendingState.knownUsers)
+            })
+            it("should do nothing if user data is not set", () => {
+                const params = { contactId: "foo", data: { alias: { value: "new-alias" } } }
+                const action = editContactAction.done({
+                    params,
+                    result: { userId: "foo", nickName: "n1", alias: "new-alias" },
+                })
+                const result = usersReducer(emptyState, action)
+                expect(result.knownUsers).toStrictEqual(emptyState.knownUsers)
+            })
+            it("should do nothing if user has no contact data assigned", () => {
+                const params = { contactId: "foo", data: { alias: { value: "new-alias" } } }
+                const action = editContactAction.done({
+                    params,
+                    result: { userId: "foo", nickName: "n1", alias: "new-alias" },
+                })
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    knownUsers: {
+                        foo: {
+                            status: "FINISHED",
+                            params: "foo",
+                            data: null,
+                        },
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.knownUsers).toStrictEqual(state.knownUsers)
+            })
+        })
+    })
+
+    describe("fetch user reducer", () => {
+        describe("on contact create finished", () => {
+            const action = createContactAction.done({
+                params: { userId: exampleUserId, alias: "newAlias" },
+                result: { userId: exampleUserId, nickName: exampleUserNickname, alias: "newAlias" },
+            })
+
+            it("should update nickname and contact data", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "FINISHED",
+                        params: exampleUserId,
+                        data: { userId: exampleUserId, nickName: "oldNickName", contactData: null },
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual({
+                    status: "FINISHED",
+                    params: exampleUserId,
+                    data: { userId: exampleUserId, nickName: exampleUserNickname, contactData: { alias: "newAlias" } },
+                })
+            })
+
+            it("should do nothing if state is not finished", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "PENDING",
+                        params: exampleUserId,
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual(state.publicData)
+            })
+
+            it("should do nothing if data fetched for another user", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "FINISHED",
+                        params: "another-user-id",
+                        data: { userId: exampleUserId, nickName: "oldNickName", contactData: null },
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual(state.publicData)
+            })
+
+            it("should do nothing if fetched data is empty", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "FINISHED",
+                        params: exampleUserId,
+                        data: null,
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual(state.publicData)
+            })
+        })
+
+        describe("on contact delete finished", () => {
+            const action = deleteContactAction.done({ params: exampleUserId })
+            it("should set contact data to null", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "FINISHED",
+                        params: exampleUserId,
+                        data: { userId: exampleUserId, nickName: exampleUserNickname, contactData: null },
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual({
+                    status: "FINISHED",
+                    params: exampleUserId,
+                    data: { userId: exampleUserId, nickName: exampleUserNickname, contactData: null },
+                })
+            })
+
+            it("should do nothing if state is not finished", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "PENDING",
+                        params: exampleUserId,
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual(state.publicData)
+            })
+
+            it("should do nothing if data fetched for another user", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "FINISHED",
+                        params: "another-user-id",
+                        data: { userId: exampleUserId, nickName: "oldNickName", contactData: null },
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual(state.publicData)
+            })
+
+            it("should do nothing if fetched data is empty", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "FINISHED",
+                        params: exampleUserId,
+                        data: null,
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual(state.publicData)
+            })
+        })
+
+        describe("on contact edit finished", () => {
+            const action = editContactAction.done({
+                params: { contactId: exampleUserId, data: { alias: { value: "new-alias" } } },
+                result: { userId: exampleUserId, nickName: exampleUserNickname, alias: "new-alias" },
+            })
+
+            it("should be updated", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "FINISHED",
+                        params: exampleUserId,
+                        data: { userId: exampleUserId, nickName: exampleUserNickname, contactData: null },
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual({
+                    status: "FINISHED",
+                    params: exampleUserId,
+                    data: { userId: exampleUserId, nickName: exampleUserNickname, contactData: { alias: "new-alias" } },
+                })
+            })
+
+            it("should do nothing if contact data is not fetched yet", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "PENDING",
+                        params: exampleUserId,
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual(state.publicData)
+            })
+
+            it("should do nothing if user id does not match", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "FINISHED",
+                        params: "other-user-id",
+                        data: { userId: "other-user-id", nickName: exampleUserNickname, contactData: null },
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual(state.publicData)
+            })
+
+            it("should do nothing is user data is not set", () => {
+                const state: ReturnType<typeof usersReducer> = {
+                    ...defaultState,
+                    publicData: {
+                        status: "FINISHED",
+                        params: exampleUserId,
+                        data: null,
+                    },
+                }
+                const result = usersReducer(state, action)
+                expect(result.publicData).toStrictEqual(state.publicData)
+            })
+        })
+    })
+
+    describe("contacts filter", () => {
+        const state: ReturnType<typeof usersReducer> = {
+            ...defaultState,
+            contactsFilter: { name: "foo" },
+        }
+
+        describe("name filter", () => {
+            it("should be updated with provided value", () => {
+                const action = updateContactsFilterAction({ name: "bar" })
+                const result = usersReducer(state, action)
+                expect(result.contactsFilter).toStrictEqual({ name: "bar" })
+            })
+
+            it("should not be updated if value is missing", () => {
+                const action = updateContactsFilterAction({ name: undefined })
+                const result = usersReducer(state, action)
+                expect(result.contactsFilter).toStrictEqual({ name: "foo" })
+            })
+        })
+    })
+
+    describe("requested contact to delete", () => {
+        it("should be updated", () => {
+            const state: ReturnType<typeof usersReducer> = {
+                ...defaultState,
+                contactRequestedToDelete: { userId: exampleUserId, nickName: exampleUserNickname, alias: "a1" },
+            }
+            const action = requestContactDeleteAction({ userId: "newUserId", nickName: "newNickname" })
+            const result = usersReducer(state, action)
+            expect(result.contactRequestedToDelete).toStrictEqual({ userId: "newUserId", nickName: "newNickname" })
+        })
+    })
+
+    describe("requested contact to edit", () => {
+        it("should be updated", () => {
+            const state: ReturnType<typeof usersReducer> = {
+                ...defaultState,
+                contactRequestedToEdit: null,
+            }
+            const action = requestContactEditAction({
+                userId: exampleUserId,
+                nickName: exampleUserNickname,
+                alias: exampleContactAlias,
+            })
+            const result = usersReducer(state, action)
+            expect(result.contactRequestedToEdit).toStrictEqual({
+                userId: exampleUserId,
+                nickName: exampleUserNickname,
+                alias: exampleContactAlias,
+            })
         })
     })
 })

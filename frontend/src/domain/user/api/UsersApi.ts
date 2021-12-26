@@ -1,8 +1,16 @@
+import { UserContact } from "./../types/UserContact"
+import { UserContactSchema } from "../types/UserContact"
+import { UserPublicData, UserPublicDataSchema } from "./../types/UserPublicData"
 import { EncryptionKey } from "./../../collection/types/EncryptionKey"
 import { EncryptedKeyPair, EncryptedKeyPairSchema } from "./../types/EncryptedKeyPair"
 import { OptionalValue } from "./../../../application/api/OptionalValue"
 import { ApiKeyDescription, ApiKeyDescriptionSchema } from "./../types/ApiKey"
-import { errorResponseReasonToError, errorResponseToData, validatedResponse } from "./../../../application/api/helpers"
+import {
+    errorResponseReasonToError,
+    errorResponseToData,
+    validatedResponse,
+    validatePagedResponse,
+} from "./../../../application/api/helpers"
 import { HTTPError } from "ky"
 import { client } from "../../../application/api/BaseClient"
 import { UserData, UserDataSchema } from "./../types/UserData"
@@ -13,7 +21,12 @@ import {
     PasswordsAreEqual,
     EmailAlreadyRegistered,
     NicknameAlreadyRegistered,
+    TooManyUsersToFetch,
+    ContactWithAliasAlreadyExists,
+    UserAlreadyInContacts,
+    AddSelfToContacts,
 } from "./errors"
+import { Pagination } from "../../../application/api/Pagination"
 
 export type UserDataWithToken = {
     userData: UserData
@@ -34,6 +47,8 @@ export type ChangePasswordData = {
     collectionEncryptionKeys: EncryptionKey[]
 }
 
+export type ContactUpdateData = { alias?: OptionalValue<string> | null }
+
 const csrfTokenSchema = z.string().min(10)
 
 const extractUserData: (r: Response) => Promise<UserDataWithToken> = async (response: Response) => {
@@ -43,6 +58,8 @@ const extractUserData: (r: Response) => Promise<UserDataWithToken> = async (resp
     const csrfToken = csrfTokenSchema.parse(tokenHeaderValue)
     return { userData, csrfToken }
 }
+
+const multipleUsersResultSchema = z.record(z.string(), UserPublicDataSchema.nullish())
 
 const api = {
     login(email: string, password: string): Promise<UserDataWithToken | null> {
@@ -139,6 +156,63 @@ const api = {
     },
     fetchKeyPair(): Promise<EncryptedKeyPair> {
         return client.get("users/me/keypair").then((resp) => validatedResponse(resp, EncryptedKeyPairSchema))
+    },
+    fetchUserPublicData(userId: string): Promise<UserPublicData | null> {
+        return client
+            .get(`users/${userId}/data`)
+            .then((resp) => validatedResponse(resp, UserPublicDataSchema))
+            .catch((e) => errorResponseToData(e, null, 400))
+            .catch((e) => errorResponseToData(e, null, 404))
+    },
+    fetchMultipleUsersPublicData(userIds: string[]): Promise<Record<string, UserPublicData | null | undefined>> {
+        if (userIds.length > 20) {
+            return Promise.reject(new TooManyUsersToFetch())
+        }
+        const params = new URLSearchParams()
+        userIds.forEach((userId) => params.append("userId", userId))
+        return client
+            .get("users", { searchParams: params })
+            .then((resp) => validatedResponse(resp, multipleUsersResultSchema))
+    },
+    createContact(userId: string, alias?: string): Promise<UserContact> {
+        return client
+            .post("users/me/contacts", { json: { contactUserId: userId, alias } })
+            .then((resp) => {
+                return validatedResponse(resp, UserContactSchema)
+            })
+            .catch((e) =>
+                errorResponseReasonToError(
+                    e,
+                    new ContactWithAliasAlreadyExists(alias ?? "unknown"),
+                    409,
+                    "ContactAliasAlreadyExists"
+                )
+            )
+            .catch((e) => errorResponseReasonToError(e, new UserAlreadyInContacts(userId), 409, "ContactAlreadyExists"))
+            .catch((e) => errorResponseReasonToError(e, new AddSelfToContacts(), 412, "AddSelfToContacts"))
+    },
+    deleteContact(userId: string): Promise<void> {
+        return client.delete(`users/me/contacts/${userId}`).then(() => undefined)
+    },
+    listContacts(params: { page?: number; limit?: number; nameFilter?: string }): Promise<Pagination<UserContact[]>> {
+        const searchParams = Object.fromEntries(Object.entries(params).filter(([key, value]) => value !== undefined))
+        const searchParamsOrEmpty = Object.keys(searchParams).length > 0 ? searchParams : undefined
+        return client
+            .get("users/me/contacts", { searchParams: searchParamsOrEmpty })
+            .then((resp) => validatePagedResponse(resp, UserContactSchema.array()))
+    },
+    editContact(contactId: string, data: ContactUpdateData): Promise<UserContact> {
+        return client
+            .patch(`users/me/contacts/${contactId}`, { json: data })
+            .then((resp) => validatedResponse(resp, UserContactSchema))
+            .catch((e) =>
+                errorResponseReasonToError(
+                    e,
+                    new ContactWithAliasAlreadyExists(data.alias?.value ?? "unknown"),
+                    409,
+                    "ContactAliasAlreadyExists"
+                )
+            )
     },
 }
 

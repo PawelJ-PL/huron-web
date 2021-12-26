@@ -5,6 +5,7 @@
         "nickname": "pseudonim",
         "language": "język",
         "description": "opis",
+        "alias": "alias",
         "unexpected-error": "nieoczekiwany błąd",
         "field-required": "Pole jest wymagane",
         "field-min-length": "Minimalna ilość znaków wynosi {{minChars}}",
@@ -23,7 +24,12 @@
         "not-valid-date": "nieprawidłowa data",
         "unknown-masculine": "nieznany",
         "action-in-progress": "Akcja w toku",
-        "details": "szczegóły"
+        "details": "szczegóły",
+        "pagination": {
+            "entries-per-page": "wyników na stronę",
+            "previous-page": "poprzednia strona",
+            "next-page": "następna strona"
+        }
     },
     "error-pages": {
         "user-loading-failed": {
@@ -80,6 +86,7 @@
         "unknown-user": "Nieznany użytkownik",
         "account-menu-items": {
             "profile": "Profil użytkownika",
+            "contacts": "Kontakty",
             "logout": "Wyloguj"
         },
         "logout-failed-message": "Wylogowanie nie powiodło się",
@@ -171,7 +178,8 @@
                 "file-name": "Nazwa",
                 "updated-at": "Zmodyfikowany",
                 "type": "Typ",
-                "encrypted-size": "Rozmiar po zaszyfrowaniu"
+                "encrypted-size": "Rozmiar po zaszyfrowaniu",
+                "updated-by": "Zmieniony przez"
             },
             "types": {
                 "directory": "folder"
@@ -224,5 +232,34 @@
             },
             "delete-version-confirmation": "Czy na pewno chcesz skasować wskazaną wersję pliku?"
         }
+    },
+    "user-public-page": {
+        "user-not-found-message": "Nie odnaleziono użytkownika",
+        "loading-user-data": "Wczytywanie informacji o użytkowniku",
+        "save-contact-button": "Dodaj do kontaktów",
+        "edit-contact-button": "Edytuj kontakt",
+        "remove-contact-button": "Usuń z kontaktów",
+        "go-to-profile-button": "Przejdź do profilu",
+        "remove-contact-confirmation": {
+            "header": "Usuwanie kontaktu",
+            "content": "Czy na pewno chcesz usunąć użytkownika {{name}} z kontaktów?"
+        },
+        "add-or-edit-contact-modal": {
+            "add-contact-header": "Dodaj do kontaktów",
+            "edit-contact-header": "Edytuj kontakt",
+            "enable-alias": "Utworzyć alias?"
+        },
+        "alias-already-exists-message": "Istnieje już inny kontakt z aliasem {{alias}}"
+    },
+    "contacts-list": {
+        "loader-text": "Wczytywanie listy kontaktów",
+        "no-contacts-placeholder": "Nie dodano kontaktów",
+        "contact-actions-label": "Akcje",
+        "actions": {
+            "go-to-profile": "Przejdź do profilu",
+            "edit-contact": "Edytuj",
+            "remove-contact": "Usuń"
+        },
+        "filter-input-placeholder": "Filtruj"
     }
 }

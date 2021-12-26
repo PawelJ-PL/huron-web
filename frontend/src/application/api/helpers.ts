@@ -1,6 +1,9 @@
 import { ApiError } from "./ApiError"
 import { HTTPError } from "ky"
 import { ZodSchema, ZodType } from "zod/lib/types"
+import { z } from "zod"
+import { Pagination } from "./Pagination"
+
 export const errorResponseToData: <T>(e: Error, d: T, ...c: number[]) => Promise<T> = <T>(
     error: Error,
     data: T,
@@ -54,6 +57,40 @@ export const validatedResponse: <T>(resp: Response, schema: ZodSchema<T>) => Pro
     resp: Response,
     schema: ZodType<T>
 ) => resp.json().then((d) => schema.parse(d))
+
+const numericHeader = (resp: Response, header: string) =>
+    z
+        .string()
+        .refine((str) => !Number.isNaN(Number(str)), { message: "Not valid number" })
+        .transform((str) => Number(str))
+        .parse(resp.headers.get(header))
+
+const optionalNumericHeader = (resp: Response, header: string) =>
+    z
+        .string()
+        .nullable()
+        .refine((optStr) => optStr === null || !Number.isNaN(Number(optStr)), { message: "Not valid number" })
+        .transform((optStr) => (optStr === null ? null : Number(optStr)))
+        .nullable()
+        .parse(resp.headers.get(header))
+
+export const validatePagedResponse = async <T>(resp: Response, schema: ZodType<T>): Promise<Pagination<T>> => {
+    const json = await resp.json()
+    const data = schema.parse(json)
+    const page = numericHeader(resp, "X-Page")
+    const elementsPerPage = numericHeader(resp, "X-Elements-Per-Page")
+    const totalPages = numericHeader(resp, "X-Total-Pages")
+    const prevPage = optionalNumericHeader(resp, "X-Prev-Page")
+    const nextPage = optionalNumericHeader(resp, "X-Next-Page")
+    return {
+        result: data,
+        page,
+        elementsPerPage,
+        totalPages,
+        prevPage: prevPage ?? undefined,
+        nextPage: nextPage ?? undefined,
+    }
+}
 
 export function validateNonEmptyData<Data>(data: Data): boolean {
     return Object.values(data).some((value) => value !== undefined && value !== null)

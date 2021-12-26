@@ -249,7 +249,7 @@ describe("Unlock key button", () => {
         expect(tooltip.textContent).toEqual("unlock-key-button.key-error-tooltip")
     })
 
-    it("should render pending status if master key status is pending", async () => {
+    it("should render pending status if master key status is pending", () => {
         const masterKeyResult: AsyncOperationResult<{ password: string; emailHash: string }, string, Error> = {
             status: "PENDING",
             params: { password: exampleUserPassword, emailHash: exampleHashedEmail },
@@ -291,7 +291,7 @@ describe("Unlock key button", () => {
         expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-pending-label")
     })
 
-    it("should render pending status if key pair status is pending", async () => {
+    it("should render pending status if key pair status is pending", () => {
         const masterKeyResult: AsyncOperationResult<{ password: string; emailHash: string }, string, Error> = {
             status: "PENDING",
             params: { password: exampleUserPassword, emailHash: exampleHashedEmail },
@@ -333,7 +333,7 @@ describe("Unlock key button", () => {
         expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-pending-label")
     })
 
-    it("should render pending status if collection key decryption is in progress", async () => {
+    it("should render pending status if collection key decryption is in progress", () => {
         const masterKeyResult: AsyncOperationResult<{ password: string; emailHash: string }, string, Error> = {
             status: "FINISHED",
             params: { password: exampleUserPassword, emailHash: exampleHashedEmail },

@@ -4,6 +4,10 @@ import {
     PasswordsAreEqual,
     EmailAlreadyRegistered,
     NicknameAlreadyRegistered,
+    TooManyUsersToFetch,
+    ContactWithAliasAlreadyExists,
+    UserAlreadyInContacts,
+    AddSelfToContacts,
 } from "./errors"
 import {
     exampleEncryptedPrivateKey,
@@ -414,6 +418,98 @@ describe("Users api", () => {
             await expect(result).rejects.toEqual(new NicknameAlreadyRegistered(exampleUserNickname))
 
             server.close()
+        })
+    })
+
+    describe("fetch public data of user", () => {
+        it("should return null on 404", async () => {
+            const server = setupServer(
+                rest.get(`http://127.0.0.1:8080/api/v1/users/${exampleUserId}/data`, (_, res, ctx) => {
+                    return res(ctx.status(404))
+                })
+            )
+            server.listen()
+
+            const result = await UsersApi.fetchUserPublicData(exampleUserId)
+
+            expect(result).toBeNull()
+        })
+
+        it("should return null on 400", async () => {
+            const server = setupServer(
+                rest.get(`http://127.0.0.1:8080/api/v1/users/${exampleUserId}/data`, (_, res, ctx) => {
+                    return res(ctx.status(400))
+                })
+            )
+            server.listen()
+
+            const result = await UsersApi.fetchUserPublicData(exampleUserId)
+
+            expect(result).toBeNull()
+        })
+    })
+
+    describe("fetch multiple users data", () => {
+        it("should return error if too many users requested", async () => {
+            const userIds = Array.from(Array(21).keys()).map((n) => n.toString(10))
+            const result = UsersApi.fetchMultipleUsersPublicData(userIds)
+            await expect(result).rejects.toEqual(new TooManyUsersToFetch())
+        })
+    })
+
+    describe("create contact", () => {
+        it("should return error on alias conflict", async () => {
+            const server = setupServer(
+                rest.post(`http://127.0.0.1:8080/api/v1/users/me/contacts`, (_, res, ctx) => {
+                    return res(ctx.status(409), ctx.json({ reason: "ContactAliasAlreadyExists" }))
+                })
+            )
+            server.listen()
+
+            const result = UsersApi.createContact(exampleUserId, exampleUserNickname)
+
+            await expect(result).rejects.toEqual(new ContactWithAliasAlreadyExists(exampleUserNickname))
+        })
+
+        it("should return error on userId conflict", async () => {
+            const server = setupServer(
+                rest.post(`http://127.0.0.1:8080/api/v1/users/me/contacts`, (_, res, ctx) => {
+                    return res(ctx.status(409), ctx.json({ reason: "ContactAlreadyExists" }))
+                })
+            )
+            server.listen()
+
+            const result = UsersApi.createContact(exampleUserId, exampleUserNickname)
+
+            await expect(result).rejects.toEqual(new UserAlreadyInContacts(exampleUserId))
+        })
+
+        it("should return error on adding self", async () => {
+            const server = setupServer(
+                rest.post(`http://127.0.0.1:8080/api/v1/users/me/contacts`, (_, res, ctx) => {
+                    return res(ctx.status(412), ctx.json({ reason: "AddSelfToContacts" }))
+                })
+            )
+            server.listen()
+
+            const result = UsersApi.createContact(exampleUserId, exampleUserNickname)
+
+            await expect(result).rejects.toEqual(new AddSelfToContacts())
+        })
+    })
+
+    describe("edit contact", () => {
+        it("should return error on contact alias conflict", async () => {
+            const server = setupServer(
+                rest.post(`http://127.0.0.1:8080/api/v1/users/me/contacts`, (_, res, ctx) => {
+                    return res(ctx.status(409), ctx.json({ reason: "ContactAliasAlreadyExists" }))
+                })
+            )
+            server.listen()
+
+            const result = UsersApi.createContact(exampleUserId, exampleUserNickname)
+
+            await expect(result).rejects.toEqual(new ContactWithAliasAlreadyExists(exampleUserNickname))
         })
     })
 })

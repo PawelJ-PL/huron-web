@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react"
 import React from "react"
+import { MemoryRouter } from "react-router-dom"
 import { UserData } from "../domain/user/types/UserData"
+import { exampleCollectionId } from "../testutils/constants/collection"
 import { exampleHashedEmail, exampleUserId, exampleUserNickname } from "../testutils/constants/user"
+import { renderWithRoute } from "../testutils/helpers"
 import { i18nMock, tFunctionMock } from "../testutils/mocks/i18n-mock"
 import { NotLoggedIn } from "./api/ApiError"
 import { AuthDecisionContainer } from "./AuthDecisionContainer"
@@ -27,14 +30,17 @@ describe("Auth decision container", () => {
             const fetchUser = jest.fn()
             const clearPasswords = jest.fn()
             render(
-                <AuthDecisionContainer
-                    userData={userData}
-                    fetchUserData={fetchUser}
-                    clearPasswords={clearPasswords}
-                    t={tFunctionMock}
-                    i18n={i18nMock()}
-                    tReady={true}
-                />
+                <MemoryRouter>
+                    <AuthDecisionContainer
+                        userData={userData}
+                        fetchUserData={fetchUser}
+                        clearPasswords={clearPasswords}
+                        t={tFunctionMock}
+                        i18n={i18nMock()}
+                        tReady={true}
+                        apiLogoutStatus={{ status: "NOT_STARTED" }}
+                    />
+                </MemoryRouter>
             )
             expect(fetchUser).toHaveBeenCalledTimes(1)
         })
@@ -48,16 +54,43 @@ describe("Auth decision container", () => {
             const fetchUser = jest.fn()
             const clearPasswords = jest.fn()
             render(
+                <MemoryRouter>
+                    <AuthDecisionContainer
+                        userData={userData}
+                        fetchUserData={fetchUser}
+                        clearPasswords={clearPasswords}
+                        t={tFunctionMock}
+                        i18n={i18nMock()}
+                        tReady={true}
+                        apiLogoutStatus={{ status: "NOT_STARTED" }}
+                    />
+                </MemoryRouter>
+            )
+            expect(clearPasswords).toHaveBeenCalledTimes(1)
+        })
+
+        it("should navigate to root on API logout", () => {
+            const startPath = `/collection/${exampleCollectionId}`
+            const routePathTemplate = "/collection/:collectionId"
+
+            window.history.replaceState({}, "", startPath)
+
+            // eslint-disable-next-line testing-library/render-result-naming-convention
+            const renderWithPath = renderWithRoute(routePathTemplate)
+
+            const userData: AsyncOperationResult<void, UserData, Error> = { status: "NOT_STARTED" }
+            renderWithPath(
                 <AuthDecisionContainer
                     userData={userData}
-                    fetchUserData={fetchUser}
-                    clearPasswords={clearPasswords}
+                    fetchUserData={jest.fn()}
+                    clearPasswords={jest.fn()}
                     t={tFunctionMock}
                     i18n={i18nMock()}
                     tReady={true}
+                    apiLogoutStatus={{ status: "FINISHED", params: undefined, data: undefined }}
                 />
             )
-            expect(clearPasswords).toHaveBeenCalledTimes(1)
+            expect(window.location.pathname).toBe("/")
         })
     })
 
@@ -71,14 +104,17 @@ describe("Auth decision container", () => {
             const fetchUser = jest.fn()
             const clearPasswords = jest.fn()
             render(
-                <AuthDecisionContainer
-                    userData={userData}
-                    fetchUserData={fetchUser}
-                    clearPasswords={clearPasswords}
-                    t={tFunctionMock}
-                    i18n={i18nMock()}
-                    tReady={true}
-                />
+                <MemoryRouter>
+                    <AuthDecisionContainer
+                        userData={userData}
+                        fetchUserData={fetchUser}
+                        clearPasswords={clearPasswords}
+                        t={tFunctionMock}
+                        i18n={i18nMock()}
+                        tReady={true}
+                        apiLogoutStatus={{ status: "NOT_STARTED" }}
+                    />
+                </MemoryRouter>
             )
             screen.getByTestId("/signup")
         })
@@ -92,14 +128,17 @@ describe("Auth decision container", () => {
             const fetchUser = jest.fn()
             const clearPasswords = jest.fn()
             render(
-                <AuthDecisionContainer
-                    userData={userData}
-                    fetchUserData={fetchUser}
-                    clearPasswords={clearPasswords}
-                    t={tFunctionMock}
-                    i18n={i18nMock()}
-                    tReady={true}
-                />
+                <MemoryRouter>
+                    <AuthDecisionContainer
+                        userData={userData}
+                        fetchUserData={fetchUser}
+                        clearPasswords={clearPasswords}
+                        t={tFunctionMock}
+                        i18n={i18nMock()}
+                        tReady={true}
+                        apiLogoutStatus={{ status: "NOT_STARTED" }}
+                    />
+                </MemoryRouter>
             )
             screen.getByText("error-pages:user-loading-failed.header")
             screen.getByText("error-pages:user-loading-failed.description")
@@ -119,14 +158,17 @@ describe("Auth decision container", () => {
             const fetchUser = jest.fn()
             const clearPasswords = jest.fn()
             render(
-                <AuthDecisionContainer
-                    userData={userData}
-                    fetchUserData={fetchUser}
-                    clearPasswords={clearPasswords}
-                    t={tFunctionMock}
-                    i18n={i18nMock()}
-                    tReady={true}
-                />
+                <MemoryRouter>
+                    <AuthDecisionContainer
+                        userData={userData}
+                        fetchUserData={fetchUser}
+                        clearPasswords={clearPasswords}
+                        t={tFunctionMock}
+                        i18n={i18nMock()}
+                        tReady={true}
+                        apiLogoutStatus={{ status: "NOT_STARTED" }}
+                    />
+                </MemoryRouter>
             )
             screen.getByTestId("/profile")
         })
@@ -139,14 +181,17 @@ describe("Auth decision container", () => {
             const fetchUser = jest.fn()
             const clearPasswords = jest.fn()
             render(
-                <AuthDecisionContainer
-                    userData={userData}
-                    fetchUserData={fetchUser}
-                    clearPasswords={clearPasswords}
-                    t={tFunctionMock}
-                    i18n={i18nMock()}
-                    tReady={true}
-                />
+                <MemoryRouter>
+                    <AuthDecisionContainer
+                        userData={userData}
+                        fetchUserData={fetchUser}
+                        clearPasswords={clearPasswords}
+                        t={tFunctionMock}
+                        i18n={i18nMock()}
+                        tReady={true}
+                        apiLogoutStatus={{ status: "NOT_STARTED" }}
+                    />
+                </MemoryRouter>
             )
             screen.getByTestId(LOADER_PAGE)
         })

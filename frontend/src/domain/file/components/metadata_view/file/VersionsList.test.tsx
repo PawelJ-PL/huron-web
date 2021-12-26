@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import React from "react"
 import { exampleCollectionId, exampleEncryptionKey } from "../../../../../testutils/constants/collection"
 import { exampleFileData, exampleVersion } from "../../../../../testutils/constants/files"
-import { examplePrivateKey } from "../../../../../testutils/constants/user"
+import { examplePrivateKey, exampleUserId } from "../../../../../testutils/constants/user"
 import { i18nMock, tFunctionMock } from "../../../../../testutils/mocks/i18n-mock"
 import { DELETE_VERSION_BUTTON, DOWNLOAD_VERSION_BUTTON } from "../../testids"
 import { VersionsList } from "./VersionsList"
@@ -18,6 +18,8 @@ jest.mock("../../../../../application/components/common/UnexpectedErrorMessage")
 jest.mock("../../../../../application/components/common/LoadingOverlay")
 
 jest.mock("../../../../../application/components/common/Loader")
+
+const knownUsers = {}
 
 describe("Versions list", () => {
     describe("mount", () => {
@@ -40,6 +42,8 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -64,6 +68,8 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -89,6 +95,8 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -111,6 +119,8 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -137,6 +147,8 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -163,11 +175,148 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
             expect(fetchVersionsMock).toHaveBeenCalledTimes(1)
             expect(fetchVersionsMock).toHaveBeenCalledWith(exampleCollectionId, exampleFileData.id)
+        })
+
+        it("should fetch missing authors data", () => {
+            const fetchAuthorsMock = jest.fn()
+
+            render(
+                <VersionsList
+                    collectionId={exampleCollectionId}
+                    fileId={exampleFileData.id}
+                    t={tFunctionMock}
+                    i18n={i18nMock()}
+                    versionsResult={{
+                        status: "FINISHED",
+                        params: { collectionId: exampleCollectionId, fileId: "other-file" },
+                        data: [
+                            exampleVersion,
+                            { ...exampleVersion, versionId: "1", versionAuthor: "foo" },
+                            { ...exampleVersion, versionId: "2", versionAuthor: "bar" },
+                            { ...exampleVersion, versionId: "3", versionAuthor: "baz" },
+                            { ...exampleVersion, versionId: "4", versionAuthor: "qux" },
+                        ],
+                    }}
+                    fetchVersions={jest.fn()}
+                    encryptionKey={{ status: "NOT_STARTED" }}
+                    downloadVersion={jest.fn()}
+                    requestVersionDelete={jest.fn()}
+                    deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={{
+                        foo: { status: "FINISHED", params: "foo", data: { userId: "foo", nickName: "n1" } },
+                        baz: { status: "FINISHED", params: "baz", data: { userId: "baz", nickName: "n2" } },
+                    }}
+                    fetchAuthorsData={fetchAuthorsMock}
+                />
+            )
+            expect(fetchAuthorsMock).toHaveBeenCalledTimes(1)
+            expect(fetchAuthorsMock).toHaveBeenCalledWith([exampleVersion.versionAuthor, "bar", "qux"])
+        })
+
+        it("should not fetch authors data if version not fetched yet", () => {
+            const fetchAuthorsMock = jest.fn()
+
+            render(
+                <VersionsList
+                    collectionId={exampleCollectionId}
+                    fileId={exampleFileData.id}
+                    t={tFunctionMock}
+                    i18n={i18nMock()}
+                    versionsResult={{
+                        status: "PENDING",
+                        params: { collectionId: exampleCollectionId, fileId: "other-file" },
+                    }}
+                    fetchVersions={jest.fn()}
+                    encryptionKey={{ status: "NOT_STARTED" }}
+                    downloadVersion={jest.fn()}
+                    requestVersionDelete={jest.fn()}
+                    deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={{
+                        foo: { status: "FINISHED", params: "foo", data: { userId: "foo", nickName: "n1" } },
+                        baz: { status: "FINISHED", params: "baz", data: { userId: "baz", nickName: "n2" } },
+                    }}
+                    fetchAuthorsData={fetchAuthorsMock}
+                />
+            )
+            expect(fetchAuthorsMock).not.toHaveBeenCalled()
+        })
+
+        it("should not fetch authors data if all data fetched before", () => {
+            const fetchAuthorsMock = jest.fn()
+
+            render(
+                <VersionsList
+                    collectionId={exampleCollectionId}
+                    fileId={exampleFileData.id}
+                    t={tFunctionMock}
+                    i18n={i18nMock()}
+                    versionsResult={{
+                        status: "FINISHED",
+                        params: { collectionId: exampleCollectionId, fileId: "other-file" },
+                        data: [
+                            exampleVersion,
+                            { ...exampleVersion, versionId: "1", versionAuthor: "foo" },
+                            { ...exampleVersion, versionId: "2", versionAuthor: "bar" },
+                            { ...exampleVersion, versionId: "3", versionAuthor: "baz" },
+                            { ...exampleVersion, versionId: "4", versionAuthor: "qux" },
+                        ],
+                    }}
+                    fetchVersions={jest.fn()}
+                    encryptionKey={{ status: "NOT_STARTED" }}
+                    downloadVersion={jest.fn()}
+                    requestVersionDelete={jest.fn()}
+                    deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={{
+                        [exampleUserId]: {
+                            status: "FINISHED",
+                            params: exampleUserId,
+                            data: { userId: exampleUserId, nickName: "n0" },
+                        },
+                        foo: { status: "FINISHED", params: "foo", data: { userId: "foo", nickName: "n1" } },
+                        bar: { status: "FINISHED", params: "bar", data: { userId: "bar", nickName: "n3" } },
+                        baz: { status: "FINISHED", params: "baz", data: { userId: "baz", nickName: "n2" } },
+                        qux: { status: "FINISHED", params: "qux", data: { userId: "qux", nickName: "n4" } },
+                    }}
+                    fetchAuthorsData={fetchAuthorsMock}
+                />
+            )
+            expect(fetchAuthorsMock).not.toHaveBeenCalled()
+        })
+
+        it("should not fetch authors data if no version found", () => {
+            const fetchAuthorsMock = jest.fn()
+
+            render(
+                <VersionsList
+                    collectionId={exampleCollectionId}
+                    fileId={exampleFileData.id}
+                    t={tFunctionMock}
+                    i18n={i18nMock()}
+                    versionsResult={{
+                        status: "FINISHED",
+                        params: { collectionId: exampleCollectionId, fileId: "other-file" },
+                        data: [],
+                    }}
+                    fetchVersions={jest.fn()}
+                    encryptionKey={{ status: "NOT_STARTED" }}
+                    downloadVersion={jest.fn()}
+                    requestVersionDelete={jest.fn()}
+                    deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={{
+                        foo: { status: "FINISHED", params: "foo", data: { userId: "foo", nickName: "n1" } },
+                        baz: { status: "FINISHED", params: "baz", data: { userId: "baz", nickName: "n2" } },
+                    }}
+                    fetchAuthorsData={fetchAuthorsMock}
+                />
+            )
+            expect(fetchAuthorsMock).not.toHaveBeenCalled()
         })
     })
 
@@ -185,6 +334,8 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -208,6 +359,8 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -233,6 +386,8 @@ describe("Versions list", () => {
                 downloadVersion={jest.fn()}
                 requestVersionDelete={jest.fn()}
                 deleteResult={{ status: "NOT_STARTED" }}
+                knownUsers={knownUsers}
+                fetchAuthorsData={jest.fn()}
             />
         )
 
@@ -265,6 +420,8 @@ describe("Versions list", () => {
                             versionId: exampleVersion.versionId,
                         },
                     }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -290,6 +447,8 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -316,6 +475,8 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -344,6 +505,8 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -374,6 +537,8 @@ describe("Versions list", () => {
                     downloadVersion={downloadMock}
                     requestVersionDelete={jest.fn()}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 
@@ -410,6 +575,8 @@ describe("Versions list", () => {
                     downloadVersion={jest.fn()}
                     requestVersionDelete={deleteMock}
                     deleteResult={{ status: "NOT_STARTED" }}
+                    knownUsers={knownUsers}
+                    fetchAuthorsData={jest.fn()}
                 />
             )
 

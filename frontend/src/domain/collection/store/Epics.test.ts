@@ -1,4 +1,4 @@
-import { fetchAndDecryptKeyPairAction } from "./../../user/store/Actions"
+import { fetchAndDecryptKeyPairAction, localLogoutAction } from "./../../user/store/Actions"
 import {
     exampleEncryptedKeypair,
     exampleMasterKey,
@@ -12,7 +12,12 @@ import {
     exampleCollectionId,
     exampleCollectionName,
 } from "./../../../testutils/constants/collection"
-import { createCollectionAction, fetchAndDecryptCollectionKeyAction, setActiveCollectionAction } from "./Actions"
+import {
+    createCollectionAction,
+    fetchAndDecryptCollectionKeyAction,
+    removePreferredCollectionIdAction,
+    setActiveCollectionAction,
+} from "./Actions"
 import { collectionsEpics } from "./Epics"
 import CryptoApi from "../../../application/cryptography/api/CryptoApi"
 import CollectionsApi from "../api/CollectionsApi"
@@ -150,5 +155,14 @@ describe("Collections epics", () => {
             },
         } as AppState
         verifyEpic(trigger, collectionsEpics, state, { marbles: "---" })
+    })
+
+    it("should trigger remove preferred collection on local logout", () => {
+        const trigger = localLogoutAction()
+        const state = {} as AppState
+        verifyEpic(trigger, collectionsEpics, state, {
+            marbles: "-a",
+            values: { a: removePreferredCollectionIdAction.started() },
+        })
     })
 })

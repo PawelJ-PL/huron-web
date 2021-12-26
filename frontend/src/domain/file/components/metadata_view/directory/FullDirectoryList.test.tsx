@@ -15,6 +15,9 @@ import { FullDirectoryList } from "./FullDirectoryList"
 // eslint-disable-next-line react/display-name
 jest.mock("./ObjectActionsMenu", () => () => <div data-testid="OBJECT_ACTIONS_MENU_MOCK"></div>)
 
+// eslint-disable-next-line react/display-name
+jest.mock("../file/Author", () => () => <div data-testid="AUTHOR_MOCK"></div>)
+
 describe("Full directory list", () => {
     it("should rest files selection on mount and unmount", () => {
         const setSelectedMock = jest.fn()

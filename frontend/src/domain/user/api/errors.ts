@@ -37,3 +37,38 @@ export class InvalidEmail extends ApiError {
         this.name = "InvalidEmail"
     }
 }
+
+export class TooManyUsersToFetch extends ApiError {
+    constructor() {
+        super("Too many users to fetch in single call")
+        this.name = new.target.name
+        Object.setPrototypeOf(this, new.target.prototype)
+    }
+}
+
+export class ContactWithAliasAlreadyExists extends ApiError {
+    readonly alias: string
+
+    constructor(alias: string) {
+        super(`Contact with alias ${alias} already exists`)
+        this.name = new.target.name
+        Object.setPrototypeOf(this, new.target.prototype)
+        this.alias = alias
+    }
+}
+
+export class UserAlreadyInContacts extends ApiError {
+    constructor(userId: string) {
+        super(`Contact ${userId} already exists in contacts`)
+        this.name = new.target.name
+        Object.setPrototypeOf(this, new.target.prototype)
+    }
+}
+
+export class AddSelfToContacts extends ApiError {
+    constructor() {
+        super("Impossibel to add self to contacts")
+        this.name = new.target.name
+        Object.setPrototypeOf(this, new.target.prototype)
+    }
+}
