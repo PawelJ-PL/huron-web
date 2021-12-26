@@ -22,6 +22,7 @@ import com.github.huronapp.api.http.pagination.PagingResponseMetadata
 import io.chrisdavenport.fuuid.FUUID
 import io.scalaland.chimney.dsl._
 import org.http4s.HttpRoutes
+import sttp.model.headers.Cookie.SameSite
 import sttp.model.headers.{CookieValueWithMeta, CookieWithMeta}
 import zio.logging.Logger
 import zio.{Has, URIO, ZIO, ZLayer}
@@ -120,7 +121,9 @@ object UsersRoutes {
               value,
               maxAge = Some(maxAge),
               path = Some("/"),
-              httpOnly = true
+              httpOnly = true,
+              secure = securityConfig.sessionCookieSecure,
+              sameSite = Some(SameSite.Lax)
             ).valueWithMeta
 
           private val userLogoutRoutes: HttpRoutes[RouteEffect] =

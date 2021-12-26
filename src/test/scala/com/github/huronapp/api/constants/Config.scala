@@ -33,6 +33,7 @@ trait Config {
     1.day,
     "$2y$04$FS/UrYKODtETYCrEhI81O.xYKH1sOzSHIQqeqEmxrFRuecFmGj7Eq",
     7.days,
+    sessionCookieSecure = true,
     SessionRepoConfig.InMemorySessionRepo,
     uri"http://app:8080/reset-password",
     1.day

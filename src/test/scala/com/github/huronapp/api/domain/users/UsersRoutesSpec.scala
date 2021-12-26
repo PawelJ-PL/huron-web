@@ -1,6 +1,7 @@
 package com.github.huronapp.api.domain.users
 
 import cats.data.Chain
+import cats.syntax.eq._
 import cats.syntax.show._
 import com.github.huronapp.api.auth.authorization.types.Subject
 import com.github.huronapp.api.auth.authorization.{OperationNotPermitted, SetEncryptionKey}
@@ -43,13 +44,13 @@ import io.circe.Json
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.implicits._
-import org.http4s.{Header, Headers, Method, Request, ResponseCookie, Status, Uri}
+import org.http4s.{Header, Headers, Method, Request, ResponseCookie, SameSite, Status, Uri}
 import org.typelevel.ci.{CIString, CIStringSyntax}
 import zio.clock.Clock
 import zio.{Ref, ZIO, ZLayer}
 import zio.interop.catz._
 import zio.test.environment.TestEnvironment
-import zio.test.Assertion.{equalTo, isEmpty, isNone, isSome}
+import zio.test.Assertion.{containsString, equalTo, isEmpty, isNone, isSome}
 import zio.test.{DefaultRunnableSpec, ZSpec, assert}
 
 import java.time.Instant
@@ -444,11 +445,22 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[UserDataResp]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
+      sessionCookie = result.cookies.find(_.name === "session")
     } yield assert(result.status)(equalTo(Status.Ok)) &&
       assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest))) &&
-      assert(result.headers.get(CIString("set-cookie")).map(_.head.value))(
+      assert(sessionCookie)(
         isSome(
-          equalTo(ResponseCookie("session", FirstRandomFuuid.show, maxAge = Some(604800), path = Some("/"), httpOnly = true).renderString)
+          equalTo(
+            ResponseCookie(
+              "session",
+              FirstRandomFuuid.show,
+              maxAge = Some(604800),
+              path = Some("/"),
+              httpOnly = true,
+              secure = true,
+              sameSite = Some(SameSite.Lax)
+            )
+          )
         )
       ) &&
       assert(result.headers.get(CIString("x-csrf-token")).map(_.head.value))(isSome(equalTo(SecondRandomFuuid.show))) &&
@@ -542,14 +554,11 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       req = Request[RouteEffect](method = Method.DELETE, uri = uri"/api/v1/users/me/session").withHeaders(validAuthHeader)
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
+      firstCookie = result.headers.get(CIString("set-cookie")).map(_.head.value)
+      _ = println(firstCookie)
     } yield assert(result.status)(equalTo(Status.NoContent)) &&
-      assert(result.headers.get(CIString("set-cookie")).map(_.head.value))(
-        isSome(
-          equalTo(
-            ResponseCookie("session", "invalid", maxAge = Some(0), path = Some("/"), httpOnly = true).renderString
-          )
-        )
-      ) &&
+      assert(firstCookie)(isSome(containsString("session=invalid;"))) &&
+      assert(firstCookie)(isSome(containsString("Max-Age=0;"))) &&
       assert(finalSessionRepo.sessions)(isEmpty)
   }
 
