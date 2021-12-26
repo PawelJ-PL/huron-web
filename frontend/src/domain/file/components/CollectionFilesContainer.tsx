@@ -24,13 +24,15 @@ export const CollectionFilesContainer: React.FC<Props> = ({ collection, fileTree
     const maybeFileId = routeParams.fileId
 
     useEffect(() => {
-        fetchTree(collection.id, maybeFileId ?? null)
-
         return () => {
             resetTree()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
+
+    useEffect(() => {
+        fetchTree(collection.id, maybeFileId ?? null)
+    }, [maybeFileId, fetchTree, collection])
 
     const renderError = (error: Error) => {
         if (error instanceof FileNotFound) {

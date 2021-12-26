@@ -1,12 +1,10 @@
 import React from "react"
-import { screen } from "@testing-library/react"
+import { fireEvent, screen } from "@testing-library/react"
 import { exampleCollection, exampleCollectionId } from "../../../testutils/constants/collection"
 import { CollectionFilesContainer } from "./CollectionFilesContainer"
-import { exampleDirectoryTree, exampleFileId } from "../../../testutils/constants/files"
+import { exampleChildDirectory2, exampleDirectoryTree, exampleFileId } from "../../../testutils/constants/files"
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { FileNotFound } from "../api/errors"
-import { Collection } from "../../collection/types/Collection"
-import { ObjectTree } from "../types/ObjectTree"
 import { renderWithRoute } from "../../../testutils/helpers"
 
 jest.mock("../../../application/components/common/UnexpectedErrorMessage")
@@ -15,13 +13,7 @@ jest.mock("../../../application/components/common/EmptyPlaceholder")
 
 jest.mock("../../../application/components/common/Loader")
 
-// eslint-disable-next-line react/display-name
-jest.mock("./metadata_view/SingleObjectView", () => (props: { collection: Collection; objectTree: ObjectTree }) => (
-    <div data-testid="OBJECT_VIEW_MOCK">
-        <div>Collection: {props.collection.id}</div>
-        <div>Tree: {JSON.stringify(props.objectTree)}</div>
-    </div>
-))
+jest.mock("./metadata_view/SingleObjectView")
 
 const startRoute = `/collection/${exampleCollectionId}/file/${exampleFileId}`
 const routeTemplate = "/collection/:collectionId/file/:fileId"
@@ -172,5 +164,30 @@ describe("Collection files container", () => {
         view.unmount()
 
         expect(resetTreeMock).toHaveBeenCalledTimes(1)
+    })
+
+    it("should fetch tree on navigate to another file", () => {
+        const fetchTreeMock = jest.fn()
+
+        renderWithPath(
+            <CollectionFilesContainer
+                collection={exampleCollection}
+                fileTreeResult={{
+                    status: "FINISHED",
+                    params: { collectionId: exampleCollectionId, objectId: null },
+                    data: exampleDirectoryTree,
+                }}
+                fetchTree={fetchTreeMock}
+                resetTree={jest.fn()}
+                t={tFunctionMock}
+            />
+        )
+
+        const childLink = screen.getByText(`Go to ${exampleChildDirectory2.name}`)
+        fireEvent.click(childLink)
+
+        expect(fetchTreeMock).toHaveBeenCalledTimes(2)
+        expect(fetchTreeMock).toHaveBeenNthCalledWith(1, exampleCollectionId, exampleFileId)
+        expect(fetchTreeMock).toHaveBeenNthCalledWith(2, exampleCollectionId, exampleChildDirectory2.id)
     })
 })

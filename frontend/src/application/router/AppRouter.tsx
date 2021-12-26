@@ -9,7 +9,6 @@ type Props = {
 }
 
 const AppRouter: React.FC<Props> = ({ routes, defaultComponent }) => {
-    // const [withLayout, withoutLayout] = partition(routes, (r) => r.withLayout)
     const DefaultComponent = defaultComponent
 
     return (
