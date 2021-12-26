@@ -23,6 +23,7 @@ import DeleteVersionModal from "./DeleteVersionModal"
 import LoadingOverlay from "../../../../../application/components/common/LoadingOverlay"
 import capitalize from "lodash/capitalize"
 import { DELETE_VERSION_BUTTON, DOWNLOAD_VERSION_BUTTON } from "../../testids"
+import { fetchMultipleUsersPublicDataAction } from "../../../../user/store/Actions"
 
 type Props = {
     collectionId: string
@@ -42,6 +43,8 @@ export const VersionsList: React.FC<Props> = ({
     downloadVersion,
     requestVersionDelete,
     deleteResult,
+    knownUsers,
+    fetchAuthorsData,
 }) => {
     useEffect(() => {
         if (
@@ -55,6 +58,19 @@ export const VersionsList: React.FC<Props> = ({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
+
+    useEffect(() => {
+        if (versionsResult.status === "FINISHED") {
+            const authorIds = versionsResult.data
+                .map((v) => v.versionAuthor)
+                .filter((author): author is string => author !== undefined && author !== null)
+            const uniqueAuthorIds = Array.from(new Set(authorIds))
+            const unknownUsers = uniqueAuthorIds.filter((id) => !Object.keys(knownUsers).includes(id))
+            if (unknownUsers.length > 0) {
+                fetchAuthorsData(unknownUsers)
+            }
+        }
+    }, [versionsResult, knownUsers, fetchAuthorsData])
 
     const renderEntry = (entry: FileVersion) => (
         <Tr key={entry.versionId}>
@@ -118,6 +134,7 @@ const mapStateToProps = (state: AppState) => ({
     versionsResult: state.files.fileVersionsResult,
     encryptionKey: state.collections.encryptionKey,
     deleteResult: state.files.deleteVersionResult,
+    knownUsers: state.users.knownUsers,
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
@@ -126,6 +143,7 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     downloadVersion: (collectionId: string, fileId: string, versionId: string, encryptionKey: EncryptionKey) =>
         dispatch(downloadAndDecryptFileAction.started({ collectionId, fileId, versionId, encryptionKey })),
     requestVersionDelete: (version: FileVersion) => dispatch(deleteVersionRequestAction(version)),
+    fetchAuthorsData: (authorIds: string[]) => dispatch(fetchMultipleUsersPublicDataAction.started(authorIds)),
 })
 
 export default connect(mapStateToProps, mapDispatchToProps)(withTranslation()(VersionsList))

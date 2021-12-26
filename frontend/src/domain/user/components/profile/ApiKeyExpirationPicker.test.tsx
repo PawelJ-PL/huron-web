@@ -9,7 +9,7 @@ describe("Api key expiration picker", () => {
 
     afterAll(() => jest.useRealTimers())
 
-    it("should turn expiration on and off", async () => {
+    it("should turn expiration on and off", () => {
         const onChange = jest.fn()
         render(
             <ApiKeyExpirationPicker
@@ -53,7 +53,7 @@ describe("Api key expiration picker", () => {
         expect(onChange).toHaveBeenNthCalledWith(4, new Date("2021-01-17T14:00:00.000Z"))
     })
 
-    it("should unset date", async () => {
+    it("should unset date", () => {
         const onChange = jest.fn()
         render(
             <ApiKeyExpirationPicker

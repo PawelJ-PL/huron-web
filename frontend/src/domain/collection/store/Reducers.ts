@@ -45,6 +45,7 @@ const readPreferredCollectionReducer = createReducer(getPreferredCollectionIdAct
         data: action.params,
         params: undefined,
     }))
+    .case(removePreferredCollectionIdAction.done, () => ({ status: "NOT_STARTED" }))
     .build()
 
 const removePreferredCollectionReducer = createReducer(
@@ -56,6 +57,7 @@ const setPreferredCollectionReducer = createReducer(setPreferredCollectionIdActi
 
 const activeCollectionReducer = reducerWithInitialState<string | null>(null)
     .case(setActiveCollectionAction, (_, action) => action)
+    .case(localLogoutAction, () => null)
     .build()
 
 const encryptionKeyReducer = createReducer(fetchAndDecryptCollectionKeyAction, cleanCollectionKeyAction, {

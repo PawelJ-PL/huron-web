@@ -32,3 +32,45 @@ export const createReducer = <Params, Result, Error = unknown>(
 
     return resetAction === undefined ? baseReducer : baseReducer.case(resetAction, () => ({ status: "NOT_STARTED" }))
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/ban-types
+export const createMultipleValuesRecordReducer = <Params extends {}, Result, Error, Key extends keyof any>(
+    asyncAction: AsyncActionCreators<Params, Result, Error>,
+    paramsToKey: (p: Params) => Key,
+    resetAction?: ActionCreator<void>
+) => {
+    type ReducerType = Record<Key, AsyncOperationResult<Params, Result, Error>>
+    const baseReducer = reducerWithInitialState<ReducerType>({} as ReducerType)
+        .case(asyncAction.started, (state, action) => {
+            if (state[paramsToKey(action)] && state[paramsToKey(action)].status === "FINISHED") {
+                return state
+            } else {
+                return { ...state, [paramsToKey(action)]: { status: "PENDING", params: action } }
+            }
+        })
+        .case(asyncAction.failed, (state, action) => {
+            if (
+                action.params === undefined ||
+                (state[paramsToKey(action.params)] && state[paramsToKey(action.params)].status === "FINISHED")
+            ) {
+                return state
+            } else {
+                return {
+                    ...state,
+                    [paramsToKey(action.params)]: { status: "FAILED", params: action.params, error: action.error },
+                }
+            }
+        })
+        .case(asyncAction.done, (state, action) => {
+            if (action.params === undefined) {
+                return state
+            } else {
+                return {
+                    ...state,
+                    [paramsToKey(action.params)]: { status: "FINISHED", params: action.params, data: action.result },
+                }
+            }
+        })
+
+    return resetAction === undefined ? baseReducer : baseReducer.case(resetAction, () => ({} as ReducerType))
+}

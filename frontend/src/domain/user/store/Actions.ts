@@ -1,8 +1,12 @@
+import { ContactsFilter } from "./../types/ContactsFilter"
+import { Pagination, PaginationRequest } from "./../../../application/api/Pagination"
+import { UserContact } from "./../types/UserContact"
+import { UserPublicData } from "./../types/UserPublicData"
 import { KeyPair } from "./../../../application/cryptography/types/KeyPair"
 import { ApiKeyDescription } from "./../types/ApiKey"
 import { UserData } from "./../types/UserData"
 import actionCreatorFactory from "typescript-fsa"
-import { ApiKeyUpdateData, ChangePasswordData, UserDataWithToken } from "../api/UsersApi"
+import { ApiKeyUpdateData, ChangePasswordData, ContactUpdateData, UserDataWithToken } from "../api/UsersApi"
 
 const actionCreator = actionCreatorFactory("USER")
 
@@ -19,7 +23,14 @@ export type ResetPasswordParams = {
     email: string
 }
 
+export type NewContactParams = {
+    userId: string
+    alias?: string
+}
+
 export type ChangePasswordInputData = Omit<ChangePasswordData, "keyPair" | "collectionEncryptionKeys">
+
+export type EditContactParams = { contactId: string; data: ContactUpdateData }
 
 export const loginAction = actionCreator.async<{ email: string; password: string }, UserDataWithToken | null, Error>(
     "LOGIN"
@@ -69,3 +80,33 @@ export const createApiKeyAction = actionCreator.async<
 export const resetCreateApiKeyStatusAction = actionCreator("RESET_CREATE_API_KEY_STATUS")
 export const fetchAndDecryptKeyPairAction = actionCreator.async<string, KeyPair, Error>("FETCH_KEYPAIR")
 export const resetKeyPairAction = actionCreator("RESET_KEYPAIR")
+export const fetchUserPublicDataAction = actionCreator.async<string, UserPublicData | null, Error>(
+    "FETCH_USER_PUBLIC_DATA"
+)
+export const resetFetchUserPublicDataResultAction = actionCreator("RESET_FETCH_USER_PUBLIC_DATA_RESULT")
+export const fetchMultipleUsersPublicDataAction = actionCreator.async<
+    string[],
+    Record<string, UserPublicData | null | undefined>,
+    Error
+>("FETCH_MULTIPLE_USERS_PUBLIC_DATA")
+export const resetKnownUsersAction = actionCreator("RESET_KNOWN_USERS")
+export const createContactAction = actionCreator.async<NewContactParams, UserContact, Error>("CREATE_CONTACT")
+export const resetCreateContactResultAction = actionCreator("RESET_CREATE_CONTACT_RESULT")
+export const deleteContactAction = actionCreator.async<string, void, Error>("DELETE_CONTACT")
+export const resetDeleteContactResultAction = actionCreator("RESET_DELETE_CONTACT_RESULT")
+export const listContactsAction = actionCreator.async<
+    PaginationRequest & { nameFilter?: string },
+    Pagination<UserContact[]>,
+    Error
+>("LIST_CONTACTS")
+export const resetListContactsResultAction = actionCreator("RESET_LIST_CONTACTS_RESULT")
+export const updateContactsFilterAction = actionCreator<Partial<ContactsFilter>>("UPDATE_CONTACTS_FILTER")
+export const requestContactDeleteAction = actionCreator<UserContact | null>("REQUEST_CONTACT_DELETE")
+export const refreshContactsListWithParamAction = actionCreator<{
+    page?: number | null
+    limit?: number | null
+    nameFilter?: string | null
+}>("REFRESH_CONTACTS_LIST_WITH_PARAM")
+export const editContactAction = actionCreator.async<EditContactParams, UserContact, Error>("EDIT_CONTACT")
+export const resetEditContactResultAction = actionCreator("RESET_EDIT_CONTACT_RESULT")
+export const requestContactEditAction = actionCreator<UserContact | null>("REQUEST_CONTACT_EDIT")

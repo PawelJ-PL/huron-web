@@ -47,7 +47,7 @@ const CurrentIcon: React.FC<CurrentIconProps> = ({ i18n }) => {
 export const LanguagePicker: React.FC<Props> = ({ i18n, updateProfileLanguage }) => {
     const onLanguageSelect = (selectedLang: string) => {
         if (selectedLang !== i18n.languages[0] && supportedLanguages.includes(selectedLang)) {
-            i18n.changeLanguage(selectedLang)
+            void i18n.changeLanguage(selectedLang)
             updateProfileLanguage(selectedLang)
         }
     }

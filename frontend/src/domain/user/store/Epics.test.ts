@@ -1,3 +1,5 @@
+import { UserPublicData } from "./../types/UserPublicData"
+import { TooManyUsersToFetch } from "./../api/errors"
 import {
     exampleCollectionId,
     exampleEncryptedCollectionKey,
@@ -8,6 +10,7 @@ import { NotLoggedIn, NoUpdatesProvides } from "./../../../application/api/ApiEr
 import { usersEpics } from "./Epics"
 import {
     exampleApiKey,
+    exampleContactAlias,
     exampleEncryptedKeypair,
     exampleEncryptedPrivateKey,
     exampleHashedEmail,
@@ -21,10 +24,15 @@ import {
     apiLogoutAction,
     changePasswordAction,
     computeMasterKeyAction,
+    deleteContactAction,
+    editContactAction,
     fetchAndDecryptKeyPairAction,
     fetchCurrentUserAction,
+    fetchMultipleUsersPublicDataAction,
+    listContactsAction,
     localLogoutAction,
     loginAction,
+    refreshContactsListWithParamAction,
     registerNewUserAction,
     resetPasswordAction,
     updateApiKeyAction,
@@ -168,7 +176,6 @@ describe("User epics", () => {
     })
 
     it("should set failed compute master key action successful login when derivation failed", () => {
-        jest.restoreAllMocks()
         jest.spyOn(CryptoApi, "deriveKey").mockImplementation(() => Promise.reject(new Error("Unknown error")))
         const resultData = {
             csrfToken: "ABC",
@@ -367,5 +374,315 @@ describe("User epics", () => {
             marbles: "-a",
             values: { a: fetchAndDecryptKeyPairAction.started(masterKey) },
         })
+    })
+
+    it("should trigger multiple user fetch in chunks", async () => {
+        jest.spyOn(UsersApi, "fetchMultipleUsersPublicData").mockImplementation((userIds) => {
+            if (userIds.length > 20) {
+                return Promise.reject(new TooManyUsersToFetch())
+            }
+            const resultPairs: [string, UserPublicData][] = userIds.map((id) => [
+                id,
+                { userId: id, nickName: `nickname-${id}` },
+            ])
+            return Promise.resolve(Object.fromEntries(resultPairs))
+        })
+        const requestedUserIds = Array.from(Array(50).keys()).map((n) => `id${n}`)
+        const trigger = fetchMultipleUsersPublicDataAction.started(requestedUserIds)
+        const expectedPairs = requestedUserIds.map((id) => [id, { userId: id, nickName: `nickname-${id}` }])
+        await verifyAsyncEpic(
+            trigger,
+            usersEpics,
+            defaultState,
+            fetchMultipleUsersPublicDataAction.done({
+                params: requestedUserIds,
+                result: Object.fromEntries(expectedPairs),
+            })
+        )
+    })
+
+    it("should trigger fetch contact list with trimmed name filter", async () => {
+        const params = { page: 1, limit: 2, nameFilter: "foo" }
+        const apiResponse = { result: [], page: 1, totalPages: 1, elementsPerPage: 2 }
+        const listSpy = jest.spyOn(UsersApi, "listContacts").mockResolvedValue(apiResponse)
+        const trigger = listContactsAction.started(params)
+        await verifyAsyncEpic(
+            trigger,
+            usersEpics,
+            defaultState,
+            listContactsAction.done({ params, result: apiResponse })
+        )
+        expect(listSpy).toHaveBeenCalledTimes(1)
+        expect(listSpy).toHaveBeenCalledWith({ page: 1, limit: 2, nameFilter: "foo" })
+    })
+
+    it("should trigger fetch contact list without name filter if trimmed value is empty", async () => {
+        const params = { page: 1, limit: 2, nameFilter: "     " }
+        const apiResponse = { result: [], page: 1, totalPages: 1, elementsPerPage: 2 }
+        const listSpy = jest.spyOn(UsersApi, "listContacts").mockResolvedValue(apiResponse)
+        const trigger = listContactsAction.started(params)
+        await verifyAsyncEpic(
+            trigger,
+            usersEpics,
+            defaultState,
+            listContactsAction.done({ params, result: apiResponse })
+        )
+        expect(listSpy).toHaveBeenCalledTimes(1)
+        expect(listSpy).toHaveBeenCalledWith({ page: 1, limit: 2, nameFilter: undefined })
+    })
+
+    it("should trigger refresh contacts list when contact deleted", () => {
+        const trigger = deleteContactAction.done({ params: exampleUserId })
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: {
+                    status: "FINISHED",
+                    params: { page: 2, limit: 5, nameFilter: "foo" },
+                    data: {
+                        result: [
+                            { userId: "id1", alias: "a1", nickName: "n1" },
+                            { userId: exampleUserId, alias: "a2", nickName: exampleUserNickname },
+                            { userId: "id3", alias: "a3", nickName: "n3" },
+                        ],
+                        page: 2,
+                        elementsPerPage: 5,
+                        totalPages: 3,
+                        prevPage: 2,
+                        nextPage: 4,
+                    },
+                },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, {
+            marbles: "-a",
+            values: { a: listContactsAction.started({ page: 2, limit: 5, nameFilter: "foo" }) },
+        })
+    })
+
+    it("should not trigger refresh contacts list when contact deleted if current status is not FINISHED", () => {
+        const trigger = deleteContactAction.done({ params: exampleUserId })
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: {
+                    status: "FAILED",
+                    params: { page: 2, limit: 5, nameFilter: "foo" },
+                    error: new Error("Some error"),
+                },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, { marbles: "---" })
+    })
+
+    it("should not trigger refresh contacts list when contact deleted if users not find on the list", () => {
+        const trigger = deleteContactAction.done({ params: exampleUserId })
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: {
+                    status: "FINISHED",
+                    params: { page: 2, limit: 5, nameFilter: "foo" },
+                    data: {
+                        result: [
+                            { userId: "id1", alias: "a1", nickName: "n1" },
+                            { userId: "id3", alias: "a3", nickName: "n3" },
+                        ],
+                        page: 2,
+                        elementsPerPage: 5,
+                        totalPages: 3,
+                        prevPage: 2,
+                        nextPage: 4,
+                    },
+                },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, { marbles: "---" })
+    })
+
+    it("should trigger contacts list refresh with requested new parameters", () => {
+        const trigger = refreshContactsListWithParamAction({ limit: 2 })
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: {
+                    status: "FINISHED",
+                    params: { page: 2, limit: 5, nameFilter: "foo" },
+                    data: {
+                        result: [{ userId: exampleUserId, alias: "a1", nickName: exampleUserNickname }],
+                        page: 2,
+                        elementsPerPage: 5,
+                        totalPages: 3,
+                        prevPage: 2,
+                        nextPage: 4,
+                    },
+                },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, {
+            marbles: "-a",
+            values: { a: listContactsAction.started({ page: 2, limit: 2, nameFilter: "foo" }) },
+        })
+    })
+
+    it("should trigger contacts list refresh and change parameter value null to undefined", () => {
+        const trigger = refreshContactsListWithParamAction({ nameFilter: null })
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: {
+                    status: "FINISHED",
+                    params: { page: 2, limit: 5, nameFilter: "foo" },
+                    data: {
+                        result: [{ userId: exampleUserId, alias: "a1", nickName: exampleUserNickname }],
+                        page: 2,
+                        elementsPerPage: 5,
+                        totalPages: 3,
+                        prevPage: 2,
+                        nextPage: 4,
+                    },
+                },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, {
+            marbles: "-a",
+            values: { a: listContactsAction.started({ page: 2, limit: 5, nameFilter: undefined }) },
+        })
+    })
+
+    it("should not trigger contacts list refresh if no parameters provided", () => {
+        const trigger = refreshContactsListWithParamAction({})
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: {
+                    status: "FINISHED",
+                    params: { page: 2, limit: 5, nameFilter: "foo" },
+                    data: {
+                        result: [{ userId: exampleUserId, alias: "a1", nickName: exampleUserNickname }],
+                        page: 2,
+                        elementsPerPage: 5,
+                        totalPages: 3,
+                        prevPage: 2,
+                        nextPage: 4,
+                    },
+                },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, { marbles: "---" })
+    })
+
+    it("should not trigger contacts list refresh if only undefined parameters provided", () => {
+        const trigger = refreshContactsListWithParamAction({ limit: undefined })
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: {
+                    status: "FINISHED",
+                    params: { page: 2, limit: 5, nameFilter: "foo" },
+                    data: {
+                        result: [{ userId: exampleUserId, alias: "a1", nickName: exampleUserNickname }],
+                        page: 2,
+                        elementsPerPage: 5,
+                        totalPages: 3,
+                        prevPage: 2,
+                        nextPage: 4,
+                    },
+                },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, { marbles: "---" })
+    })
+
+    it("should not trigger contacts list refresh if current status if NOT_STARTED", () => {
+        const trigger = refreshContactsListWithParamAction({ limit: 2 })
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: {
+                    status: "NOT_STARTED",
+                },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, { marbles: "---" })
+    })
+
+    it("should trigger edit contact", async () => {
+        const expectedResult = { alias: exampleContactAlias, userId: exampleUserId, nickName: exampleUserNickname }
+        jest.spyOn(UsersApi, "editContact").mockResolvedValue(expectedResult)
+        const params = { contactId: exampleUserId, data: { alias: { value: exampleContactAlias } } }
+        const trigger = editContactAction.started(params)
+        await verifyAsyncEpic(
+            trigger,
+            usersEpics,
+            defaultState,
+            editContactAction.done({ params, result: expectedResult })
+        )
+    })
+
+    it("should return error if no data provided for contact edit", async () => {
+        const params = { contactId: exampleUserId, data: { alias: null } }
+        const trigger = editContactAction.started(params)
+        await verifyAsyncEpic(
+            trigger,
+            usersEpics,
+            defaultState,
+            editContactAction.failed({ params, error: new NoUpdatesProvides() })
+        )
+    })
+
+    it("should trigger contacts refresh on contact edit", () => {
+        const params = { contactId: exampleUserId, data: { alias: null } }
+        const trigger = editContactAction.done({
+            params,
+            result: { userId: exampleUserId, nickName: exampleUserNickname, alias: exampleContactAlias },
+        })
+        const listContactsParams = { page: 2, limit: 5, nameFilter: "foo" }
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: {
+                    status: "FINISHED",
+                    params: listContactsParams,
+                    data: {
+                        result: [{ userId: exampleUserId, alias: "a1", nickName: exampleUserNickname }],
+                        page: 2,
+                        elementsPerPage: 5,
+                        totalPages: 3,
+                        prevPage: 2,
+                        nextPage: 4,
+                    },
+                },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, {
+            marbles: "-a",
+            values: { a: listContactsAction.started(listContactsParams) },
+        })
+    })
+
+    it("should not trigger contacts refresh on contact edit if contact list not fetched yet", () => {
+        const params = { contactId: exampleUserId, data: { alias: null } }
+        const trigger = editContactAction.done({
+            params,
+            result: { userId: exampleUserId, nickName: exampleUserNickname, alias: exampleContactAlias },
+        })
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: { status: "NOT_STARTED" },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, { marbles: "---" })
     })
 })

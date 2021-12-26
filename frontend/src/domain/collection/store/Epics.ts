@@ -19,8 +19,8 @@ import UsersApi from "../../user/api/UsersApi"
 import CryptoApi from "../../../application/cryptography/api/CryptoApi"
 import StorageApi from "../../../application/storage/StorageApi"
 import { EncryptionKey } from "../types/EncryptionKey"
-import { filter, mergeMap } from "rxjs/operators"
-import { fetchAndDecryptKeyPairAction } from "../../user/store/Actions"
+import { filter, mergeMap, map } from "rxjs/operators"
+import { fetchAndDecryptKeyPairAction, localLogoutAction } from "../../user/store/Actions"
 
 const PREFERRED_COLLECTION_KEY = "preferredCollectionId"
 
@@ -55,6 +55,12 @@ const setPreferredCollectionEpic = createEpic<string, void, Error>(setPreferredC
 const removePreferredCollectionEpic = createEpic<void, void, Error>(removePreferredCollectionIdAction, () =>
     StorageApi.removeItem(PREFERRED_COLLECTION_KEY)
 )
+
+const removePreferredCollectionOnLocalLogoutEpic: Epic<AnyAction, AnyAction, AppState> = (action$) =>
+    action$.pipe(
+        filter(localLogoutAction.match),
+        map(() => removePreferredCollectionIdAction.started())
+    )
 
 const fetchAndDecryptCollectionKeyEpic = createEpic<{ collectionId: string; privateKey: string }, EncryptionKey, Error>(
     fetchAndDecryptCollectionKeyAction,
@@ -112,6 +118,7 @@ export const collectionsEpics = combineEpics<Action, Action, AppState>(
     readPreferredCollectionEpic,
     setPreferredCollectionEpic,
     removePreferredCollectionEpic,
+    removePreferredCollectionOnLocalLogoutEpic,
     fetchAndDecryptCollectionKeyEpic,
     fetchAndDecryptCollectionKeyOnKeypairDecryptedEpic,
     fetchAndDecryptCollectionKeyOnCollectionChange

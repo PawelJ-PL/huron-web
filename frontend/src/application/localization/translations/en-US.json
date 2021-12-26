@@ -5,6 +5,7 @@
         "nickname": "nickname",
         "language": "language",
         "description": "description",
+        "alias": "alias",
         "unexpected-error": "unexpected error",
         "field-required": "The field is required",
         "field-min-length": "the minimum number of characters is {{minChars}}",
@@ -23,7 +24,12 @@
         "not-valid-date": "not valid date",
         "unknown-masculine": "unknown",
         "action-in-progress": "Action in progress",
-        "details": "details"
+        "details": "details",
+        "pagination": {
+            "entries-per-page": "entries per page",
+            "previous-page": "previous page",
+            "next-page": "next page"
+        }
     },
     "error-pages": {
         "user-loading-failed": {
@@ -80,6 +86,7 @@
         "unknown-user": "Unknown user",
         "account-menu-items": {
             "profile": "User profile",
+            "contacts": "Contacts",
             "logout": "Logout"
         },
         "logout-failed-message": "Logout failed",
@@ -171,7 +178,8 @@
                 "file-name": "Name",
                 "updated-at": "Updated",
                 "type": "Type",
-                "encrypted-size": "Encrypted size"
+                "encrypted-size": "Encrypted size",
+                "updated-by": "Updated by"
             },
             "types": {
                 "directory": "directory"
@@ -223,5 +231,34 @@
             },
             "delete-version-confirmation": "Are you sure you want to delete the selected file version?"
         }
+    },
+    "user-public-page": {
+        "user-not-found-message": "User not found",
+        "loading-user-data": "Loading user information",
+        "save-contact-button": "Add to contacts",
+        "edit-contact-button": "Edit contact",
+        "remove-contact-button": "Remove from contacts",
+        "go-to-profile-button": "Go to profile",
+        "remove-contact-confirmation": {
+            "header": "Removing contact",
+            "content": "Are you sure you want to remove user {{name}} from your contacts?"
+        },
+        "add-or-edit-contact-modal": {
+            "add-contact-header": "Add to contacts",
+            "edit-contact-header": "Edit contact",
+            "enable-alias": "Create an alias?"
+        },
+        "alias-already-exists-message": "There is already another contact with the alias {{alias}}"
+    },
+    "contacts-list": {
+        "loader-text": "Loading contacts list",
+        "no-contacts-placeholder": "No contacts have been added",
+        "contact-actions-label": "Actions",
+        "actions": {
+            "go-to-profile": "Go to profile",
+            "edit-contact": "Edit",
+            "remove-contact": "Remove"
+        },
+        "filter-input-placeholder": "Filter"
     }
 }

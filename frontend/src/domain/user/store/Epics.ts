@@ -2,7 +2,7 @@ import { EncryptionKey } from "./../../collection/types/EncryptionKey"
 import { NotLoggedIn } from "./../../../application/api/ApiError"
 import { ApiKeyDescription } from "./../types/ApiKey"
 import { UserData } from "./../types/UserData"
-import { EMPTY, from } from "rxjs"
+import { EMPTY, from, of } from "rxjs"
 import { filter, map, catchError, mergeMap } from "rxjs/operators"
 import { ApiKeyUpdateData, UserDataWithToken } from "./../api/UsersApi"
 import { Action, AnyAction } from "redux"
@@ -15,12 +15,19 @@ import {
     ChangePasswordInputData,
     computeMasterKeyAction,
     createApiKeyAction,
+    createContactAction,
     deleteApiKeyAction,
+    deleteContactAction,
+    editContactAction,
     fetchAndDecryptKeyPairAction,
     fetchApiKeysAction,
     fetchCurrentUserAction,
+    fetchMultipleUsersPublicDataAction,
+    fetchUserPublicDataAction,
+    listContactsAction,
     localLogoutAction,
     loginAction,
+    refreshContactsListWithParamAction,
     refreshUserDataAction,
     registerNewUserAction,
     RegistrationParams,
@@ -38,6 +45,7 @@ import { NoUpdatesProvides, Unauthorized } from "../../../application/api/ApiErr
 import { validateNonEmptyData } from "../../../application/api/helpers"
 import CollectionsApi from "../../collection/api/CollectionsApi"
 import { KeyPair } from "../../../application/cryptography/types/KeyPair"
+import chunk from "lodash/chunk"
 
 const PRIVATE_KEY_LENGTH = 4096
 
@@ -239,6 +247,76 @@ const computeMasterKeyEpic = createEpic<{ password: string; emailHash: string },
     (params) => CryptoApi.deriveKey(params.password, params.emailHash.toLowerCase())
 )
 
+const fetchPublicUserDataEpic = createEpic(fetchUserPublicDataAction, (params) => UsersApi.fetchUserPublicData(params))
+
+const fetchMultipleUsersDataEpic = createEpic(fetchMultipleUsersPublicDataAction, async (params) => {
+    const chunks = chunk(params, 20)
+    const results = await Promise.all(chunks.map((c) => UsersApi.fetchMultipleUsersPublicData(c)))
+    return results.reduce((prev, next) => Object.assign({}, prev, next), {})
+})
+
+const createContactEpic = createEpic(createContactAction, ({ userId, alias }) => UsersApi.createContact(userId, alias))
+
+const deleteContactEpic = createEpic(deleteContactAction, (params) => UsersApi.deleteContact(params))
+
+const listContactsEpic = createEpic(listContactsAction, ({ page, limit, nameFilter }) => {
+    const maybeRefinedNameFilter = nameFilter && nameFilter.trim().length > 0 ? nameFilter.trim() : undefined
+    return UsersApi.listContacts({ page, limit, nameFilter: maybeRefinedNameFilter })
+})
+
+const refreshContactsListOnDelete: Epic<AnyAction, AnyAction, AppState> = (action$, state$) =>
+    action$.pipe(
+        filter(deleteContactAction.done.match),
+        mergeMap((action) => {
+            if (
+                state$.value.users.contacts.status !== "FINISHED" ||
+                !state$.value.users.contacts.data.result.some((c) => c.userId === action.payload.params)
+            ) {
+                return EMPTY
+            } else {
+                return of(listContactsAction.started(state$.value.users.contacts.params))
+            }
+        })
+    )
+
+const refreshContactsWithParamsEpic: Epic<AnyAction, AnyAction, AppState> = (action$, state$) =>
+    action$.pipe(
+        filter(refreshContactsListWithParamAction.match),
+        mergeMap((action) => {
+            if (state$.value.users.contacts.status === "NOT_STARTED") {
+                return EMPTY
+            } else if (Object.values(action.payload).filter((v) => v !== undefined).length < 1) {
+                return EMPTY
+            } else {
+                const newParams = Object.fromEntries(
+                    Object.entries(action.payload)
+                        .filter(([_, value]) => value !== undefined)
+                        .map(([key, value]) => [key, value ?? undefined])
+                )
+                return of(listContactsAction.started({ ...state$.value.users.contacts.params, ...newParams }))
+            }
+        })
+    )
+
+const editContactEpic = createEpic(editContactAction, ({ contactId, data }) => {
+    if (data.alias === undefined || data.alias === null) {
+        return Promise.reject(new NoUpdatesProvides())
+    }
+    return UsersApi.editContact(contactId, data)
+})
+
+const refreshContactListOnContactEdit: Epic<AnyAction, AnyAction, AppState> = (action$, state$) =>
+    action$.pipe(
+        filter(editContactAction.done.match),
+        mergeMap((a) => {
+            if (state$.value.users.contacts.status === "FINISHED") {
+                return of(listContactsAction.started({ ...state$.value.users.contacts.params }))
+            } else {
+                return EMPTY
+            }
+        })
+    )
+
 export const usersEpics = combineEpics<Action, Action, AppState>(
     userLoginEpic,
     currentUserDataEpic,
@@ -259,5 +337,14 @@ export const usersEpics = combineEpics<Action, Action, AppState>(
     changePasswordEpic,
     fetchAndDecryptKeyPairEpic,
     fetchAndDecryptKeyPairOnMasterKeySet,
-    computeMasterKeyEpic
+    computeMasterKeyEpic,
+    fetchPublicUserDataEpic,
+    fetchMultipleUsersDataEpic,
+    createContactEpic,
+    deleteContactEpic,
+    listContactsEpic,
+    refreshContactsListOnDelete,
+    refreshContactsWithParamsEpic,
+    editContactEpic,
+    refreshContactListOnContactEdit
 )

@@ -9,7 +9,7 @@ type Props = WithTranslation & ReturnType<typeof mapStateToProps>
 export const TranslatedApp: React.FC<Props> = ({ children, i18n, language }) => {
     useEffect(() => {
         if (language && supportedLanguages.includes(language) && language !== i18n.languages[0]) {
-            i18n.changeLanguage(language)
+            void i18n.changeLanguage(language)
         }
     }, [language, i18n])
 

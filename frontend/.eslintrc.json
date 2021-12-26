@@ -11,7 +11,10 @@
         "react-hooks/exhaustive-deps": "error",
         "react/prop-types": 0,
         "@typescript-eslint/consistent-type-definitions": ["error", "type"],
-        "no-console": ["error", { "allow": ["warn", "error"] }]
+        "no-console": ["error", { "allow": ["warn", "error"] }],
+        "@typescript-eslint/no-floating-promises": ["error"],
+        "require-await": "error",
+        "no-warning-comments": "error"
     },
     "parserOptions": {
         "project": ["./tsconfig.json"]

@@ -1,3 +1,7 @@
+import { setActiveCollectionAction } from "./../../collection/store/Actions"
+import { UserContact } from "./../types/UserContact"
+import { ContactsFilter } from "./../types/ContactsFilter"
+import { UserPublicData } from "./../types/UserPublicData"
 import { NotLoggedIn } from "./../../../application/api/ApiError"
 import { createReducer } from "./../../../application/store/async/AsyncActionReducer"
 import {
@@ -33,11 +37,26 @@ import {
     resetCreateApiKeyStatusAction,
     fetchAndDecryptKeyPairAction,
     resetKeyPairAction,
+    fetchUserPublicDataAction,
+    resetFetchUserPublicDataResultAction,
+    fetchMultipleUsersPublicDataAction,
+    createContactAction,
+    resetCreateContactResultAction,
+    deleteContactAction,
+    resetDeleteContactResultAction,
+    listContactsAction,
+    resetListContactsResultAction,
+    updateContactsFilterAction,
+    requestContactDeleteAction,
+    requestContactEditAction,
+    editContactAction,
+    resetEditContactResultAction,
 } from "./Actions"
 import { AsyncOperationResult } from "./../../../application/store/async/AsyncOperationResult"
 import { reducerWithInitialState } from "typescript-fsa-reducers"
 import { combineReducers } from "redux"
 import { UserData } from "../types/UserData"
+import identity from "lodash/identity"
 
 const loginReducer = reducerWithInitialState<AsyncOperationResult<void, boolean, Error>>({ status: "NOT_STARTED" })
     .case(loginAction.started, () => ({ status: "PENDING", params: void 0 }))
@@ -158,6 +177,135 @@ const fetchAndDecryptKeyPairReducer = createReducer(fetchAndDecryptKeyPairAction
     )
     .build()
 
+const fetchPublicDataReducer = createReducer(fetchUserPublicDataAction, resetFetchUserPublicDataResultAction)
+    .case(createContactAction.done, (state, action) => {
+        if (state.status === "FINISHED" && state.params === action.params.userId && state.data) {
+            const updated: UserPublicData = {
+                ...state.data,
+                nickName: action.result.nickName,
+                contactData: { alias: action.result.alias },
+            }
+            return { ...state, data: updated }
+        } else {
+            return state
+        }
+    })
+    .case(deleteContactAction.done, (state, action) => {
+        if (state.status === "FINISHED" && state.params === action.params && state.data) {
+            const updated: UserPublicData = { ...state.data, contactData: null }
+            return { ...state, data: updated }
+        } else {
+            return state
+        }
+    })
+    .case(editContactAction.done, (state, action) => {
+        if (state.status === "FINISHED" && state.data?.userId === action.result.userId) {
+            const updated: UserPublicData = { ...state.data, contactData: { alias: action.result.alias } }
+            return { ...state, data: updated }
+        } else {
+            return state
+        }
+    })
+    .build()
+
+type OptionalUserPublicData = UserPublicData | null | undefined
+
+type PublicUserResult = AsyncOperationResult<string, OptionalUserPublicData, Error>
+
+const updateKnownUsers = <A>(
+    state: Record<string, PublicUserResult>,
+    action: A,
+    toResult: (a: A, userId: string) => PublicUserResult,
+    getParams: (a: A) => string[],
+    updateFinished: boolean
+) => {
+    const resultsNotFinishedBefore = updateFinished
+        ? getParams(action)
+        : getParams(action).filter((userId) => state[userId]?.status !== "FINISHED")
+    const newValues: [string, PublicUserResult][] = resultsNotFinishedBefore.map((userId) => [
+        userId,
+        toResult(action, userId),
+    ])
+    const obj = Object.fromEntries(newValues)
+    return Object.assign({}, state, obj)
+}
+
+const knownUsersReducer = reducerWithInitialState<Record<string, PublicUserResult>>({})
+    .case(fetchMultipleUsersPublicDataAction.started, (state, action) => {
+        return updateKnownUsers(state, action, (_, userId) => ({ status: "PENDING", params: userId }), identity, false)
+    })
+    .case(fetchMultipleUsersPublicDataAction.failed, (state, action) => {
+        return updateKnownUsers(
+            state,
+            action,
+            (a, userId) => ({ status: "FAILED", params: userId, error: a.error }),
+            (a) => a.params,
+            false
+        )
+    })
+    .case(fetchMultipleUsersPublicDataAction.done, (state, action) => {
+        return updateKnownUsers(
+            state,
+            action,
+            (a, userId) => ({ status: "FINISHED", params: userId, data: a.result[userId] }),
+            (a) => a.params,
+            true
+        )
+    })
+    .case(createContactAction.done, (state, action) => {
+        const maybeUser = state[action.params.userId]
+        if (!maybeUser || maybeUser.status !== "FINISHED" || !maybeUser.data) {
+            return state
+        }
+        const updatedUser: PublicUserResult = {
+            ...maybeUser,
+            data: { ...maybeUser.data, nickName: action.result.nickName, contactData: { alias: action.result.alias } },
+        }
+        return { ...state, [action.params.userId]: updatedUser }
+    })
+    .case(deleteContactAction.done, (state, action) => {
+        const maybeUser = state[action.params]
+        if (!maybeUser || maybeUser.status !== "FINISHED" || !maybeUser.data) {
+            return state
+        }
+        const updatedUser: PublicUserResult = { ...maybeUser, data: { ...maybeUser.data, contactData: null } }
+        return { ...state, [action.params]: updatedUser }
+    })
+    .case(setActiveCollectionAction, () => ({}))
+    .case(editContactAction.done, (state, action) => {
+        const maybeUser = state[action.result.userId]
+        if (!maybeUser || maybeUser.status !== "FINISHED" || !maybeUser.data?.contactData) {
+            return state
+        }
+        const updatedContactData: { alias?: string | null } = { alias: action.result.alias }
+        const updatedUser: PublicUserResult = {
+            ...maybeUser,
+            data: { ...maybeUser.data, contactData: updatedContactData },
+        }
+        return { ...state, [action.result.userId]: updatedUser }
+    })
+    .build()
+
+const createContactReducer = createReducer(createContactAction, resetCreateContactResultAction).build()
+
+const deleteContactReducer = createReducer(deleteContactAction, resetDeleteContactResultAction).build()
+
+const listContactsReducer = createReducer(listContactsAction, resetListContactsResultAction).build()
+
+const contactsFilterReducer = reducerWithInitialState<ContactsFilter>({ name: "" })
+    .case(updateContactsFilterAction, (state, action) => ({ ...state, name: action.name ?? state.name }))
+    .build()
+
+const requestContactDeleteReducer = reducerWithInitialState<UserContact | null>(null)
+    .case(requestContactDeleteAction, (_, action) => action)
+    .build()
+
+const contactEditRequestReducer = reducerWithInitialState<UserContact | null>(null)
+    .case(requestContactEditAction, (_, action) => action)
+    .build()
+
+const contactEditReducer = createReducer(editContactAction, resetEditContactResultAction).build()
+
 export const usersReducer = combineReducers({
     loginStatus: loginReducer,
     userData: userDataReducer,
@@ -176,4 +324,13 @@ export const usersReducer = combineReducers({
     logoutStatus: apiLogoutReducer,
     changePassword: changePasswordReducer,
     keyPair: fetchAndDecryptKeyPairReducer,
+    publicData: fetchPublicDataReducer,
+    knownUsers: knownUsersReducer,
+    createContactResult: createContactReducer,
+    deleteContactResult: deleteContactReducer,
+    contacts: listContactsReducer,
+    contactsFilter: contactsFilterReducer,
+    contactRequestedToDelete: requestContactDeleteReducer,
+    contactRequestedToEdit: contactEditRequestReducer,
+    editContactResult: contactEditReducer,
 })

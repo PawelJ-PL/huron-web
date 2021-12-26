@@ -13,6 +13,7 @@ import { Dispatch } from "redux"
 import { selectFilesAction } from "../../../store/Actions"
 import { connect } from "react-redux"
 import { SELECT_ALL_FILES_CHECKBOX, SELECT_FILE_CHECKBOX } from "../../testids"
+import Author from "../file/Author"
 
 type Props = {
     childObjects: FilesystemUnitMetadata[]
@@ -77,6 +78,7 @@ export const FullDirectoryList: React.FC<Props> = ({
                     ? t("file-view:directory-content-list.types.directory")
                     : fsUnit.mimeType ?? t("common:unknown-masculine")}
             </Td>
+            <Td>{fsUnit["@type"] === "FileData" ? <Author authorId={fsUnit.versionAuthor ?? undefined} /> : ""}</Td>
             <Td>{fsUnit["@type"] === "FileData" ? formatFileSize(i18n, fsUnit.encryptedSize) : ""}</Td>
             <Td>{fsUnit["@type"] === "FileData" ? formatDate(i18n, fsUnit.updatedAt) : ""}</Td>
             <Td>
@@ -100,6 +102,7 @@ export const FullDirectoryList: React.FC<Props> = ({
                     </Th>
                     <Th>{t("file-view:directory-content-list.headers.file-name")}</Th>
                     <Th>{t("file-view:directory-content-list.headers.type")}</Th>
+                    <Th>{t("file-view:directory-content-list.headers.updated-by")}</Th>
                     <Th>{t("file-view:directory-content-list.headers.encrypted-size")}</Th>
                     <Th>{t("file-view:directory-content-list.headers.updated-at")}</Th>
                     <Th></Th>

@@ -1,6 +1,7 @@
 import React, { useEffect } from "react"
 import { useTranslation, WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
+import { useNavigate } from "react-router-dom"
 import { Dispatch } from "redux"
 import LoginScreen from "../domain/user/components/LoginScreen"
 import { clearMasterKeyAction, fetchCurrentUserAction, resetLoginResultAction } from "../domain/user/store/Actions"
@@ -14,7 +15,15 @@ import { AppState } from "./store"
 
 type Props = ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps> & WithTranslation
 
-export const AuthDecisionContainer: React.FC<Props> = ({ fetchUserData, userData, t, clearPasswords }) => {
+export const AuthDecisionContainer: React.FC<Props> = ({
+    fetchUserData,
+    userData,
+    t,
+    clearPasswords,
+    apiLogoutStatus,
+}) => {
+    const navigate = useNavigate()
+
     useEffect(() => {
         fetchUserData()
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -25,6 +34,12 @@ export const AuthDecisionContainer: React.FC<Props> = ({ fetchUserData, userData
             clearPasswords()
         }
     }, [userData, clearPasswords])
+
+    useEffect(() => {
+        if (apiLogoutStatus.status === "FINISHED") {
+            navigate("/")
+        }
+    })
 
     if (userData.status === "FAILED" && userData.error instanceof NotLoggedIn) {
         return <AppRouter routes={guestRoutes} defaultComponent={LoginScreen} />
@@ -51,6 +66,7 @@ const PageNotFoundComponent: React.FC = () => {
 
 const mapStateToProps = (state: AppState) => ({
     userData: state.users.userData,
+    apiLogoutStatus: state.users.logoutStatus,
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
