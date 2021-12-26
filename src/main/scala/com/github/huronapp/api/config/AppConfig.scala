@@ -41,6 +41,7 @@ object AppConfig {
     env("REGISTRATION_VALID_FOR").as[FiniteDuration],
     env("DUMMY_BCRYPT_HASH").as[String],
     env("SESSION_COOKIE_TTL").as[FiniteDuration].default(FiniteDuration(7, TimeUnit.DAYS)),
+    env("SESSION_COOKIE_SECURE").as[Boolean].default(true),
     SessionRepoConfig.load,
     env("PASSWORD_RESET_URI").as[Uri],
     env("PASSWORD_RESET_VALID_FOR").as[FiniteDuration]
@@ -89,6 +90,7 @@ final case class SecurityConfig(
   registrationValidFor: FiniteDuration,
   dummyBcryptHash: String,
   sessionCookieTtl: FiniteDuration,
+  sessionCookieSecure: Boolean,
   sessionRepo: SessionRepoConfig,
   passwordResetUri: Uri,
   passwordResetValidFor: FiniteDuration)
