@@ -39,7 +39,7 @@ import com.github.huronapp.api.domain.users.{
 import com.github.huronapp.api.http.pagination.PaginationEnvelope
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.{boolean, string}
-import eu.timepit.refined.collection.MinSize
+import eu.timepit.refined.collection.{MaxSize, MinSize}
 import eu.timepit.refined.numeric.Positive
 import io.chrisdavenport.fuuid.FUUID
 import zio.{ULayer, ZIO, ZLayer}
@@ -70,7 +70,9 @@ object UsersServiceStub extends Users with MiscConstants {
     listContacts: ZIO[Any, Nothing, PaginationEnvelope[ContactWithUser]] = ZIO.succeed(PaginationEnvelope(List((ExampleContact,
             ExampleUser)), 1)),
     deleteContact: ZIO[Any, Nothing, Boolean] = ZIO.succeed(true),
-    editContact: ZIO[Any, EditContactError, ContactWithUser] = ZIO.succeed((ExampleContact, ExampleUser.copy(id = ExampleFuuid1))))
+    editContact: ZIO[Any, EditContactError, ContactWithUser] = ZIO.succeed((ExampleContact, ExampleUser.copy(id = ExampleFuuid1))),
+    getMultipleUsers: ZIO[Any, Nothing, List[(FUUID, Option[UserWithContact])]] = ZIO.succeed(List((ExampleUserId, Some((ExampleUser,
+              Some(UserContact(ExampleFuuid1, ExampleUserId, ExampleContact.alias))))), (ExampleFuuid1, None))))
 
   def withResponses(responses: UsersServiceResponses): ULayer[UsersService] =
     ZLayer.succeed(new UsersService.Service {
@@ -93,6 +95,11 @@ object UsersServiceStub extends Users with MiscConstants {
         drop: Int,
         includeSelf: Boolean
       ): ZIO[Any, Nothing, PaginationEnvelope[UserWithContact]] = responses.findUser
+
+      override def getMultipleUsers(
+        asUser: FUUID,
+        userIds: Refined[List[FUUID], MaxSize[20]]
+      ): ZIO[Any, Nothing, List[(FUUID, Option[UserWithContact])]] = responses.getMultipleUsers
 
       override def createContactAs(userId: FUUID, dto: NewContactReq): ZIO[Any, CreateContactError, ContactWithUser] =
         responses.createContact

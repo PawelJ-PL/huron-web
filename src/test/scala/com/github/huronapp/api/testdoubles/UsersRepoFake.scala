@@ -186,6 +186,18 @@ object UsersRepoFake {
             PaginationEnvelope(data, total.toLong)
         }
 
+      override def getMultipleUsersWithContact(
+        owner: FUUID,
+        userIds: List[FUUID]
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, List[(User, Option[UserContact])]] =
+        ref.get.map { state =>
+          val users = state.users.filter(u => userIds.contains(u.id))
+          users.map { u =>
+            val maybeContact = state.contacts.find(c => c.ownerId === owner && c.contactId === u.id)
+            (u, maybeContact)
+          }.toList
+        }
+
       override def getContacts(
         ownerId: FUUID,
         limit: Int,

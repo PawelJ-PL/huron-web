@@ -37,6 +37,7 @@ import com.github.huronapp.api.testdoubles.{
   UsersRepoFake
 }
 import com.github.huronapp.api.utils.OptionalValue
+import eu.timepit.refined.api.Refined
 import io.github.gaelrenoux.tranzactio.doobie.Database
 import kamon.context.Context
 import zio.blocking.Blocking
@@ -47,6 +48,8 @@ import zio.test.Assertion.{equalTo, hasSameElements, isEmpty, isLeft, isNone, is
 import zio.test.environment.TestEnvironment
 import zio.test.{DefaultRunnableSpec, ZSpec, assert}
 import eu.timepit.refined.auto._
+import eu.timepit.refined.collection.MaxSize
+import io.chrisdavenport.fuuid.FUUID
 
 import java.time.Instant
 
@@ -75,6 +78,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       findUsersByNicknameWithLimit,
       findUsersByNicknameWithDrop,
       findUsersByNicknameWithoutSelf,
+      getMultipleUsers,
       confirmSignUp,
       confirmSignUpWithInvalidToken,
       confirmAlreadyConfirmedRegistration,
@@ -326,6 +330,38 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
           (user5, None),
           (user3, None)
         )
+      )
+    ) &&
+      assert(finalUsersRepoState)(equalTo(initialState)) &&
+      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val getMultipleUsers = testM("should return multiple users with missing values") {
+    val user1 = ExampleUser.copy(nickName = "user1")
+    val user2 = ExampleUser.copy(id = ExampleFuuid1, nickName = "user2")
+    val user3 = ExampleUser.copy(id = ExampleFuuid2, nickName = "user3")
+    val user4 = ExampleUser.copy(id = ExampleFuuid3, nickName = "user4")
+    val user5 = ExampleUser.copy(id = ExampleFuuid4, nickName = "user5")
+
+    val initialState = UsersRepoFake.UsersRepoState(users = Set(user1, user2, user3, user4, user5))
+    val collectionRepoState = CollectionsRepoFake.CollectionsRepoState()
+
+    val userIds = Refined.unsafeApply[List[FUUID], MaxSize[20]](List(ExampleFuuid1, ExampleFuuid5, ExampleFuuid3, ExampleFuuid6))
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(initialState)
+      collectionsRepo       <- Ref.make(collectionRepoState)
+      users                 <- UsersService
+                                 .getMultipleUsers(ExampleUserId, userIds)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(users)(
+      hasSameElements(
+        List((ExampleFuuid1, Some((user2, None))), (ExampleFuuid5, None), (ExampleFuuid3, Some((user4, None))), (ExampleFuuid6, None))
       )
     ) &&
       assert(finalUsersRepoState)(equalTo(initialState)) &&

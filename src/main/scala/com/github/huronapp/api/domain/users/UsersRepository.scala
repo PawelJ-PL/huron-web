@@ -65,6 +65,8 @@ object UsersRepository {
       includeSelf: Boolean
     ): ZIO[Connection, DbException, PaginationEnvelope[UserWithContact]]
 
+    def getMultipleUsersWithContact(owner: FUUID, userIds: List[FUUID]): ZIO[Connection, DbException, List[UserWithContact]]
+
     def getContacts(ownerId: FUUID, limit: Int, drop: Int): ZIO[Connection, DbException, PaginationEnvelope[ContactWithUser]]
 
     def getContact(ownerId: FUUID, objectId: FUUID): ZIO[Connection, DbException, Option[UserContact]]
@@ -311,6 +313,18 @@ object UsersRepository {
                      )
             total <- tzio(run(quote(filterMatchingUsers(ownerId, matchingNickName, includeSelf).size)))
           } yield PaginationEnvelope(rows, total)
+
+        override def getMultipleUsersWithContact(owner: FUUID, userIds: List[FUUID]): ZIO[Connection, DbException, List[UserWithContact]] =
+          tzio(
+            run(
+              quote(
+                for {
+                  user         <- users.filter(u => liftQuery(userIds).contains(u.id))
+                  maybeContact <- contacts.filter(_.contactOwnerId == lift(owner)).leftJoin(_.contactObjectId == user.id)
+                } yield (user, maybeContact)
+              )
+            ).map(_.transformInto[List[(User, Option[UserContact])]])
+          )
 
         override def getContacts(
           ownerId: FUUID,

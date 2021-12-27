@@ -14,6 +14,7 @@ import com.github.huronapp.api.domain.users.dto.{
   PasswordResetReq,
   PatchContactReq,
   PatchUserDataReq,
+  PublicUserContactResp,
   PublicUserDataResp,
   UpdateApiKeyDataReq,
   UpdatePasswordReq,
@@ -23,10 +24,11 @@ import com.github.huronapp.api.domain.users.dto.{
 import com.github.huronapp.api.http.pagination.{Paging, PagingResponseMetadata}
 import com.github.huronapp.api.http.{BaseEndpoint, ErrorResponse}
 import com.github.huronapp.api.utils.Implicits.fuuid._
+import com.github.huronapp.api.utils.Implicits.fuuidKeyMap._
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.auto._
 import eu.timepit.refined.boolean.And
-import eu.timepit.refined.collection.MinSize
+import eu.timepit.refined.collection.{MaxSize, MinSize}
 import eu.timepit.refined.string.Trimmed
 import io.chrisdavenport.fuuid.FUUID
 import sttp.model.StatusCode
@@ -100,25 +102,6 @@ object UsersEndpoints extends BaseEndpoint {
         oneOfVariant(StatusCode.Conflict, jsonBody[ErrorResponse.Conflict].examples(List(emailConflictExample, nickNameConflictExample)))
       )
     )
-
-  val findUsersEndpoint: Endpoint[
-    AuthenticationInputs,
-    (Paging, Refined[String, And[Trimmed, MinSize[5]]], Option[Boolean]),
-    ErrorResponse,
-    (PagingResponseMetadata, List[PublicUserDataResp]),
-    Any
-  ] = usersEndpoint
-    .summary("Find users by nickname")
-    .get
-    .securityIn(authRequestParts)
-    .in(Paging.params(defaultLimit = 5, maxLimit = 10))
-    .in(
-      query[String Refined (Trimmed And MinSize[5])]("nickNameFilter").description("Start of a nickname. Must have at least 5 characters")
-    )
-    .in(query[Option[Boolean]]("includeSelf").description("Should the searching user be included in the search results (default true)"))
-    .out(PagingResponseMetadata.headers)
-    .out(jsonBody[List[PublicUserDataResp]])
-    .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))
 
   val confirmRegistrationEndpoint: PublicEndpoint[String, ErrorResponse, Unit, Any] = usersEndpoint
     .summary("Signup confirmation")
@@ -203,6 +186,45 @@ object UsersEndpoints extends BaseEndpoint {
       )
     )
 
+  val findUsersEndpoint: Endpoint[
+    AuthenticationInputs,
+    (Refined[String, And[Trimmed, MinSize[5]]], Paging, Option[Boolean]),
+    ErrorResponse,
+    (PagingResponseMetadata, List[PublicUserDataResp]),
+    Any
+  ] = usersEndpoint
+    .summary("Find users by nickname")
+    .get
+    .securityIn(authRequestParts)
+    .in(
+      "nicknames" / path[String Refined (Trimmed And MinSize[5])]("nickNameStart")
+        .description("Start of a nickname. Must have at least 5 characters")
+    )
+    .in(Paging.params(defaultLimit = 5, maxLimit = 10))
+    .in(query[Option[Boolean]]("includeSelf").description("Should the searching user be included in the search results (default true)"))
+    .out(PagingResponseMetadata.headers)
+    .out(jsonBody[List[PublicUserDataResp]])
+    .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))
+
+  val getMultipleUsersEndpoint
+    : Endpoint[AuthenticationInputs, Refined[List[FUUID], MaxSize[20]], ErrorResponse, Map[FUUID, Option[PublicUserDataResp]], Any] =
+    usersEndpoint
+      .summary("Get multiple users data")
+      .get
+      .securityIn(authRequestParts)
+      .in(query[Refined[List[FUUID], MaxSize[20]]]("userId"))
+      .out(
+        jsonBody[Map[FUUID, Option[PublicUserDataResp]]].example(
+          Map(
+            FUUID.fuuid("99666bb4-43ef-4258-8f8c-3aafd4e37a7c") -> None,
+            FUUID.fuuid("93cc503e-2895-4206-aa45-9a20a3a3ba35") -> Some(
+              PublicUserDataResp(FUUID.fuuid("5d0f7802-7555-4160-893b-063becb117e3"), "Alice", Some(PublicUserContactResp(Some("Friend1"))))
+            )
+          )
+        )
+      )
+      .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))
+
   private val updatePasswordPasswordsEqualsExample = Example(
     Responses.updatePasswordPasswordsEquals,
     Responses.updatePasswordPasswordsEquals.reason,
@@ -238,7 +260,7 @@ object UsersEndpoints extends BaseEndpoint {
     Example(exampleResponse, exampleResponse.reason, exampleResponse.reason)
   }
 
-  val updateUserPasswordEndpoint =
+  val updateUserPasswordEndpoint: Endpoint[AuthenticationInputs, UpdatePasswordReq, ErrorResponse, Unit, Any] =
     usersEndpoint
       .summary("Change password")
       .post
@@ -428,12 +450,13 @@ object UsersEndpoints extends BaseEndpoint {
   val endpoints: NonEmptyList[Endpoint[_, _, _, _, Any]] =
     NonEmptyList.of(
       registerUserEndpoint,
-      findUsersEndpoint,
+      getMultipleUsersEndpoint,
       confirmRegistrationEndpoint,
       loginEndpoint,
       logoutEndpoint,
       userDataEndpoint,
       publicUserDataEndpoint,
+      findUsersEndpoint,
       updateUserDataEndpoint,
       updateUserPasswordEndpoint,
       requestPasswordResetEndpoint,
