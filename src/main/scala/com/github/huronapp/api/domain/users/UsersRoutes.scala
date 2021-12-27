@@ -66,7 +66,7 @@ object UsersRoutes {
               .toAuthenticatedRoutes(
                 auth.asUser
               )(user => {
-                case (paging, filter, includeSelf) =>
+                case (filter, paging, includeSelf) =>
                   usersService
                     .findUser(
                       user.userId,
@@ -84,6 +84,26 @@ object UsersRoutes {
                       (pagingMetadata, body)
                     }
               })
+
+          private val getMultipleUsersRoute: HttpRoutes[RouteEffect] = UsersEndpoints
+            .getMultipleUsersEndpoint
+            .toAuthenticatedRoutes(auth.asUser)(user =>
+              queryUserIds =>
+                usersService
+                  .getMultipleUsers(user.userId, queryUserIds)
+                  .map(result =>
+                    result.map {
+                      case (userId, maybeUserWithContact) =>
+                        (
+                          userId,
+                          maybeUserWithContact.map {
+                            case (user, maybeContact) =>
+                              PublicUserDataResp(user.id, user.nickName, maybeContact.map(contact => PublicUserContactResp(contact.alias)))
+                          }
+                        )
+                    }.toMap
+                  )
+            )
 
           private val confirmRegistrationRoutes: HttpRoutes[RouteEffect] = UsersEndpoints
             .confirmRegistrationEndpoint
@@ -318,11 +338,12 @@ object UsersRoutes {
 
           override val routes: HttpRoutes[RouteEffect] =
             registerUserRoutes <+>
-              findUserRoutes <+>
+              getMultipleUsersRoute <+>
               confirmRegistrationRoutes <+>
               userLoginRoutes <+>
               userLogoutRoutes <+>
               userDataRoutes <+>
+              findUserRoutes <+>
               updateUserRoutes <+>
               publicUserDataRoutes <+>
               updateUserPasswordRoutes <+>

@@ -6,7 +6,7 @@ import com.github.huronapp.api.domain.collections.CollectionId
 import com.github.huronapp.api.domain.files.{FileId, FileVersionId}
 import com.vdurmont.semver4j.Semver
 import io.chrisdavenport.fuuid.FUUID
-import io.circe.{Decoder, Encoder}
+import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
 import sttp.tapir.{Codec, CodecFormat, DecodeResult, Schema}
 
 object Implicits {
@@ -59,6 +59,18 @@ object Implicits {
 
     implicit val versionIdTapirTextPlainCodec: Codec[String, FileVersionId, CodecFormat.TextPlain] =
       fuuid.fuuidTapirTextPlainCodec.map(FileVersionId(_))(_.id)
+
+  }
+
+  object fuuidKeyMap {
+    import fuuid._
+
+    implicit val FuuidMapKeyDecoder: KeyDecoder[FUUID] = KeyDecoder.instance(FUUID.fromStringOpt)
+
+    implicit val FuuidMapKeyEncoder: KeyEncoder[FUUID] = KeyEncoder.instance(_.show)
+
+    //  implicit val xxx: Schema[Map[FUUID, Option[PublicUserDataResp]]] = ???
+    implicit def tapirSchemaForFuuidKeyMap[V: Schema]: Schema[Map[FUUID, V]] = Schema.schemaForMap[FUUID, V](_.show)
 
   }
 

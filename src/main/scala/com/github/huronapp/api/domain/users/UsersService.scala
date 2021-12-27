@@ -32,7 +32,7 @@ import com.github.huronapp.api.utils.tracing.KamonTracing
 import com.github.huronapp.api.utils.tracing.KamonTracing.KamonTracing
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.boolean.And
-import eu.timepit.refined.collection.MinSize
+import eu.timepit.refined.collection.{MaxSize, MinSize}
 import eu.timepit.refined.numeric.Positive
 import eu.timepit.refined.string.Trimmed
 import io.chrisdavenport.fuuid.FUUID
@@ -69,6 +69,11 @@ object UsersService {
       drop: Int,
       includeSelf: Boolean
     ): ZIO[Any, Nothing, PaginationEnvelope[UserWithContact]]
+
+    def getMultipleUsers(
+      asUser: FUUID,
+      userIds: Refined[List[FUUID], MaxSize[20]]
+    ): ZIO[Any, Nothing, List[(FUUID, Option[UserWithContact])]]
 
     def createContactAs(userId: FUUID, dto: NewContactReq): ZIO[Any, CreateContactError, ContactWithUser]
 
@@ -191,6 +196,20 @@ object UsersService {
               db.transactionOrDie(
                 usersRepo.findAllWithContactByMatchingNickname(asUser, nickNamePart.value, limit.value, drop, includeSelf).orDie
               )
+
+            override def getMultipleUsers(
+              asUser: FUUID,
+              userIds: Refined[List[FUUID], MaxSize[20]]
+            ): ZIO[Any, Nothing, List[(FUUID, Option[UserWithContact])]] = {
+              val uniqueUserIds = Set.from(userIds.value).toList
+              db.transactionOrDie(
+                usersRepo.getMultipleUsersWithContact(asUser, uniqueUserIds).orDie.map { result =>
+                  val withUser = result.map(userWithContact => (userWithContact._1.id, Some(userWithContact)))
+                  val missing = uniqueUserIds.filterNot(userId => result.map(_._1.id).contains(userId)).map(userId => (userId, None))
+                  withUser ++ missing
+                }
+              )
+            }
 
             override def listContactsAs(
               userId: FUUID,

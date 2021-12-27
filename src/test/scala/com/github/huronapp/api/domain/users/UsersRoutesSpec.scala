@@ -39,7 +39,9 @@ import com.github.huronapp.api.http.ErrorResponse
 import com.github.huronapp.api.http.pagination.PaginationEnvelope
 import com.github.huronapp.api.testdoubles.HttpAuthenticationFake.validAuthHeader
 import com.github.huronapp.api.testdoubles.{HttpAuthenticationFake, LoggerFake, RandomUtilsStub, SessionRepoFake, UsersServiceStub}
+import com.github.huronapp.api.utils.Implicits.fuuidKeyMap._
 import com.github.huronapp.api.utils.OptionalValue
+import io.chrisdavenport.fuuid.FUUID
 import io.circe.Json
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.circe.CirceEntityEncoder._
@@ -82,6 +84,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       findUsersByNicknameWithTooBigLimit,
       findUsersByNicknameWithNonPositivePage,
       findUsersByNicknameUnauthorized,
+      getMultipleUsers,
+      getTooManyMultipleUsers,
+      getMultipleUsersUnauthorized,
       confirmRegistration,
       confirmRegistrationWithInvalidToken,
       confirmRegistrationWithAlreadyConfirmed,
@@ -256,7 +261,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa")
+      uri = uri"/api/v1/users/nicknames/aaaaa"
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[List[PublicUserDataResp]]
@@ -278,7 +283,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
         logs             <- Ref.make(Chain.empty[String])
         routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaa ")
+        uri = uri"/api/v1/users/nicknames".addSegment("aaaaa ")
         req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
@@ -296,7 +301,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
         logs             <- Ref.make(Chain.empty[String])
         routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aa")
+        uri = uri"/api/v1/users/nicknames/aaaa"
         req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
@@ -314,7 +319,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
         logs             <- Ref.make(Chain.empty[String])
         routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaa").withQueryParam("limit", 0)
+        uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("limit", 0)
         req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
@@ -332,7 +337,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
         logs             <- Ref.make(Chain.empty[String])
         routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaa").withQueryParam("limit", 11)
+        uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("limit", 11)
         req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
@@ -350,7 +355,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
         logs             <- Ref.make(Chain.empty[String])
         routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaa").withQueryParam("page", 0)
+        uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("page", 0)
         req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
@@ -368,7 +373,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
         logs             <- Ref.make(Chain.empty[String])
         routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa")
+        uri = uri"/api/v1/users/nicknames/aaaaa"
         req = Request[RouteEffect](method = Method.GET, uri = uri)
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
@@ -377,6 +382,94 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         assert(loggedMessages)(equalTo(Chain.empty)) &&
         assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
     }
+
+  private val getMultipleUsers = testM("should generate response for multiple users request") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    for {
+      sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".withMultiValueQueryParams(Map("userId" -> List(ExampleUserId.show, ExampleFuuid1.show)))
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[Map[FUUID, Option[PublicUserDataResp]]]
+      loggedMessages   <- logs.get
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.Ok)) &&
+      assert(body)(
+        equalTo(
+          Map(
+            ExampleUserId -> Some(
+              PublicUserDataResp(ExampleUserId, ExampleUserNickName, Some(PublicUserContactResp(ExampleContact.alias)))
+            ),
+            ExampleFuuid1 -> None
+          )
+        )
+      ) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+  }
+
+  private val getTooManyMultipleUsers = testM("should generate response for multiple users request if too many user ids provided") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    for {
+      sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".withMultiValueQueryParams(
+              Map(
+                "userId" -> List(
+                  "b19fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "c19fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "d19fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "e19fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "f19fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "a19fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "b19fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "119fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "219fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "319fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "419fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "519fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "619fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "719fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "819fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "919fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "019fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "b29fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "b39fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "b49fb6df-3a52-4bcf-a5ce-b9efcb0fc77e",
+                  "b59fb6df-3a52-4bcf-a5ce-b9efcb0fc77e"
+                )
+              )
+            )
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      loggedMessages   <- logs.get
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.BadRequest)) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+  }
+
+  private val getMultipleUsersUnauthorized = testM("should generate response for multiple users request when user not logged in") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    for {
+      sessionRepo      <- Ref.make(SessionRepoFake.SessionRepoState())
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".withMultiValueQueryParams(Map("userId" -> List(ExampleUserId.show, ExampleFuuid1.show)))
+      req = Request[RouteEffect](method = Method.GET, uri = uri)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      loggedMessages   <- logs.get
+      finalSessionRepo <- sessionRepo.get
+    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+      assert(loggedMessages)(equalTo(Chain.empty)) &&
+      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+  }
 
   private val confirmRegistration = testM("should generate response on signup confirmation success") {
     val responses = UsersServiceStub.UsersServiceResponses()
@@ -1820,7 +1913,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
       logs        <- Ref.make(Chain.empty[String])
       routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa")
+      uri = uri"/api/v1/users/nicknames/aaaaa"
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
     } yield assert(result.status)(equalTo(Status.Ok)) &&
@@ -1840,7 +1933,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
         logs        <- Ref.make(Chain.empty[String])
         routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa").withQueryParam("page", 3).withQueryParam("limit", 3)
+        uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("page", 3).withQueryParam("limit", 3)
         req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
         result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       } yield assert(result.status)(equalTo(Status.Ok)) &&
@@ -1859,7 +1952,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
       logs        <- Ref.make(Chain.empty[String])
       routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa").withQueryParam("page", 3).withQueryParam("limit", 3)
+      uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("page", 3).withQueryParam("limit", 3)
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
     } yield assert(result.status)(equalTo(Status.Ok)) &&
@@ -1873,7 +1966,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
       logs        <- Ref.make(Chain.empty[String])
       routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa")
+      uri = uri"/api/v1/users/nicknames/aaaaa"
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
     } yield assert(result.status)(equalTo(Status.Ok)) &&
@@ -1889,7 +1982,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
         logs        <- Ref.make(Chain.empty[String])
         routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-        uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa").withQueryParam("page", 30).withQueryParam("limit", 3)
+        uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("page", 30).withQueryParam("limit", 3)
         req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
         result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       } yield assert(result.status)(equalTo(Status.Ok)) &&
@@ -1906,7 +1999,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
       logs        <- Ref.make(Chain.empty[String])
       routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa").withQueryParam("page", 3).withQueryParam("limit", 3)
+      uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("page", 3).withQueryParam("limit", 3)
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
     } yield assert(result.status)(equalTo(Status.Ok)) &&
@@ -1923,7 +2016,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       sessionRepo <- Ref.make(SessionRepoFake.SessionRepoState())
       logs        <- Ref.make(Chain.empty[String])
       routes      <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
-      uri = uri"/api/v1/users".withQueryParam("nickNameFilter", "aaaaa").withQueryParam("page", 6).withQueryParam("limit", 3)
+      uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("page", 6).withQueryParam("limit", 3)
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
     } yield assert(result.status)(equalTo(Status.Ok)) &&

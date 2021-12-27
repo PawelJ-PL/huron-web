@@ -18,7 +18,7 @@ object Versions {
 
   val ciris = "2.3.1"
 
-  val tapir = "0.20.0-M2"
+  val tapir = "0.20.0-M3"
 
   val circe = "0.14.1"
 
