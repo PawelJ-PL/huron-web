@@ -77,7 +77,12 @@ object UsersService {
 
     def createContactAs(userId: FUUID, dto: NewContactReq): ZIO[Any, CreateContactError, ContactWithUser]
 
-    def listContactsAs(userId: FUUID, limit: Refined[Int, Positive], drop: Int): ZIO[Any, Nothing, PaginationEnvelope[ContactWithUser]]
+    def listContactsAs(
+      userId: FUUID,
+      limit: Refined[Int, Positive],
+      drop: Int,
+      nameFilter: Option[String]
+    ): ZIO[Any, Nothing, PaginationEnvelope[ContactWithUser]]
 
     def deleteContactAs(userId: FUUID, contactObjectId: FUUID): ZIO[Any, Nothing, Boolean]
 
@@ -214,9 +219,10 @@ object UsersService {
             override def listContactsAs(
               userId: FUUID,
               limit: Refined[Int, Positive],
-              drop: Int
+              drop: Int,
+              nameFilter: Option[String]
             ): ZIO[Any, Nothing, PaginationEnvelope[(UserContact, User)]] =
-              db.transactionOrDie(usersRepo.getContacts(userId, limit.value, drop).orDie)
+              db.transactionOrDie(usersRepo.getContacts(userId, limit.value, drop, nameFilter).orDie)
 
             private def validateUniqueAlias(
               maybeAlias: Option[ContactAlias],

@@ -107,7 +107,8 @@ object UsersServiceStub extends Users with MiscConstants {
       override def listContactsAs(
         userId: FUUID,
         limit: Refined[Int, Positive],
-        drop: Int
+        drop: Int,
+        nameFilter: Option[String]
       ): ZIO[Any, Nothing, PaginationEnvelope[(UserContact, User)]] = responses.listContacts
 
       override def deleteContactAs(userId: FUUID, contactObjectId: FUUID): ZIO[Any, Nothing, Boolean] = responses.deleteContact

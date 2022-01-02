@@ -299,16 +299,16 @@ object UsersRoutes {
           private val listContactsRoutes: HttpRoutes[RouteEffect] =
             UsersEndpoints
               .listContactsEndpoint
-              .toAuthenticatedRoutes(auth.asUser)(user =>
-                paging =>
-                  usersService.listContactsAs(user.userId, paging.limit, paging.dropCount).map { envelope =>
+              .toAuthenticatedRoutes(auth.asUser)(user => {
+                case (paging, nameFilter) =>
+                  usersService.listContactsAs(user.userId, paging.limit, paging.dropCount, nameFilter).map { envelope =>
                     val body = envelope.data.map {
                       case (contact, user) => UserContactResponse(user.id, user.nickName, contact.alias)
                     }
                     val headers = PagingResponseMetadata.of(paging, envelope)
                     (headers, body)
                   }
-              )
+              })
 
           private val deleteContactRoutes: HttpRoutes[RouteEffect] =
             UsersEndpoints

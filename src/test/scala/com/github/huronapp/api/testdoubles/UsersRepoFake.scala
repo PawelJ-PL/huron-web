@@ -201,7 +201,8 @@ object UsersRepoFake {
       override def getContacts(
         ownerId: FUUID,
         limit: Int,
-        drop: Int
+        drop: Int,
+        nameFilter: Option[String]
       ): ZIO[Has[transactor.Transactor[Task]], DbException, PaginationEnvelope[ContactWithUser]] =
         ref.get.map {
           state =>
@@ -222,7 +223,16 @@ object UsersRepoFake {
                 else false
               }
               .slice(drop, drop + limit)
-            PaginationEnvelope(result, pairs.size.toLong)
+            val filteredResult = nameFilter match {
+              case Some(filter) =>
+                result.filter {
+                  case (contact, user) =>
+                    contact.alias.exists(c => c.toLowerCase.contains(filter.toLowerCase)) ||
+                      user.nickName.toLowerCase.contains(filter.toLowerCase)
+                }
+              case None         => result
+            }
+            PaginationEnvelope(filteredResult, pairs.size.toLong)
         }
 
       override def getContact(ownerId: FUUID, objectId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Option[UserContact]] =

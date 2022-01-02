@@ -99,6 +99,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       listContacts,
       listContactsWithLimit,
       listContactsWithDrop,
+      listContactsWithNameFilter,
       updateContact,
       updateContactNoUpdates,
       updateContactNotFound,
@@ -732,7 +733,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       usersRepo       <- Ref.make(initRepo)
       collectionsRepo <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
       result          <-
-        UsersService.listContactsAs(ExampleUserId, 30, 0).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+        UsersService.listContactsAs(ExampleUserId, 30, 0, None).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
     } yield assert(result)(
       equalTo(
         PaginationEnvelope(
@@ -775,7 +776,8 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       internalTopic   <- Ref.make[List[InternalMessage]](List.empty)
       usersRepo       <- Ref.make(initRepo)
       collectionsRepo <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
-      result          <- UsersService.listContactsAs(ExampleUserId, 3, 0).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      result          <-
+        UsersService.listContactsAs(ExampleUserId, 3, 0, None).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
     } yield assert(result)(
       equalTo(
         PaginationEnvelope(
@@ -817,13 +819,55 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       usersRepo       <- Ref.make(initRepo)
       collectionsRepo <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
       result          <-
-        UsersService.listContactsAs(ExampleUserId, 30, 3).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+        UsersService.listContactsAs(ExampleUserId, 30, 3, None).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
     } yield assert(result)(
       equalTo(
         PaginationEnvelope(
           List(
             (contact1, user1),
             (contact6, user8)
+          ),
+          5
+        )
+      )
+    )
+  }
+
+  private val listContactsWithNameFilter = testM("should list contacts with name filter") {
+    val user1 = ExampleUser.copy(id = ExampleFuuid1, nickName = "Alice")
+    val user2 = ExampleUser.copy(id = ExampleFuuid2, nickName = "Bob")
+    val user3 = ExampleUser.copy(id = ExampleFuuid3, nickName = "Carol")
+    val user4 = ExampleUser.copy(id = ExampleFuuid4, nickName = "Dave")
+    val user5 = ExampleUser.copy(id = ExampleFuuid5, nickName = "Eve")
+    val user6 = ExampleUser.copy(id = ExampleFuuid6, nickName = "Frank")
+    val user7 = ExampleUser.copy(id = ExampleFuuid7, nickName = "Teddy")
+    val user8 = ExampleUser.copy(id = ExampleFuuid8, nickName = "Heidi")
+
+    val contact1 = UserContact(ExampleUserId, user1.id, None)
+    val contact2 = UserContact(ExampleUserId, user3.id, Some("Carlos"))
+    val contact3 = UserContact(user1.id, user4.id, Some("Dan"))
+    val contact4 = UserContact(ExampleUserId, user5.id, Some("Freddy"))
+    val contact5 = UserContact(ExampleUserId, user7.id, Some("Adam"))
+    val contact6 = UserContact(ExampleUserId, user8.id, None)
+
+    val initRepo = UsersRepoFake.UsersRepoState(
+      users = Set(user1, user2, user3, user4, user5, user6, user7, user8),
+      contacts = Set(contact1, contact2, contact3, contact4, contact5, contact6)
+    )
+
+    for {
+      internalTopic   <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo       <- Ref.make(initRepo)
+      collectionsRepo <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result          <- UsersService
+                           .listContactsAs(ExampleUserId, 30, 0, Some("eDd"))
+                           .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+    } yield assert(result)(
+      equalTo(
+        PaginationEnvelope(
+          List(
+            (contact5, user7),
+            (contact4, user5)
           ),
           5
         )
