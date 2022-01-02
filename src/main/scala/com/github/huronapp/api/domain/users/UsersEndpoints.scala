@@ -402,13 +402,15 @@ object UsersEndpoints extends BaseEndpoint {
       )
     )
 
-  val listContactsEndpoint =
+  val listContactsEndpoint
+    : Endpoint[AuthenticationInputs, (Paging, Option[String]), ErrorResponse, (PagingResponseMetadata, List[UserContactResponse]), Any] =
     usersEndpoint
       .summary("List contacts")
       .get
       .securityIn(authRequestParts)
       .in("me" / "contacts")
       .in(Paging.params())
+      .in(query[Option[String]]("nameFilter"))
       .out(PagingResponseMetadata.headers)
       .out(jsonBody[List[UserContactResponse]])
       .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))

@@ -67,7 +67,12 @@ object UsersRepository {
 
     def getMultipleUsersWithContact(owner: FUUID, userIds: List[FUUID]): ZIO[Connection, DbException, List[UserWithContact]]
 
-    def getContacts(ownerId: FUUID, limit: Int, drop: Int): ZIO[Connection, DbException, PaginationEnvelope[ContactWithUser]]
+    def getContacts(
+      ownerId: FUUID,
+      limit: Int,
+      drop: Int,
+      nameFilter: Option[String]
+    ): ZIO[Connection, DbException, PaginationEnvelope[ContactWithUser]]
 
     def getContact(ownerId: FUUID, objectId: FUUID): ZIO[Connection, DbException, Option[UserContact]]
 
@@ -328,9 +333,11 @@ object UsersRepository {
 
         override def getContacts(
           ownerId: FUUID,
-          limit: Index,
-          drop: Index
-        ): ZIO[Connection, DbException, PaginationEnvelope[ContactWithUser]] =
+          limit: Int,
+          drop: Int,
+          nameFilter: Option[String]
+        ): ZIO[Connection, DbException, PaginationEnvelope[ContactWithUser]] = {
+          val sqlNameFilter = nameFilter.map(f => "%" + f + "%").map(_.toLowerCase)
           for {
             rows  <- tzio(
                        run(
@@ -338,6 +345,14 @@ object UsersRepository {
                            contact <- contacts.filter(_.contactOwnerId == lift(ownerId))
                            user    <- users.join(_.id == contact.contactObjectId)
                          } yield (contact, user))
+                           .filter {
+                             case (contact, user) =>
+                               lift(sqlNameFilter).isEmpty ||
+                                 (
+                                   contact.alias.exists(c => c.toLowerCase.like(lift(sqlNameFilter.getOrElse("%")))) ||
+                                     user.nickName.toLowerCase.like(lift(sqlNameFilter).getOrElse("%"))
+                                 )
+                           }
                            .sortBy(result => (result._1.alias, result._2.nickName))(Ord(Ord.ascNullsLast, Ord.asc))
                            .drop(lift(drop))
                            .take(lift(limit))
@@ -345,6 +360,7 @@ object UsersRepository {
                      )
             total <- tzio(run(quote(contacts.filter(_.contactOwnerId == lift(ownerId)).size)))
           } yield PaginationEnvelope(rows, total)
+        }
 
         override def getContact(ownerId: FUUID, objectId: FUUID): ZIO[Connection, DbException, Option[UserContact]] =
           tzio(
