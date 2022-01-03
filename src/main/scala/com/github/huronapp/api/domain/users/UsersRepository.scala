@@ -358,7 +358,21 @@ object UsersRepository {
                            .take(lift(limit))
                        ).map(_.transformInto[List[ContactWithUser]])
                      )
-            total <- tzio(run(quote(contacts.filter(_.contactOwnerId == lift(ownerId)).size)))
+            total <- tzio(
+                       run(
+                         quote(for {
+                           contact <- contacts.filter(_.contactOwnerId == lift(ownerId))
+                           user    <- users.join(_.id == contact.contactObjectId)
+                         } yield (contact, user)).filter {
+                           case (contact, user) =>
+                             lift(sqlNameFilter).isEmpty ||
+                               (
+                                 contact.alias.exists(c => c.toLowerCase.like(lift(sqlNameFilter.getOrElse("%")))) ||
+                                   user.nickName.toLowerCase.like(lift(sqlNameFilter).getOrElse("%"))
+                               )
+                         }.size
+                       )
+                     )
           } yield PaginationEnvelope(rows, total)
         }
 
