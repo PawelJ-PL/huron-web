@@ -165,7 +165,8 @@ object UsersRepoFake {
         matchingNickName: String,
         limit: Int,
         drop: Int,
-        includeSelf: Boolean
+        includeSelf: Boolean,
+        excludeContacts: Boolean
       ): ZIO[Has[transactor.Transactor[Task]], DbException, PaginationEnvelope[UserWithContact]] =
         ref.get.map {
           state =>
@@ -182,8 +183,9 @@ object UsersRepoFake {
               val maybeContact = state.contacts.find(c => c.ownerId === ownerId && c.contactId === u.id)
               (u, maybeContact)
             }
+            val filteredData = data.filter { case (_, maybeContact) => !excludeContacts || maybeContact.isEmpty }
             val total = state.users.count(usersFilter)
-            PaginationEnvelope(data, total.toLong)
+            PaginationEnvelope(filteredData, total.toLong)
         }
 
       override def getMultipleUsersWithContact(

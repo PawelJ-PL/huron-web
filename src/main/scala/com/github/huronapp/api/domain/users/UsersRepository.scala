@@ -62,7 +62,8 @@ object UsersRepository {
       matchingNickName: String,
       limit: Int,
       drop: Int,
-      includeSelf: Boolean
+      includeSelf: Boolean,
+      excludeContacts: Boolean
     ): ZIO[Connection, DbException, PaginationEnvelope[UserWithContact]]
 
     def getMultipleUsersWithContact(owner: FUUID, userIds: List[FUUID]): ZIO[Connection, DbException, List[UserWithContact]]
@@ -300,7 +301,8 @@ object UsersRepository {
           matchingNickName: String,
           limit: Int,
           drop: Int,
-          includeSelf: Boolean
+          includeSelf: Boolean,
+          excludeContacts: Boolean
         ): ZIO[Connection, DbException, PaginationEnvelope[UserWithContact]] =
           for {
             rows  <- tzio(
@@ -311,6 +313,7 @@ object UsersRepository {
                              maybeContact <- contacts.filter(_.contactOwnerId == lift(ownerId)).leftJoin(_.contactObjectId == user.id)
                            } yield (user, maybeContact)
                          )
+                           .filter { case (_, maybeContact) => !lift(excludeContacts) || maybeContact.isEmpty }
                            .sortBy(result => (result._1.nickName.sqlLength, result._1.nickName))(Ord(Ord.asc, Ord.asc))
                            .drop(lift(drop))
                            .take(lift(limit))

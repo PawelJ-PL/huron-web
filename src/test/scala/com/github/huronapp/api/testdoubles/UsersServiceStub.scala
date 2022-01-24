@@ -93,7 +93,8 @@ object UsersServiceStub extends Users with MiscConstants {
         nickNamePart: Refined[String, boolean.And[string.Trimmed, MinSize[5]]],
         limit: Refined[Int, Positive],
         drop: Int,
-        includeSelf: Boolean
+        includeSelf: Boolean,
+        excludeContacts: Boolean
       ): ZIO[Any, Nothing, PaginationEnvelope[UserWithContact]] = responses.findUser
 
       override def getMultipleUsers(

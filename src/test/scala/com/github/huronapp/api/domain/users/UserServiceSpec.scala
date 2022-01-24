@@ -78,6 +78,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       findUsersByNicknameWithLimit,
       findUsersByNicknameWithDrop,
       findUsersByNicknameWithoutSelf,
+      findUsersByNicknameExcludingContacts,
       getMultipleUsers,
       confirmSignUp,
       confirmSignUpWithInvalidToken,
@@ -218,7 +219,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       usersRepo             <- Ref.make(initialState)
       collectionsRepo       <- Ref.make(collectionRepoState)
       user                  <- UsersService
-                                 .findUser(ExampleUserId, "aaabc", 30, 0, includeSelf = true)
+                                 .findUser(ExampleUserId, "aaabc", 30, 0, includeSelf = true, excludeContacts = false)
                                  .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
@@ -253,7 +254,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       usersRepo             <- Ref.make(initialState)
       collectionsRepo       <- Ref.make(collectionRepoState)
       user                  <- UsersService
-                                 .findUser(ExampleUserId, "aaabc", 2, 0, includeSelf = true)
+                                 .findUser(ExampleUserId, "aaabc", 2, 0, includeSelf = true, excludeContacts = false)
                                  .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
@@ -286,7 +287,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       usersRepo             <- Ref.make(initialState)
       collectionsRepo       <- Ref.make(collectionRepoState)
       user                  <- UsersService
-                                 .findUser(ExampleUserId, "aaabc", 30, 2, includeSelf = true)
+                                 .findUser(ExampleUserId, "aaabc", 30, 2, includeSelf = true, excludeContacts = false)
                                  .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
@@ -319,7 +320,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       usersRepo             <- Ref.make(initialState)
       collectionsRepo       <- Ref.make(collectionRepoState)
       user                  <- UsersService
-                                 .findUser(ExampleUserId, "aaabc", 30, 0, includeSelf = false)
+                                 .findUser(ExampleUserId, "aaabc", 30, 0, includeSelf = false, excludeContacts = false)
                                  .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
@@ -328,6 +329,45 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       equalTo(
         List(
           (user4, None),
+          (user5, None),
+          (user3, None)
+        )
+      )
+    ) &&
+      assert(finalUsersRepoState)(equalTo(initialState)) &&
+      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
+      assert(sentMessages)(isEmpty)
+  }
+
+  private val findUsersByNicknameExcludingContacts = testM("should return users with matching nickname excluding contacts") {
+    val user1 = ExampleUser.copy(nickName = "aaabcdefgh")
+    val user2 = ExampleUser.copy(id = ExampleFuuid1, nickName = "fooaaabc")
+    val user3 = ExampleUser.copy(id = ExampleFuuid2, nickName = "aaabcaaaaaaaaaaaaaaaaaa")
+    val user4 = ExampleUser.copy(id = ExampleFuuid3, nickName = "aaabc")
+    val user5 = ExampleUser.copy(id = ExampleFuuid4, nickName = "aaabca")
+
+    val contact1 = UserContact(ExampleUserId, user1.id, None)
+    val contact2 = UserContact(ExampleUserId, user4.id, None)
+
+    val initialState = UsersRepoFake.UsersRepoState(
+      users = Set(user1, user2, user3, user4, user5),
+      contacts = Set(contact1, contact2)
+    )
+    val collectionRepoState = CollectionsRepoFake.CollectionsRepoState()
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(initialState)
+      collectionsRepo       <- Ref.make(collectionRepoState)
+      user                  <- UsersService
+                                 .findUser(ExampleUserId, "aaabc", 30, 0, includeSelf = true, excludeContacts = true)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(user.data)(
+      equalTo(
+        List(
           (user5, None),
           (user3, None)
         )
