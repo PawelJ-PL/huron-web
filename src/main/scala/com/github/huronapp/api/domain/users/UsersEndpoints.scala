@@ -188,7 +188,7 @@ object UsersEndpoints extends BaseEndpoint {
 
   val findUsersEndpoint: Endpoint[
     AuthenticationInputs,
-    (Refined[String, And[Trimmed, MinSize[5]]], Paging, Option[Boolean]),
+    (Refined[String, And[Trimmed, MinSize[5]]], Paging, Boolean, Boolean),
     ErrorResponse,
     (PagingResponseMetadata, List[PublicUserDataResp]),
     Any
@@ -201,7 +201,10 @@ object UsersEndpoints extends BaseEndpoint {
         .description("Start of a nickname. Must have at least 5 characters")
     )
     .in(Paging.params(defaultLimit = 5, maxLimit = 10))
-    .in(query[Option[Boolean]]("includeSelf").description("Should the searching user be included in the search results (default true)"))
+    .in(
+      query[Boolean]("includeSelf").description("Should the searching user be included in the search results (default true)").default(true)
+    )
+    .in(query[Boolean]("excludeContacts").description("Should exclude current contacts from search results (default false").default(false))
     .out(PagingResponseMetadata.headers)
     .out(jsonBody[List[PublicUserDataResp]])
     .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))

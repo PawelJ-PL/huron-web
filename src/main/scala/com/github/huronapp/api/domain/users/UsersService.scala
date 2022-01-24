@@ -67,7 +67,8 @@ object UsersService {
       nickNamePart: String Refined (Trimmed And MinSize[5]),
       limit: Refined[Int, Positive],
       drop: Int,
-      includeSelf: Boolean
+      includeSelf: Boolean,
+      excludeContacts: Boolean
     ): ZIO[Any, Nothing, PaginationEnvelope[UserWithContact]]
 
     def getMultipleUsers(
@@ -196,10 +197,13 @@ object UsersService {
               nickNamePart: String Refined (Trimmed And MinSize[5]),
               limit: Refined[Int, Positive],
               drop: Int,
-              includeSelf: Boolean
+              includeSelf: Boolean,
+              excludeContacts: Boolean
             ): ZIO[Any, Nothing, PaginationEnvelope[UserWithContact]] =
               db.transactionOrDie(
-                usersRepo.findAllWithContactByMatchingNickname(asUser, nickNamePart.value, limit.value, drop, includeSelf).orDie
+                usersRepo
+                  .findAllWithContactByMatchingNickname(asUser, nickNamePart.value, limit.value, drop, includeSelf, excludeContacts)
+                  .orDie
               )
 
             override def getMultipleUsers(

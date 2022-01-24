@@ -66,14 +66,15 @@ object UsersRoutes {
               .toAuthenticatedRoutes(
                 auth.asUser
               )(user => {
-                case (filter, paging, includeSelf) =>
+                case (filter, paging, includeSelf, excludeContacts) =>
                   usersService
                     .findUser(
                       user.userId,
                       filter,
                       paging.limit,
                       paging.dropCount,
-                      includeSelf.getOrElse(true)
+                      includeSelf,
+                      excludeContacts
                     )
                     .map { envelope =>
                       val body = envelope.data.map {
