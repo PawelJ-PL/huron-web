@@ -447,7 +447,7 @@ object UsersEndpoints extends BaseEndpoint {
           oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Contact not found")),
           oneOfVariant(
             StatusCode.Conflict,
-            jsonBody[ErrorResponse.Conflict].examples(List(contactConflictExample, contactAliasConflictExample))
+            jsonBody[ErrorResponse.Conflict].examples(List(contactAliasConflictExample))
           )
         )
       )
