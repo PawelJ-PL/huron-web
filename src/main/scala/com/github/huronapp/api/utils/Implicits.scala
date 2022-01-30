@@ -63,13 +63,11 @@ object Implicits {
   }
 
   object fuuidKeyMap {
-    import fuuid._
 
     implicit val FuuidMapKeyDecoder: KeyDecoder[FUUID] = KeyDecoder.instance(FUUID.fromStringOpt)
 
     implicit val FuuidMapKeyEncoder: KeyEncoder[FUUID] = KeyEncoder.instance(_.show)
 
-    //  implicit val xxx: Schema[Map[FUUID, Option[PublicUserDataResp]]] = ???
     implicit def tapirSchemaForFuuidKeyMap[V: Schema]: Schema[Map[FUUID, V]] = Schema.schemaForMap[FUUID, V](_.show)
 
   }
