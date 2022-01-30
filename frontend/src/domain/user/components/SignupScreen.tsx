@@ -40,12 +40,7 @@ export const SignupScreen: React.FC<Props> = ({ signupResult, i18n, signup, rese
         }
     }, [signupResult, toast, t, navigate])
 
-    const generateKeysAndSignup = (formData: {
-        nickname: string
-        email: string
-        password: string
-        language: string
-    }) => {
+    const generateKeysAndSignup = (formData: { nickname: string; email: string; password: string }) => {
         signup(formData.nickname, formData.email, formData.password, selectedLanguage)
     }
 

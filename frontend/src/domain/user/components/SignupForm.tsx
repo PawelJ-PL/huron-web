@@ -13,7 +13,7 @@ import { ImEyeBlocked } from "react-icons/im"
 import { nicknameSchema, passwordSchema } from "../types/fieldSchemas"
 
 type Props = {
-    onSubmit: (formData: { nickname: string; email: string; password: string; language: string }) => void
+    onSubmit: (formData: { nickname: string; email: string; password: string }) => void
     submitInProgress: boolean
 } & WithTranslation
 
