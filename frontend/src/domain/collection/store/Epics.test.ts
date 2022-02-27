@@ -6,7 +6,7 @@ import {
     examplePublicKey,
 } from "./../../../testutils/constants/user"
 import { AppState } from "../../../application/store"
-import { verifyAsyncEpic, verifyEpic } from "../../../testutils/epicsUtils"
+import { runAsyncEpic, verifyEpic } from "../../../testutils/epicsUtils"
 import {
     exampleCollection,
     exampleCollectionId,
@@ -51,10 +51,8 @@ describe("Collections epics", () => {
             },
         } as AppState
         const trigger = createCollectionAction.started(exampleCollectionName)
-        await verifyAsyncEpic(
-            trigger,
-            collectionsEpics,
-            state,
+        const result = await runAsyncEpic(trigger, collectionsEpics, state)
+        expect(result).toStrictEqual(
             createCollectionAction.done({ params: exampleCollectionName, result: exampleCollection })
         )
         expect(createCollectionSpy).toHaveBeenCalledTimes(1)
@@ -76,10 +74,8 @@ describe("Collections epics", () => {
             },
         } as AppState
         const trigger = createCollectionAction.started(exampleCollectionName)
-        await verifyAsyncEpic(
-            trigger,
-            collectionsEpics,
-            state,
+        const result = await runAsyncEpic(trigger, collectionsEpics, state)
+        expect(result).toStrictEqual(
             createCollectionAction.done({ params: exampleCollectionName, result: exampleCollection })
         )
         expect(createCollectionSpy).toHaveBeenCalledTimes(1)

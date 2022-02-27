@@ -61,7 +61,8 @@ describe("Api keys view", () => {
                     resetKeysResult={jest.fn()}
                 />
             )
-            screen.getByText("profile-page:loading-api-keys")
+            const loader = screen.getByText("profile-page:loading-api-keys")
+            expect(loader).toBeInTheDocument()
         })
 
         it("should return loader if status is PENDING", () => {
@@ -73,7 +74,8 @@ describe("Api keys view", () => {
                     resetKeysResult={jest.fn()}
                 />
             )
-            screen.getByText("profile-page:loading-api-keys")
+            const loader = screen.getByText("profile-page:loading-api-keys")
+            expect(loader).toBeInTheDocument()
         })
 
         it("should return error if status is FAILED", () => {
@@ -86,7 +88,7 @@ describe("Api keys view", () => {
                 />
             )
             const errorMessage = screen.getByTestId("UNEXPECTED_ERROR_MESSAGE_MOCK")
-            expect(errorMessage.textContent).toEqual("Some error")
+            expect(errorMessage.textContent).toBe("Some error")
         })
 
         it("should return list if status is FINISHED", () => {
@@ -98,7 +100,8 @@ describe("Api keys view", () => {
                     resetKeysResult={jest.fn()}
                 />
             )
-            screen.getByTestId("keys-list")
+            const keysList = screen.getByTestId("keys-list")
+            expect(keysList).toBeInTheDocument()
         })
     })
 })

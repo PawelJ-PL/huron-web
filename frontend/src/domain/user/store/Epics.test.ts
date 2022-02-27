@@ -24,6 +24,7 @@ import {
     apiLogoutAction,
     changePasswordAction,
     computeMasterKeyAction,
+    createContactAction,
     deleteContactAction,
     editContactAction,
     fetchAndDecryptKeyPairAction,
@@ -38,7 +39,7 @@ import {
     updateApiKeyAction,
     updateUserDataAction,
 } from "./Actions"
-import { verifyAsyncEpic, verifyEpic } from "./../../../testutils/epicsUtils"
+import { runAsyncEpic, verifyEpic } from "./../../../testutils/epicsUtils"
 import { AppState } from "../../../application/store"
 import UsersApi from "../api/UsersApi"
 import CryptoApi from "../../../application/cryptography/api/CryptoApi"
@@ -90,10 +91,8 @@ describe("User epics", () => {
     it("should trigger login with derived password", async () => {
         const loginSpy = jest.spyOn(UsersApi, "login").mockResolvedValue(null)
         const trigger = loginAction.started({ email: exampleUserEmail, password: exampleUserPassword })
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             loginAction.done({ params: { email: exampleUserEmail, password: exampleUserPassword }, result: null })
         )
         expect(loginSpy).toHaveBeenCalledWith(exampleUserEmail, exampleDerivedLoginPassword)
@@ -123,10 +122,8 @@ describe("User epics", () => {
             nickname: exampleUserNickname,
             language: "Pl",
         })
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             registerNewUserAction.done({
                 params: {
                     email: exampleUserEmail,
@@ -150,7 +147,7 @@ describe("User epics", () => {
         )
     })
 
-    it("should set master password after successful login", () => {
+    it("should set master password after successful login", async () => {
         const resultData = {
             csrfToken: "ABC",
             userData: {
@@ -164,10 +161,8 @@ describe("User epics", () => {
             params: { password: exampleUserPassword, email: exampleUserEmail },
             result: resultData,
         })
-        return verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             computeMasterKeyAction.done({
                 params: { password: exampleUserPassword, emailHash: exampleHashedEmail },
                 result: `derivedKey(${exampleUserPassword}, ${exampleHashedEmail})`,
@@ -175,7 +170,7 @@ describe("User epics", () => {
         )
     })
 
-    it("should set failed compute master key action successful login when derivation failed", () => {
+    it("should set failed compute master key action successful login when derivation failed", async () => {
         jest.spyOn(CryptoApi, "deriveKey").mockImplementation(() => Promise.reject(new Error("Unknown error")))
         const resultData = {
             csrfToken: "ABC",
@@ -190,10 +185,8 @@ describe("User epics", () => {
             params: { password: exampleUserPassword, email: exampleUserEmail },
             result: resultData,
         })
-        return verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             computeMasterKeyAction.failed({
                 params: { password: exampleUserPassword, emailHash: exampleHashedEmail },
                 error: new Error("Unknown error"),
@@ -216,10 +209,8 @@ describe("User epics", () => {
             resetToken: "A-B-C",
             newPassword: "updated-password",
         })
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             resetPasswordAction.done({
                 params: { email: exampleUserEmail, resetToken: "A-B-C", newPassword: "updated-password" },
                 result: true,
@@ -245,10 +236,8 @@ describe("User epics", () => {
             emailHash: exampleHashedEmail,
         })
         const trigger = updateUserDataAction.started({ nickName: "newNickname" })
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             updateUserDataAction.done({
                 params: { nickName: "newNickname" },
                 result: { id: exampleUserId, nickName: "newNickname", language: "Pl", emailHash: exampleHashedEmail },
@@ -258,10 +247,8 @@ describe("User epics", () => {
 
     it("should trigger failed action when update user data without any new data", async () => {
         const trigger = updateUserDataAction.started({ nickName: undefined })
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             updateUserDataAction.failed({
                 params: { nickName: undefined },
                 error: new NoUpdatesProvides(),
@@ -275,10 +262,8 @@ describe("User epics", () => {
             keyId: exampleApiKey.id,
             data: { description: "new-description" },
         })
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             updateApiKeyAction.done({
                 params: { keyId: exampleApiKey.id, data: { description: "new-description" } },
                 result: exampleApiKey,
@@ -288,10 +273,8 @@ describe("User epics", () => {
 
     it("should trigger failed action when update API key without any new data", async () => {
         const trigger = updateApiKeyAction.started({ keyId: exampleApiKey.id, data: {} })
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             updateApiKeyAction.failed({
                 params: { keyId: exampleApiKey.id, data: {} },
                 error: new NoUpdatesProvides(),
@@ -314,10 +297,8 @@ describe("User epics", () => {
             currentPassword: exampleUserPassword,
             newPassword: "new-password",
         })
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             changePasswordAction.done({
                 params: { email: exampleUserEmail, currentPassword: exampleUserPassword, newPassword: "new-password" },
                 result: void 0,
@@ -350,10 +331,8 @@ describe("User epics", () => {
         })
         const keyHex = "12aabbccddff"
         const trigger = fetchAndDecryptKeyPairAction.started(keyHex)
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             fetchAndDecryptKeyPairAction.done({
                 params: keyHex,
                 result: {
@@ -390,10 +369,8 @@ describe("User epics", () => {
         const requestedUserIds = Array.from(Array(50).keys()).map((n) => `id${n}`)
         const trigger = fetchMultipleUsersPublicDataAction.started(requestedUserIds)
         const expectedPairs = requestedUserIds.map((id) => [id, { userId: id, nickName: `nickname-${id}` }])
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(
             fetchMultipleUsersPublicDataAction.done({
                 params: requestedUserIds,
                 result: Object.fromEntries(expectedPairs),
@@ -406,12 +383,8 @@ describe("User epics", () => {
         const apiResponse = { result: [], page: 1, totalPages: 1, elementsPerPage: 2 }
         const listSpy = jest.spyOn(UsersApi, "listContacts").mockResolvedValue(apiResponse)
         const trigger = listContactsAction.started(params)
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
-            listContactsAction.done({ params, result: apiResponse })
-        )
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(listContactsAction.done({ params, result: apiResponse }))
         expect(listSpy).toHaveBeenCalledTimes(1)
         expect(listSpy).toHaveBeenCalledWith({ page: 1, limit: 2, nameFilter: "foo" })
     })
@@ -421,12 +394,8 @@ describe("User epics", () => {
         const apiResponse = { result: [], page: 1, totalPages: 1, elementsPerPage: 2 }
         const listSpy = jest.spyOn(UsersApi, "listContacts").mockResolvedValue(apiResponse)
         const trigger = listContactsAction.started(params)
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
-            listContactsAction.done({ params, result: apiResponse })
-        )
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(listContactsAction.done({ params, result: apiResponse }))
         expect(listSpy).toHaveBeenCalledTimes(1)
         expect(listSpy).toHaveBeenCalledWith({ page: 1, limit: 2, nameFilter: undefined })
     })
@@ -620,23 +589,15 @@ describe("User epics", () => {
         jest.spyOn(UsersApi, "editContact").mockResolvedValue(expectedResult)
         const params = { contactId: exampleUserId, data: { alias: { value: exampleContactAlias } } }
         const trigger = editContactAction.started(params)
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
-            editContactAction.done({ params, result: expectedResult })
-        )
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(editContactAction.done({ params, result: expectedResult }))
     })
 
     it("should return error if no data provided for contact edit", async () => {
         const params = { contactId: exampleUserId, data: { alias: null } }
         const trigger = editContactAction.started(params)
-        await verifyAsyncEpic(
-            trigger,
-            usersEpics,
-            defaultState,
-            editContactAction.failed({ params, error: new NoUpdatesProvides() })
-        )
+        const result = await runAsyncEpic(trigger, usersEpics, defaultState)
+        expect(result).toStrictEqual(editContactAction.failed({ params, error: new NoUpdatesProvides() }))
     })
 
     it("should trigger contacts refresh on contact edit", () => {
@@ -673,6 +634,53 @@ describe("User epics", () => {
     it("should not trigger contacts refresh on contact edit if contact list not fetched yet", () => {
         const params = { contactId: exampleUserId, data: { alias: null } }
         const trigger = editContactAction.done({
+            params,
+            result: { userId: exampleUserId, nickName: exampleUserNickname, alias: exampleContactAlias },
+        })
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: { status: "NOT_STARTED" },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, { marbles: "---" })
+    })
+
+    it("should trigger contacts refresh on contact create", () => {
+        const params = { userId: exampleUserId }
+        const trigger = createContactAction.done({
+            params,
+            result: { userId: exampleUserId, nickName: exampleUserNickname, alias: exampleContactAlias },
+        })
+        const listContactsParams = { page: 2, limit: 5, nameFilter: "foo" }
+        const state: AppState = {
+            ...defaultState,
+            users: {
+                ...defaultState.users,
+                contacts: {
+                    status: "FINISHED",
+                    params: listContactsParams,
+                    data: {
+                        result: [{ userId: exampleUserId, alias: "a1", nickName: exampleUserNickname }],
+                        page: 2,
+                        elementsPerPage: 5,
+                        totalPages: 3,
+                        prevPage: 2,
+                        nextPage: 4,
+                    },
+                },
+            },
+        }
+        verifyEpic(trigger, usersEpics, state, {
+            marbles: "-a",
+            values: { a: listContactsAction.started(listContactsParams) },
+        })
+    })
+
+    it("should not trigger contacts refresh on contact create if contact list not fetched yet", () => {
+        const params = { userId: exampleUserId }
+        const trigger = createContactAction.done({
             params,
             result: { userId: exampleUserId, nickName: exampleUserNickname, alias: exampleContactAlias },
         })

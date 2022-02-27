@@ -28,7 +28,8 @@ describe("Delete version modal", () => {
             />
         )
 
-        screen.getByText("file-view:file-data.delete-version-confirmation")
+        const modal = screen.getByText("file-view:file-data.delete-version-confirmation")
+        expect(modal).toBeInTheDocument()
     })
 
     it("should clear request on cancel", () => {

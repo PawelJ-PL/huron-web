@@ -51,6 +51,8 @@ import {
     requestContactEditAction,
     editContactAction,
     resetEditContactResultAction,
+    findUsersAction,
+    resetFindUsersResultAction,
 } from "./Actions"
 import { AsyncOperationResult } from "./../../../application/store/async/AsyncOperationResult"
 import { reducerWithInitialState } from "typescript-fsa-reducers"
@@ -306,6 +308,8 @@ const contactEditRequestReducer = reducerWithInitialState<UserContact | null>(nu
 
 const contactEditReducer = createReducer(editContactAction, resetEditContactResultAction).build()
 
+const findUsersReducer = createReducer(findUsersAction, resetFindUsersResultAction).build()
+
 export const usersReducer = combineReducers({
     loginStatus: loginReducer,
     userData: userDataReducer,
@@ -333,4 +337,5 @@ export const usersReducer = combineReducers({
     contactRequestedToDelete: requestContactDeleteReducer,
     contactRequestedToEdit: contactEditRequestReducer,
     editContactResult: contactEditReducer,
+    findUsersResult: findUsersReducer,
 })

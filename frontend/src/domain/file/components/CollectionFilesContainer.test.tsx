@@ -25,13 +25,11 @@ jest.mock("./metadata_view/SingleObjectView")
 const startRoute = `/collection/${exampleCollectionId}/file/${exampleFileId}`
 const routeTemplate = "/collection/:collectionId/file/:fileId"
 
-// eslint-disable-next-line testing-library/render-result-naming-convention
 const renderWithPath = renderWithRoute(routeTemplate)
 
 const startRouteRoot = `/collection/${exampleCollectionId}`
 const routeTemplateRoot = "/collection/:collectionId"
 
-// eslint-disable-next-line testing-library/render-result-naming-convention
 const renderWithPathForRoot = renderWithRoute(routeTemplateRoot)
 
 describe("Collection files container", () => {

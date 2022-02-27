@@ -75,7 +75,6 @@ describe("Auth decision container", () => {
 
             window.history.replaceState({}, "", startPath)
 
-            // eslint-disable-next-line testing-library/render-result-naming-convention
             const renderWithPath = renderWithRoute(routePathTemplate)
 
             const userData: AsyncOperationResult<void, UserData, Error> = { status: "NOT_STARTED" }
@@ -116,7 +115,8 @@ describe("Auth decision container", () => {
                     />
                 </MemoryRouter>
             )
-            screen.getByTestId("/signup")
+            const signup = screen.getByTestId("/signup")
+            expect(signup).toBeInTheDocument()
         })
 
         it("should render error page on unexpected error", () => {
@@ -140,8 +140,10 @@ describe("Auth decision container", () => {
                     />
                 </MemoryRouter>
             )
-            screen.getByText("error-pages:user-loading-failed.header")
-            screen.getByText("error-pages:user-loading-failed.description")
+            const header = screen.getByText("error-pages:user-loading-failed.header")
+            const description = screen.getByText("error-pages:user-loading-failed.description")
+            expect(header).toBeInTheDocument()
+            expect(description).toBeInTheDocument()
         })
 
         it("should render user routes on success", () => {
@@ -170,7 +172,8 @@ describe("Auth decision container", () => {
                     />
                 </MemoryRouter>
             )
-            screen.getByTestId("/profile")
+            const profile = screen.getByTestId("/profile")
+            expect(profile).toBeInTheDocument()
         })
 
         it("should render loader", () => {
@@ -193,7 +196,8 @@ describe("Auth decision container", () => {
                     />
                 </MemoryRouter>
             )
-            screen.getByTestId(LOADER_PAGE)
+            const loader = screen.getByTestId(LOADER_PAGE)
+            expect(loader).toBeInTheDocument()
         })
     })
 })

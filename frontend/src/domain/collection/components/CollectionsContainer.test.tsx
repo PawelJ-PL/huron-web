@@ -13,7 +13,6 @@ jest.mock("./SelectCollectionModal", () => (props: any) => (
     <div data-testid="select-collection-modal">{JSON.stringify(props.availableCollections)}</div>
 ))
 
-// eslint-disable-next-line testing-library/render-result-naming-convention
 const renderWithPath = renderWithRoute("/")
 
 describe("Collections containers", () => {

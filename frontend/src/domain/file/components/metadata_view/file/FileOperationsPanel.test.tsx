@@ -17,7 +17,6 @@ import { renderWithRoute } from "../../../../../testutils/helpers"
 const startRoute = `/collection/${exampleCollectionId}/file/${exampleFileData}`
 const pathTemplate = "/collection/:collectionId/file/:fileId"
 
-// eslint-disable-next-line testing-library/render-result-naming-convention
 const renderWithPath = renderWithRoute(pathTemplate)
 
 // eslint-disable-next-line react/display-name

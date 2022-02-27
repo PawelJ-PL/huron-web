@@ -144,7 +144,8 @@ describe("User profile page", () => {
                     }}
                 />
             )
-            screen.getByText("profile-page:loading-user-data")
+            const loader = screen.getByText("profile-page:loading-user-data")
+            expect(loader).toBeInTheDocument()
         })
 
         it("should render profile view if render status is FINISHED", () => {
@@ -163,7 +164,8 @@ describe("User profile page", () => {
                     }}
                 />
             )
-            screen.getByTestId("user-profile-view")
+            const userProfile = screen.getByTestId("user-profile-view")
+            expect(userProfile).toBeInTheDocument()
         })
 
         it("should render profile view if render status is FAILED", () => {
@@ -182,7 +184,8 @@ describe("User profile page", () => {
                     }}
                 />
             )
-            screen.getByTestId("user-profile-view")
+            const userProfile = screen.getByTestId("user-profile-view")
+            expect(userProfile).toBeInTheDocument()
         })
     })
 })

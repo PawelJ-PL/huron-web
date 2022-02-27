@@ -13,7 +13,7 @@ describe("Collections api", () => {
             server.listen()
 
             const result = await CollectionsApi.fetchCollection("foo")
-            expect(result).toBe(null)
+            expect(result).toBeNull()
 
             server.close()
         })
@@ -27,7 +27,7 @@ describe("Collections api", () => {
             server.listen()
 
             const result = await CollectionsApi.fetchCollection("foo")
-            expect(result).toBe(null)
+            expect(result).toBeNull()
 
             server.close()
         })
@@ -41,7 +41,7 @@ describe("Collections api", () => {
             server.listen()
 
             const result = await CollectionsApi.fetchCollection("foo")
-            expect(result).toBe(null)
+            expect(result).toBeNull()
 
             server.close()
         })
@@ -57,7 +57,7 @@ describe("Collections api", () => {
             server.listen()
 
             const result = await CollectionsApi.fetchEncryptionKey("foo")
-            expect(result).toBe(null)
+            expect(result).toBeNull()
 
             server.close()
         })
@@ -71,7 +71,7 @@ describe("Collections api", () => {
             server.listen()
 
             const result = await CollectionsApi.fetchEncryptionKey("foo")
-            expect(result).toBe(null)
+            expect(result).toBeNull()
 
             server.close()
         })

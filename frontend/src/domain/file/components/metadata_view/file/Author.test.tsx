@@ -5,7 +5,6 @@ import { renderWithRoute } from "../../../../../testutils/helpers"
 import { tFunctionMock } from "../../../../../testutils/mocks/i18n-mock"
 import { Author } from "./Author"
 
-// eslint-disable-next-line testing-library/render-result-naming-convention
 const renderWithPath = renderWithRoute("/")
 
 describe("Author", () => {

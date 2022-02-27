@@ -1,3 +1,4 @@
+/* eslint-disable jest/prefer-to-be */
 import { screen } from "@testing-library/react"
 import React from "react"
 import { exampleCollection, exampleCollectionId } from "../../../testutils/constants/collection"
@@ -20,7 +21,6 @@ jest.mock("../../file/components/CollectionFilesContainer", () => (props: { coll
 const startPath = `/collection/${exampleCollectionId}`
 const routePathTemplate = "/collection/:collectionId"
 
-// eslint-disable-next-line testing-library/render-result-naming-convention
 const renderWithPath = renderWithRoute(routePathTemplate)
 
 describe("Single collection container", () => {

@@ -84,7 +84,7 @@ describe("Crypto API", () => {
             const password = "secret-password"
             const salt = "password-salt"
             const result = await CryptoApi.deriveKey(password, salt)
-            expect(result).toEqual("12d424724067e66bbfc80f0df651695792a42307e9507b2725600016c8dbc337")
+            expect(result).toBe("12d424724067e66bbfc80f0df651695792a42307e9507b2725600016c8dbc337")
         })
     })
 
@@ -93,7 +93,7 @@ describe("Crypto API", () => {
             const result = await CryptoApi.generateKeyPair(4096)
             expect(result.publicKey).toMatch("-----BEGIN PUBLIC KEY-----")
             expect(result.privateKey).toMatch("-----BEGIN RSA PRIVATE KEY-----")
-            expect(forge.pki.publicKeyFromPem(result.publicKey).n.bitLength()).toEqual(4096)
+            expect(forge.pki.publicKeyFromPem(result.publicKey).n.bitLength()).toBe(4096)
         })
     })
 
@@ -264,12 +264,12 @@ describe("Crypto API", () => {
     describe("digest", () => {
         it("should compute string digest", async () => {
             const result = await CryptoApi.digest(exampleEncryptionInput)
-            expect(result).toEqual("2e6bc4291fbe3a9420bd359cb9e7c9ec015e1a5704282448dd2fd376c8168974")
+            expect(result).toBe("2e6bc4291fbe3a9420bd359cb9e7c9ec015e1a5704282448dd2fd376c8168974")
         })
 
         it("should compute string digest with non default chunk size", async () => {
             const result = await CryptoApi.digest(exampleEncryptionInput, 2)
-            expect(result).toEqual("2e6bc4291fbe3a9420bd359cb9e7c9ec015e1a5704282448dd2fd376c8168974")
+            expect(result).toBe("2e6bc4291fbe3a9420bd359cb9e7c9ec015e1a5704282448dd2fd376c8168974")
         })
     })
 })

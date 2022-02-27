@@ -2,19 +2,27 @@
     "extends": [
         "eslint:recommended",
         "react-app",
-        "react-app/jest",
         "plugin:react/recommended",
-        "plugin:@typescript-eslint/recommended"
+        "plugin:@typescript-eslint/recommended",
+        "plugin:jest/recommended",
+        "plugin:jest/style",
+        "plugin:testing-library/react"
     ],
-    "plugins": ["react", "@typescript-eslint", "react-hooks"],
+    "plugins": ["react", "@typescript-eslint", "react-hooks", "jest", "testing-library"],
     "rules": {
         "react-hooks/exhaustive-deps": "error",
-        "react/prop-types": 0,
+        "react/prop-types": "off",
         "@typescript-eslint/consistent-type-definitions": ["error", "type"],
         "no-console": ["error", { "allow": ["warn", "error"] }],
         "@typescript-eslint/no-floating-promises": ["error"],
         "require-await": "error",
-        "no-warning-comments": "error"
+        "no-warning-comments": "error",
+        "jest/expect-expect": [
+            "error",
+            { "assertFunctionNames": ["expect", "verifyEpic", "assertHttpErrorWithStatusCode"] }
+        ],
+        "jest/no-duplicate-hooks": "error",
+        "testing-library/render-result-naming-convention": "off"
     },
     "parserOptions": {
         "project": ["./tsconfig.json"]

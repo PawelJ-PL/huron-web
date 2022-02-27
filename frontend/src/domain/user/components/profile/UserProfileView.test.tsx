@@ -31,7 +31,8 @@ describe("User profile view", () => {
                 t={tFunctionMock}
             />
         )
-        screen.getByTestId("user-profile-form")
+        const form = screen.getByTestId("user-profile-form")
+        expect(form).toBeInTheDocument()
     })
 
     it("should switch view to password change", () => {
@@ -48,7 +49,8 @@ describe("User profile view", () => {
         )
         const changePasswordLink = screen.getByText("profile-page:sections.change-password")
         fireEvent.click(changePasswordLink)
-        screen.getByTestId("change-password-form")
+        const passwordForm = screen.getByTestId("change-password-form")
+        expect(passwordForm).toBeInTheDocument()
     })
 
     it("should switch view to api keys", () => {
@@ -65,7 +67,8 @@ describe("User profile view", () => {
         )
         const apiKeysLink = screen.getByText("profile-page:sections.api-keys")
         fireEvent.click(apiKeysLink)
-        screen.getByTestId("api-keys")
+        const keysList = screen.getByTestId("api-keys")
+        expect(keysList).toBeInTheDocument()
     })
 
     it("should switch view to user profile form", () => {
@@ -85,6 +88,7 @@ describe("User profile view", () => {
         screen.getByTestId("api-keys")
         const userProfileLink = screen.getByText("profile-page:sections.user-profile")
         fireEvent.click(userProfileLink)
-        screen.getByTestId("user-profile-form")
+        const profileForm = screen.getByTestId("user-profile-form")
+        expect(profileForm).toBeInTheDocument()
     })
 })

@@ -26,7 +26,6 @@ jest.mock("../../../../application/components/common/Loader")
 jest.mock("../../../../application/components/common/EmptyPlaceholder")
 
 const pathTemplate = "/user/:userId"
-// eslint-disable-next-line testing-library/render-result-naming-convention
 const renderWithPath = renderWithRoute(pathTemplate)
 
 describe("User public data container", () => {
@@ -54,7 +53,7 @@ describe("User public data container", () => {
                 />
             )
 
-            expect(fetchUserData).toBeCalledTimes(1)
+            expect(fetchUserData).toHaveBeenCalledTimes(1)
             expect(fetchUserData).toHaveBeenCalledWith(exampleUserId)
         })
 
@@ -79,7 +78,7 @@ describe("User public data container", () => {
                 />
             )
 
-            expect(fetchUserData).not.toBeCalled()
+            expect(fetchUserData).not.toHaveBeenCalled()
         })
 
         it("should not fetch user data if status is FINISHED and userId match", () => {
@@ -103,7 +102,7 @@ describe("User public data container", () => {
                 />
             )
 
-            expect(fetchUserData).not.toBeCalled()
+            expect(fetchUserData).not.toHaveBeenCalled()
         })
 
         it("should fetch user data if userId does not match", () => {
@@ -127,7 +126,7 @@ describe("User public data container", () => {
                 />
             )
 
-            expect(fetchUserData).toBeCalledTimes(1)
+            expect(fetchUserData).toHaveBeenCalledTimes(1)
             expect(fetchUserData).toHaveBeenCalledWith(exampleUserId)
         })
     })

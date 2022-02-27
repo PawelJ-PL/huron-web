@@ -23,7 +23,7 @@ import {
     NewFileData,
     NewVersionData,
 } from "./Actions"
-import { verifyAsyncEpic } from "../../../testutils/epicsUtils"
+import { runAsyncEpic } from "../../../testutils/epicsUtils"
 import { filesEpics } from "./Epics"
 import { exampleFileData } from "../../../testutils/constants/files"
 import FilesApi from "../api/FilesApi"
@@ -70,10 +70,8 @@ describe("Files epics", () => {
             const params = { collectionId: exampleCollectionId, objectId: null }
 
             const trigger = fetchObjectTreeAction.started(params)
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+            expect(result).toStrictEqual(
                 fetchObjectTreeAction.done({ params, result: { children: [exampleFileData] } })
             )
 
@@ -92,10 +90,9 @@ describe("Files epics", () => {
             const params = { collectionId: exampleCollectionId, objectId: exampleFileData.id }
 
             const trigger = fetchObjectTreeAction.started(params)
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+
+            expect(result).toStrictEqual(
                 fetchObjectTreeAction.done({
                     params,
                     result: {
@@ -104,7 +101,6 @@ describe("Files epics", () => {
                     },
                 })
             )
-
             expect(getMetadataSpy).toHaveBeenCalledTimes(1)
             expect(getMetadataSpy).toHaveBeenCalledWith(exampleCollectionId, exampleFileData.id)
             expect(getParentSpy).toHaveBeenCalledTimes(1)
@@ -119,10 +115,9 @@ describe("Files epics", () => {
             const params = { collectionId: exampleCollectionId, objectId: exampleFileData.id }
 
             const trigger = fetchObjectTreeAction.started(params)
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+
+            expect(result).toStrictEqual(
                 fetchObjectTreeAction.done({
                     params,
                     result: {
@@ -131,7 +126,6 @@ describe("Files epics", () => {
                     },
                 })
             )
-
             expect(getMetadataSpy).toHaveBeenCalledTimes(1)
             expect(getMetadataSpy).toHaveBeenCalledWith(exampleCollectionId, exampleFileData.id)
         })
@@ -148,10 +142,9 @@ describe("Files epics", () => {
             const params = { collectionId: exampleCollectionId, objectId: exampleFileData.id }
 
             const trigger = fetchObjectTreeAction.started(params)
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+
+            expect(result).toStrictEqual(
                 fetchObjectTreeAction.done({
                     params,
                     result: {
@@ -161,7 +154,6 @@ describe("Files epics", () => {
                     },
                 })
             )
-
             expect(getMetadataSpy).toHaveBeenCalledTimes(1)
             expect(getMetadataSpy).toHaveBeenCalledWith(exampleCollectionId, exampleFileData.id)
             expect(getParentSpy).toHaveBeenCalledTimes(1)
@@ -181,10 +173,9 @@ describe("Files epics", () => {
             const params = { collectionId: exampleCollectionId, objectId: exampleFileData.id }
 
             const trigger = fetchObjectTreeAction.started(params)
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+
+            expect(result).toStrictEqual(
                 fetchObjectTreeAction.done({
                     params,
                     result: {
@@ -194,7 +185,6 @@ describe("Files epics", () => {
                     },
                 })
             )
-
             expect(getMetadataSpy).toHaveBeenCalledTimes(1)
             expect(getMetadataSpy).toHaveBeenCalledWith(exampleCollectionId, exampleFileData.id)
             expect(getChildrenSpy).toHaveBeenCalledTimes(1)
@@ -214,13 +204,9 @@ describe("Files epics", () => {
             const uploadSpy = jest.spyOn(FilesApi, "uploadFile").mockResolvedValue(exampleFileData)
 
             const trigger = encryptAndUploadFileAction.started(params)
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
-                encryptAndUploadFileAction.done({ params, result: exampleFileData })
-            )
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
 
+            expect(result).toStrictEqual(encryptAndUploadFileAction.done({ params, result: exampleFileData }))
             expect(uploadSpy).toHaveBeenCalledTimes(1)
             expect(uploadSpy).toHaveBeenCalledWith({
                 collectionId: exampleCollectionId,
@@ -244,10 +230,8 @@ describe("Files epics", () => {
             }
 
             const trigger = encryptAndUploadFileAction.started(triggerParams)
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+            expect(result).toStrictEqual(
                 encryptAndUploadFileAction.failed({
                     params: triggerParams,
                     error: new Error(
@@ -269,13 +253,9 @@ describe("Files epics", () => {
 
             const trigger = deleteFilesAction.started(params)
 
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
-                deleteFilesAction.done({ params, result: undefined })
-            )
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
 
+            expect(result).toStrictEqual(deleteFilesAction.done({ params, result: undefined }))
             expect(deleteFileSpy).toHaveBeenCalledTimes(3)
             expect(deleteFileSpy).toHaveBeenNthCalledWith(1, exampleCollectionId, exampleFileData.id, undefined)
             expect(deleteFileSpy).toHaveBeenNthCalledWith(2, exampleCollectionId, exampleChildFile1.id, undefined)
@@ -287,13 +267,11 @@ describe("Files epics", () => {
 
             const trigger = deleteFilesAction.started({ ...params, deleteNonEmpty: true })
 
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+
+            expect(result).toStrictEqual(
                 deleteFilesAction.done({ params: { ...params, deleteNonEmpty: true }, result: undefined })
             )
-
             expect(deleteFileSpy).toHaveBeenCalledTimes(3)
             expect(deleteFileSpy).toHaveBeenNthCalledWith(1, exampleCollectionId, exampleFileData.id, true)
             expect(deleteFileSpy).toHaveBeenNthCalledWith(2, exampleCollectionId, exampleChildFile1.id, true)
@@ -311,18 +289,7 @@ describe("Files epics", () => {
 
             const trigger = deleteFilesAction.started(params)
 
-            const resultAction = await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
-                deleteFilesAction.failed({
-                    params,
-                    error: new FileDeleteFailed(
-                        [exampleFileData.id, exampleChildDirectory1.id],
-                        [{ fileId: exampleChildFile1.id, error: new Error("Some error") }]
-                    ),
-                })
-            )
+            const resultAction = await runAsyncEpic(trigger, filesEpics, defaultState)
 
             expect(deleteFileSpy).toHaveBeenCalledTimes(3)
             expect(deleteFileSpy).toHaveBeenNthCalledWith(1, exampleCollectionId, exampleFileData.id, undefined)
@@ -363,13 +330,9 @@ describe("Files epics", () => {
 
             const trigger = encryptAndUpdateVersionAction.started(params)
 
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
-                encryptAndUpdateVersionAction.done({ params, result: resultData })
-            )
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
 
+            expect(result).toStrictEqual(encryptAndUpdateVersionAction.done({ params, result: resultData }))
             expect(uploadSpy).toHaveBeenCalledTimes(1)
             expect(uploadSpy).toHaveBeenCalledWith({
                 collectionId: exampleCollectionId,
@@ -393,10 +356,8 @@ describe("Files epics", () => {
 
             const trigger = encryptAndUpdateVersionAction.started(updatedParams)
 
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+            expect(result).toStrictEqual(
                 encryptAndUpdateVersionAction.failed({
                     params: updatedParams,
                     error: new Error(
@@ -414,10 +375,8 @@ describe("Files epics", () => {
 
             const trigger = encryptAndUpdateVersionAction.started(updatedParams)
 
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+            expect(result).toStrictEqual(
                 encryptAndUpdateVersionAction.failed({
                     params: updatedParams,
                     error: new FileContentNotChanged(exampleCollectionId, exampleFileData.id),
@@ -452,10 +411,9 @@ describe("Files epics", () => {
                 `decrypted(AES-CBC:000102:466f6f426172---${exampleEncryptionKey.key})`
             )
 
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+
+            expect(result).toStrictEqual(
                 downloadAndDecryptFileAction.done({
                     params,
                     result: {
@@ -465,7 +423,6 @@ describe("Files epics", () => {
                     },
                 })
             )
-
             expect(downloadSpy).toHaveBeenCalledTimes(1)
             expect(downloadSpy).toHaveBeenCalledWith(exampleCollectionId, exampleFileData.id, undefined)
         })
@@ -491,10 +448,9 @@ describe("Files epics", () => {
                 `decrypted(AES-CBC:000102:466f6f426172---${exampleEncryptionKey.key})`
             )
 
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+
+            expect(result).toStrictEqual(
                 downloadAndDecryptFileAction.done({
                     params: updatedParams,
                     result: {
@@ -504,7 +460,6 @@ describe("Files epics", () => {
                     },
                 })
             )
-
             expect(downloadSpy).toHaveBeenCalledTimes(1)
             expect(downloadSpy).toHaveBeenCalledWith(exampleCollectionId, exampleFileData.id, exampleVersionId)
         })
@@ -514,10 +469,8 @@ describe("Files epics", () => {
 
             const trigger = downloadAndDecryptFileAction.started(updatedParams)
 
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+            expect(result).toStrictEqual(
                 downloadAndDecryptFileAction.failed({
                     params: updatedParams,
                     error: new Error(
@@ -542,10 +495,9 @@ describe("Files epics", () => {
 
             const trigger = downloadAndDecryptFileAction.started(params)
 
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+
+            expect(result).toStrictEqual(
                 downloadAndDecryptFileAction.failed({
                     params,
                     error: new Error(
@@ -553,7 +505,6 @@ describe("Files epics", () => {
                     ),
                 })
             )
-
             expect(downloadSpy).toHaveBeenCalledTimes(1)
             expect(downloadSpy).toHaveBeenCalledWith(exampleCollectionId, exampleFileData.id, undefined)
         })
@@ -573,10 +524,9 @@ describe("Files epics", () => {
 
             const trigger = downloadAndDecryptFileAction.started(params)
 
-            await verifyAsyncEpic(
-                trigger,
-                filesEpics,
-                defaultState,
+            const result = await runAsyncEpic(trigger, filesEpics, defaultState)
+
+            expect(result).toStrictEqual(
                 downloadAndDecryptFileAction.failed({
                     params,
                     error: new Error(
@@ -584,7 +534,6 @@ describe("Files epics", () => {
                     ),
                 })
             )
-
             expect(downloadSpy).toHaveBeenCalledTimes(1)
             expect(downloadSpy).toHaveBeenCalledWith(exampleCollectionId, exampleFileData.id, undefined)
         })

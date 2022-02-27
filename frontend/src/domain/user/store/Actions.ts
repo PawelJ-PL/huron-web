@@ -1,3 +1,4 @@
+import { FindUserByNickNameData } from "./../api/UsersApi"
 import { ContactsFilter } from "./../types/ContactsFilter"
 import { Pagination, PaginationRequest } from "./../../../application/api/Pagination"
 import { UserContact } from "./../types/UserContact"
@@ -110,3 +111,7 @@ export const refreshContactsListWithParamAction = actionCreator<{
 export const editContactAction = actionCreator.async<EditContactParams, UserContact, Error>("EDIT_CONTACT")
 export const resetEditContactResultAction = actionCreator("RESET_EDIT_CONTACT_RESULT")
 export const requestContactEditAction = actionCreator<UserContact | null>("REQUEST_CONTACT_EDIT")
+export const findUsersAction = actionCreator.async<FindUserByNickNameData, Pagination<UserPublicData[]>, Error>(
+    "FIND_USERS"
+)
+export const resetFindUsersResultAction = actionCreator("RESET_FIND_USERS_ACTION")

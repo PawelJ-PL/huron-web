@@ -341,7 +341,8 @@ describe("Api keys list", () => {
                     deleteKey={jest.fn()}
                 />
             )
-            screen.getByTestId("empty-placeholder")
+            const placeholder = screen.getByTestId("empty-placeholder")
+            expect(placeholder).toBeInTheDocument()
         })
 
         it("should render keys list", () => {
@@ -361,7 +362,8 @@ describe("Api keys list", () => {
                     deleteKey={jest.fn()}
                 />
             )
-            screen.getByTestId("keys-list")
+            const keysList = screen.getByTestId("keys-list")
+            expect(keysList).toBeInTheDocument()
         })
     })
 })

@@ -35,7 +35,7 @@ describe("Fetch collections modal wrapper", () => {
             />
         )
         const loader = screen.getByTestId("LOADER_MOCK")
-        expect(loader.textContent).toEqual("collections-view:loader-title")
+        expect(loader.textContent).toBe("collections-view:loader-title")
     })
 
     it("should show error message on fetch failure", () => {
