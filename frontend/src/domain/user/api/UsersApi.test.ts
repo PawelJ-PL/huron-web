@@ -8,6 +8,7 @@ import {
     ContactWithAliasAlreadyExists,
     UserAlreadyInContacts,
     AddSelfToContacts,
+    NickNameQueryTooShort,
 } from "./errors"
 import {
     exampleEncryptedPrivateKey,
@@ -64,7 +65,7 @@ describe("Users api", () => {
             server.listen()
 
             const result = UsersApi.login(exampleUserEmail, "invalidPassword")
-            await expect(result).resolves.toBe(null)
+            await expect(result).resolves.toBeNull()
 
             server.close()
         })
@@ -78,7 +79,7 @@ describe("Users api", () => {
             server.listen()
 
             const result = UsersApi.login(exampleUserEmail, "invalidPassword")
-            await expect(result).resolves.toBe(null)
+            await expect(result).resolves.toBeNull()
 
             server.close()
         })
@@ -114,7 +115,7 @@ describe("Users api", () => {
                 { algorithm: "Rsa", publicKey: examplePublicKey, encryptedPrivateKey: exampleEncryptedPrivateKey },
                 "Pl"
             )
-            await expect(result).resolves.toBe(undefined)
+            await expect(result).resolves.toBeUndefined()
 
             server.close()
         })
@@ -302,7 +303,7 @@ describe("Users api", () => {
                 },
                 collectionEncryptionKeys: [],
             })
-            await expect(result).resolves.toBe(undefined)
+            await expect(result).resolves.toBeUndefined()
 
             server.close()
         })
@@ -510,6 +511,16 @@ describe("Users api", () => {
             const result = UsersApi.createContact(exampleUserId, exampleUserNickname)
 
             await expect(result).rejects.toEqual(new ContactWithAliasAlreadyExists(exampleUserNickname))
+        })
+    })
+
+    describe("find user by nickName", () => {
+        it("Should return error if query is too short", async () => {
+            const query = "foo"
+
+            const result = UsersApi.findUserByNickName({ nickNameStart: query })
+
+            await expect(result).rejects.toEqual(new NickNameQueryTooShort(query))
         })
     })
 })

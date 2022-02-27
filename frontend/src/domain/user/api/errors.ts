@@ -72,3 +72,11 @@ export class AddSelfToContacts extends ApiError {
         Object.setPrototypeOf(this, new.target.prototype)
     }
 }
+
+export class NickNameQueryTooShort extends ApiError {
+    constructor(query: string) {
+        super(`Nickname query ${query} is too short`)
+        this.name = new.target.name
+        Object.setPrototypeOf(this, new.target.prototype)
+    }
+}

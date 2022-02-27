@@ -92,7 +92,7 @@ const ContactsPage: React.FC<Props> = ({
                     content={t("user-public-page:remove-contact-confirmation.content", {
                         name: contactRequestedToDelete.alias ?? contactRequestedToDelete.nickName,
                     })}
-                    title={t("user-public-page:remove-contact-confirmation.content")}
+                    title={t("user-public-page:remove-contact-confirmation.header")}
                 />
             )}
             {contactRequestedToEdit && (

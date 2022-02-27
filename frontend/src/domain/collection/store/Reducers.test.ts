@@ -81,7 +81,7 @@ describe("Collections reducers", () => {
             const state: State = { ...defaultState, activeCollection: exampleCollectionId }
             const action = setActiveCollectionAction("second-collection")
             const result = collectionsReducer(state, action)
-            expect(result.activeCollection).toEqual("second-collection")
+            expect(result.activeCollection).toBe("second-collection")
         })
 
         it("should remove active collection on local logout", () => {

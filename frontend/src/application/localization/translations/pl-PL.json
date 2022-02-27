@@ -260,6 +260,11 @@
             "edit-contact": "Edytuj",
             "remove-contact": "Usuń"
         },
-        "filter-input-placeholder": "Filtruj"
+        "filter-input-placeholder": "Filtruj",
+        "add-contact-button-label": "Dodaj kontakt"
+    },
+    "find-user-modal": {
+        "header": "Znajdź użytkownika",
+        "start-typing": "Zacznij wprowadzać pseudonim użytkownika"
     }
 }

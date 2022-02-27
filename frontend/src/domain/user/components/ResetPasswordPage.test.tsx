@@ -13,7 +13,6 @@ jest.mock("../../../application/components/common/UnexpectedErrorMessage")
 const startRoute = "/set-password/X-Y-Z"
 const pathTemplate = "/set-password/:token"
 
-// eslint-disable-next-line testing-library/render-result-naming-convention
 const renderWithPath = renderWithRoute(pathTemplate)
 
 describe("Reset password page", () => {

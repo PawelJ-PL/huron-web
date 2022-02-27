@@ -33,7 +33,7 @@ describe("Delete files confirmation", () => {
             )
 
             const modal = screen.queryByTestId(DELETE_FILE_CONFIRMATION_MODAL)
-            expect(modal).toBe(null)
+            expect(modal).toBeNull()
         })
 
         it("should be closed if requested array is empty", () => {
@@ -47,7 +47,7 @@ describe("Delete files confirmation", () => {
             )
 
             const modal = screen.queryByTestId(DELETE_FILE_CONFIRMATION_MODAL)
-            expect(modal).toBe(null)
+            expect(modal).toBeNull()
         })
 
         it("should be closed if requested array contains elements from different collections", () => {
@@ -61,7 +61,7 @@ describe("Delete files confirmation", () => {
             )
 
             const modal = screen.queryByTestId(DELETE_FILE_CONFIRMATION_MODAL)
-            expect(modal).toBe(null)
+            expect(modal).toBeNull()
         })
     })
 
@@ -150,6 +150,6 @@ describe("Delete files confirmation", () => {
 
         const recursivelyCheckBox = screen.queryByText("file-view:directory-content-list.delete-recursively")
 
-        expect(recursivelyCheckBox).toBe(null)
+        expect(recursivelyCheckBox).toBeNull()
     })
 })

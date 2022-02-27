@@ -14,13 +14,12 @@ jest.mock("../../../application/components/common/UnexpectedErrorMessage")
 
 jest.mock("react-i18next", () => ({
     ...jest.requireActual("react-i18next"),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, react/display-name, testing-library/no-node-access
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, testing-library/no-node-access
     Trans: (props: any) => <div>{props?.children}</div>,
 }))
 
 const startPath = "/signup"
 
-// eslint-disable-next-line testing-library/render-result-naming-convention
 const renderWithPath = renderWithRoute(startPath)
 
 describe("Signup screen", () => {
@@ -99,7 +98,8 @@ describe("Signup screen", () => {
             />
         )
 
-        screen.getByText("signup-page:user-already-registered")
+        const message = screen.getByText("signup-page:user-already-registered")
+        expect(message).toBeInTheDocument()
     })
 
     it("should render proper message if nickname already registered", () => {
@@ -122,6 +122,7 @@ describe("Signup screen", () => {
             />
         )
 
-        screen.getByText("signup-page:nickname-already-registered")
+        const message = screen.getByText("signup-page:nickname-already-registered")
+        expect(message).toBeInTheDocument()
     })
 })

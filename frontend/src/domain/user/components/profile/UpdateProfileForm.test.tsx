@@ -25,7 +25,7 @@ describe("User profile form", () => {
             const nickNameInput = screen.getByPlaceholderText("Common:nickname") as HTMLInputElement
             const langSelect = screen.getByTestId(UPDATE_PROFILE_LANGUAGE_SELECT) as HTMLSelectElement
             expect(nickNameInput.value).toEqual(exampleUserNickname)
-            expect(langSelect.value).toEqual("Pl")
+            expect(langSelect.value).toBe("Pl")
         })
     })
 
@@ -47,7 +47,7 @@ describe("User profile form", () => {
         const nickNameInput = screen.getByPlaceholderText("Common:nickname") as HTMLInputElement
         expect(nickNameInput.value).toEqual(exampleUserNickname)
         fireEvent.input(nickNameInput, { target: { value: "new-nick-name" } })
-        expect(nickNameInput.value).toEqual("new-nick-name")
+        expect(nickNameInput.value).toBe("new-nick-name")
         const resetButton = screen.getByText("Common:form-reset")
         fireEvent.click(resetButton)
         expect(nickNameInput.value).toEqual(exampleUserNickname)
@@ -69,13 +69,13 @@ describe("User profile form", () => {
             />
         )
         const langSelect = screen.getByTestId(UPDATE_PROFILE_LANGUAGE_SELECT) as HTMLSelectElement
-        expect(langSelect.value).toEqual("Pl")
+        expect(langSelect.value).toBe("Pl")
         fireEvent.click(langSelect)
         fireEvent.change(langSelect, { target: { value: "En" } })
-        expect(langSelect.value).toEqual("En")
+        expect(langSelect.value).toBe("En")
         const resetButton = screen.getByText("Common:form-reset")
         fireEvent.click(resetButton)
-        expect(langSelect.value).toEqual("Pl")
+        expect(langSelect.value).toBe("Pl")
     })
 
     it("should update default value for nickname after success action", () => {
@@ -104,10 +104,10 @@ describe("User profile form", () => {
         )
         const nickNameInput = screen.getByPlaceholderText("Common:nickname") as HTMLInputElement
         fireEvent.input(nickNameInput, { target: { value: "new-nick-name" } })
-        expect(nickNameInput.value).toEqual("new-nick-name")
+        expect(nickNameInput.value).toBe("new-nick-name")
         const resetButton = screen.getByText("Common:form-reset")
         fireEvent.click(resetButton)
-        expect(nickNameInput.value).toEqual("updated-nick-name")
+        expect(nickNameInput.value).toBe("updated-nick-name")
     })
 
     it("should update default value for language after success action", () => {
@@ -136,9 +136,9 @@ describe("User profile form", () => {
         )
         const langSelect = screen.getByTestId(UPDATE_PROFILE_LANGUAGE_SELECT) as HTMLSelectElement
         fireEvent.change(langSelect, { target: { value: "Pl" } })
-        expect(langSelect.value).toEqual("Pl")
+        expect(langSelect.value).toBe("Pl")
         const resetButton = screen.getByText("Common:form-reset")
         fireEvent.click(resetButton)
-        expect(langSelect.value).toEqual("En")
+        expect(langSelect.value).toBe("En")
     })
 })

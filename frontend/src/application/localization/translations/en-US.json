@@ -259,6 +259,11 @@
             "edit-contact": "Edit",
             "remove-contact": "Remove"
         },
-        "filter-input-placeholder": "Filter"
+        "filter-input-placeholder": "Filter",
+        "add-contact-button-label": "Add contact"
+    },
+    "find-user-modal": {
+        "header": "Find user",
+        "start-typing": "Start typing a user nickname"
     }
 }

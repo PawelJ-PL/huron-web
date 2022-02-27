@@ -55,7 +55,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -69,8 +68,8 @@ describe("Unlock key button", () => {
 
         const tooltip = await screen.findByTestId(LOCK_KEY_TOOLTIP)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-unlocked-label")
-        expect(tooltip.textContent).toEqual("unlock-key-button.key-unlocked-tooltip")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-unlocked-label")
+        expect(tooltip.textContent).toBe("unlock-key-button.key-unlocked-tooltip")
     })
 
     it("should render unlocked status if collection is key is not unlocked but active collection not defined", async () => {
@@ -94,7 +93,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: null },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -108,8 +106,8 @@ describe("Unlock key button", () => {
 
         const tooltip = await screen.findByTestId(LOCK_KEY_TOOLTIP)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-unlocked-label")
-        expect(tooltip.textContent).toEqual("unlock-key-button.key-unlocked-tooltip")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-unlocked-label")
+        expect(tooltip.textContent).toBe("unlock-key-button.key-unlocked-tooltip")
     })
 
     it("should render failed status if master key computes status is failed", async () => {
@@ -141,7 +139,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -155,8 +152,8 @@ describe("Unlock key button", () => {
 
         const tooltip = await screen.findByTestId(LOCK_KEY_TOOLTIP)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-error-label")
-        expect(tooltip.textContent).toEqual("unlock-key-button.key-error-tooltip")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-error-label")
+        expect(tooltip.textContent).toBe("unlock-key-button.key-error-tooltip")
     })
 
     it("should render failed status if key pair status is failed", async () => {
@@ -188,7 +185,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -202,8 +198,8 @@ describe("Unlock key button", () => {
 
         const tooltip = await screen.findByTestId(LOCK_KEY_TOOLTIP)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-error-label")
-        expect(tooltip.textContent).toEqual("unlock-key-button.key-error-tooltip")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-error-label")
+        expect(tooltip.textContent).toBe("unlock-key-button.key-error-tooltip")
     })
 
     it("should render failed status if collection key decryption failed", async () => {
@@ -231,7 +227,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -245,8 +240,8 @@ describe("Unlock key button", () => {
 
         const tooltip = await screen.findByTestId(LOCK_KEY_TOOLTIP)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-error-label")
-        expect(tooltip.textContent).toEqual("unlock-key-button.key-error-tooltip")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-error-label")
+        expect(tooltip.textContent).toBe("unlock-key-button.key-error-tooltip")
     })
 
     it("should render pending status if master key status is pending", () => {
@@ -277,7 +272,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -288,7 +282,7 @@ describe("Unlock key button", () => {
 
         const button = screen.getByTestId(LOCK_KEY_BUTTON)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-pending-label")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-pending-label")
     })
 
     it("should render pending status if key pair status is pending", () => {
@@ -319,7 +313,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -330,7 +323,7 @@ describe("Unlock key button", () => {
 
         const button = screen.getByTestId(LOCK_KEY_BUTTON)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-pending-label")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-pending-label")
     })
 
     it("should render pending status if collection key decryption is in progress", () => {
@@ -357,7 +350,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -368,7 +360,7 @@ describe("Unlock key button", () => {
 
         const button = screen.getByTestId(LOCK_KEY_BUTTON)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-pending-label")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-pending-label")
     })
 
     it("should render locked status if master key status is not started", async () => {
@@ -398,7 +390,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -412,8 +403,8 @@ describe("Unlock key button", () => {
 
         const tooltip = await screen.findByTestId(LOCK_KEY_TOOLTIP)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-locked-label")
-        expect(tooltip.textContent).toEqual("unlock-key-button.key-locked-tooltip")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-locked-label")
+        expect(tooltip.textContent).toBe("unlock-key-button.key-locked-tooltip")
     })
 
     it("should render locked status if key pair status is not started", async () => {
@@ -443,7 +434,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -457,8 +447,8 @@ describe("Unlock key button", () => {
 
         const tooltip = await screen.findByTestId(LOCK_KEY_TOOLTIP)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-locked-label")
-        expect(tooltip.textContent).toEqual("unlock-key-button.key-locked-tooltip")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-locked-label")
+        expect(tooltip.textContent).toBe("unlock-key-button.key-locked-tooltip")
     })
 
     it("should render locked status if collection key is locked", async () => {
@@ -482,7 +472,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: exampleCollectionId },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -496,8 +485,8 @@ describe("Unlock key button", () => {
 
         const tooltip = await screen.findByTestId(LOCK_KEY_TOOLTIP)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-locked-label")
-        expect(tooltip.textContent).toEqual("unlock-key-button.key-locked-tooltip")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-locked-label")
+        expect(tooltip.textContent).toBe("unlock-key-button.key-locked-tooltip")
     })
 
     it("should render locked status if key is unlocked for different collection than active", async () => {
@@ -529,7 +518,6 @@ describe("Unlock key button", () => {
             users: { masterKey: masterKeyResult, keyPair: keyPairResult },
             collections: { encryptionKey: collectionKeyResult, activeCollection: "another-collection" },
         }
-        // eslint-disable-next-line testing-library/render-result-naming-convention
         const renderWithStore = renderWithStoreAndRouter(state)
 
         renderWithStore(
@@ -543,8 +531,8 @@ describe("Unlock key button", () => {
 
         const tooltip = await screen.findByTestId(LOCK_KEY_TOOLTIP)
 
-        expect(button.getAttribute("aria-label")).toEqual("unlock-key-button.key-locked-label")
-        expect(tooltip.textContent).toEqual("unlock-key-button.key-locked-tooltip")
+        expect(button.getAttribute("aria-label")).toBe("unlock-key-button.key-locked-label")
+        expect(tooltip.textContent).toBe("unlock-key-button.key-locked-tooltip")
     })
 
     it("should lock key on click when unlocked", () => {
@@ -566,7 +554,7 @@ describe("Unlock key button", () => {
         fireEvent.click(button)
 
         const modal = screen.getByTestId(ENTER_PASSWORD_MODAL)
-        expect(modal.textContent).toEqual("true")
+        expect(modal.textContent).toBe("true")
     })
 
     it("should open password modal on click when failed", () => {
@@ -578,7 +566,7 @@ describe("Unlock key button", () => {
         fireEvent.click(button)
 
         const modal = screen.getByTestId(ENTER_PASSWORD_MODAL)
-        expect(modal.textContent).toEqual("true")
+        expect(modal.textContent).toBe("true")
     })
 
     it("should do nothing on click when pending", () => {
@@ -591,7 +579,7 @@ describe("Unlock key button", () => {
 
         const modal = screen.getByTestId(ENTER_PASSWORD_MODAL)
 
-        expect(modal.textContent).toEqual("false")
+        expect(modal.textContent).toBe("false")
         expect(lock).not.toHaveBeenCalled()
     })
 })

@@ -1,10 +1,14 @@
-import { Box, Flex, HStack, Select, Text } from "@chakra-ui/react"
+import { Button, Flex, HStack, Select, Stack, Text, useDisclosure } from "@chakra-ui/react"
 import React from "react"
 import { WithTranslation, withTranslation } from "react-i18next"
 import { connect } from "react-redux"
 import { Dispatch } from "redux"
 import { refreshContactsListWithParamAction } from "../../store/Actions"
 import FilterContactsInput from "./FilterContactsInput"
+import { FaUserPlus } from "react-icons/fa"
+import FindUserModal from "./FindUserModal"
+import AddOrUpdateContactModal from "../public_data/AddOrUpdateContactModal"
+import { useState } from "react"
 
 type Props = {
     defaultEntries: number
@@ -18,7 +22,10 @@ const DisplayOptionsPanel: React.FC<Props> = ({
     refreshUsersListWithNewLimit,
     defaultFilterValue,
 }) => {
+    const [requestedContactId, setRequestedContactId] = useState<string | null>(null)
+
     const limitValues = Array.from(new Set([5, 10, 30, 100, defaultEntries])).sort((a, b) => a - b)
+    const findUserDisclosure = useDisclosure()
 
     return (
         <Flex
@@ -26,6 +33,18 @@ const DisplayOptionsPanel: React.FC<Props> = ({
             justifyContent="space-between"
             direction={["column", null, "row"]}
         >
+            <FindUserModal
+                isOpen={findUserDisclosure.isOpen}
+                onClose={findUserDisclosure.onClose}
+                onSelect={(user) => setRequestedContactId(user.userId)}
+            />
+            {requestedContactId && (
+                <AddOrUpdateContactModal
+                    isOpen={requestedContactId !== null}
+                    onClose={() => setRequestedContactId(null)}
+                    contactData={{ userId: requestedContactId }}
+                />
+            )}
             <HStack alignItems="center" marginBottom={["0.2rem", null, "0"]}>
                 <Select
                     defaultValue={defaultEntries}
@@ -42,9 +61,12 @@ const DisplayOptionsPanel: React.FC<Props> = ({
                     {t("common:pagination.entries-per-page")}
                 </Text>
             </HStack>
-            <Box>
+            <Stack direction={["column", null, "row"]} spacing="0.2rem">
                 <FilterContactsInput defaultValue={defaultFilterValue} />
-            </Box>
+                <Button colorScheme="brand" leftIcon={<FaUserPlus />} onClick={findUserDisclosure.onOpen}>
+                    {t("contacts-list:add-contact-button-label")}
+                </Button>
+            </Stack>
         </Flex>
     )
 }

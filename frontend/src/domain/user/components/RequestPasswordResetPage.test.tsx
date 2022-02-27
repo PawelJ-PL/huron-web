@@ -12,13 +12,12 @@ jest.mock("../../../application/components/common/UnexpectedErrorMessage")
 
 jest.mock("react-i18next", () => ({
     ...jest.requireActual("react-i18next"),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, react/display-name, testing-library/no-node-access
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Trans: (props: any) => <div>{props?.children}</div>,
 }))
 
 const path = "/reset-password"
 
-// eslint-disable-next-line testing-library/render-result-naming-convention
 const renderWithPath = renderWithRoute(path)
 
 describe("Request password reset page", () => {

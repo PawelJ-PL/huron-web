@@ -10,7 +10,6 @@ import { renderWithRoute } from "../../../testutils/helpers"
 const startPath = "/account-activation/X-Y-Z"
 const pathTemplate = "/account-activation/:token"
 
-// eslint-disable-next-line testing-library/render-result-naming-convention
 const renderWithPath = renderWithRoute(pathTemplate)
 
 describe("Account activation container", () => {
@@ -62,7 +61,8 @@ describe("Account activation container", () => {
                     tReady={true}
                 />
             )
-            screen.getByTestId(LOADER_PAGE)
+            const loader = screen.getByTestId(LOADER_PAGE)
+            expect(loader).toBeInTheDocument()
         })
 
         it("should render error page on failure", () => {
@@ -76,8 +76,10 @@ describe("Account activation container", () => {
                     tReady={true}
                 />
             )
-            screen.getByText("error-pages:user-activation-failed.header")
-            screen.getByText("error-pages:user-activation-failed.description")
+            const errorHeader = screen.getByText("error-pages:user-activation-failed.header")
+            const errorDescription = screen.getByText("error-pages:user-activation-failed.description")
+            expect(errorHeader).toBeInTheDocument()
+            expect(errorDescription).toBeInTheDocument()
         })
 
         it("should navigate to home and show toast on valid token", () => {

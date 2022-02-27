@@ -24,6 +24,7 @@ import {
     fetchCurrentUserAction,
     fetchMultipleUsersPublicDataAction,
     fetchUserPublicDataAction,
+    findUsersAction,
     listContactsAction,
     localLogoutAction,
     loginAction,
@@ -317,6 +318,20 @@ const refreshContactListOnContactEdit: Epic<AnyAction, AnyAction, AppState> = (a
         })
     )
 
+const refreshContactListOnContactCreate: Epic<AnyAction, AnyAction, AppState> = (action$, state$) =>
+    action$.pipe(
+        filter(createContactAction.done.match),
+        mergeMap((a) => {
+            if (state$.value.users.contacts.status === "FINISHED") {
+                return of(listContactsAction.started({ ...state$.value.users.contacts.params }))
+            } else {
+                return EMPTY
+            }
+        })
+    )
+
+const findUsersEpic = createEpic(findUsersAction, (params) => UsersApi.findUserByNickName(params))
+
 export const usersEpics = combineEpics<Action, Action, AppState>(
     userLoginEpic,
     currentUserDataEpic,
@@ -346,5 +361,7 @@ export const usersEpics = combineEpics<Action, Action, AppState>(
     refreshContactsListOnDelete,
     refreshContactsWithParamsEpic,
     editContactEpic,
-    refreshContactListOnContactEdit
+    refreshContactListOnContactEdit,
+    refreshContactListOnContactCreate,
+    findUsersEpic
 )

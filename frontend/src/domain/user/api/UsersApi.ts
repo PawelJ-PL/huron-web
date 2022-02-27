@@ -1,3 +1,4 @@
+import { PaginationRequest } from "./../../../application/api/Pagination"
 import { UserContact } from "./../types/UserContact"
 import { UserContactSchema } from "../types/UserContact"
 import { UserPublicData, UserPublicDataSchema } from "./../types/UserPublicData"
@@ -25,6 +26,7 @@ import {
     ContactWithAliasAlreadyExists,
     UserAlreadyInContacts,
     AddSelfToContacts,
+    NickNameQueryTooShort,
 } from "./errors"
 import { Pagination } from "../../../application/api/Pagination"
 
@@ -48,6 +50,12 @@ export type ChangePasswordData = {
 }
 
 export type ContactUpdateData = { alias?: OptionalValue<string> | null }
+
+export type FindUserByNickNameData = {
+    nickNameStart: string
+    includeSelf?: boolean
+    excludeContacts?: boolean
+} & PaginationRequest
 
 const csrfTokenSchema = z.string().min(10)
 
@@ -213,6 +221,19 @@ const api = {
                     "ContactAliasAlreadyExists"
                 )
             )
+    },
+    findUserByNickName(data: FindUserByNickNameData): Promise<Pagination<UserPublicData[]>> {
+        const { nickNameStart, ...optionalQueryParams } = data
+        if (nickNameStart.trim().length < 5) {
+            return Promise.reject(new NickNameQueryTooShort(nickNameStart))
+        }
+        const searchParams = Object.fromEntries(
+            Object.entries(optionalQueryParams).filter(([key, value]) => value !== undefined)
+        )
+        const maybeSearchParams = Object.keys(searchParams).length > 0 ? searchParams : undefined
+        return client
+            .get(`users/nicknames/${nickNameStart}`, { searchParams: maybeSearchParams })
+            .then((resp) => validatePagedResponse(resp, UserPublicDataSchema.array()))
     },
 }
 

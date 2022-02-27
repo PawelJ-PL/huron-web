@@ -242,7 +242,7 @@ describe("User reducers", () => {
             })
             const state = { ...defaultState, csrfToken: "X-Y-Z" }
             const result = usersReducer(state, action)
-            expect(result.csrfToken).toEqual("A-B-C")
+            expect(result.csrfToken).toBe("A-B-C")
         })
 
         it("should set keep previous value on failed login", () => {
@@ -252,7 +252,7 @@ describe("User reducers", () => {
             })
             const state = { ...defaultState, csrfToken: "X-Y-Z" }
             const result = usersReducer(state, action)
-            expect(result.csrfToken).toEqual("X-Y-Z")
+            expect(result.csrfToken).toBe("X-Y-Z")
         })
 
         it("should set value on user data fetch", () => {
@@ -270,7 +270,7 @@ describe("User reducers", () => {
             })
             const state = { ...defaultState, csrfToken: "X-Y-Z" }
             const result = usersReducer(state, action)
-            expect(result.csrfToken).toEqual("A-B-C")
+            expect(result.csrfToken).toBe("A-B-C")
         })
 
         it("should set value on user data refresh", () => {
@@ -288,14 +288,14 @@ describe("User reducers", () => {
             })
             const state = { ...defaultState, csrfToken: "X-Y-Z" }
             const result = usersReducer(state, action)
-            expect(result.csrfToken).toEqual("A-B-C")
+            expect(result.csrfToken).toBe("A-B-C")
         })
 
         it("should set value to null on local logout", () => {
             const action = localLogoutAction()
             const state = { ...defaultState, csrfToken: "X-Y-Z" }
             const result = usersReducer(state, action)
-            expect(result.csrfToken).toBe(null)
+            expect(result.csrfToken).toBeNull()
         })
     })
 

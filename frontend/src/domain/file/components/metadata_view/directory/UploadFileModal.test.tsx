@@ -142,7 +142,7 @@ describe("Upload file modal", () => {
         expect(closeMock).toHaveBeenCalledTimes(1)
         expect(uploadFileMock).toHaveBeenCalledTimes(1)
         expect(uploadFileMock).toHaveBeenCalledWith(exampleCollectionId, null, exampleFileContent, exampleEncryptionKey)
-        expect(uploadVersionMock).not.toBeCalled()
+        expect(uploadVersionMock).not.toHaveBeenCalled()
     })
 
     it("should upload new version", async () => {
@@ -176,7 +176,7 @@ describe("Upload file modal", () => {
 
         expect(closeMock).toHaveBeenCalledTimes(1)
         expect(uploadFileMock).not.toHaveBeenCalled()
-        expect(uploadVersionMock).toBeCalledTimes(1)
+        expect(uploadVersionMock).toHaveBeenCalledTimes(1)
         expect(uploadVersionMock).toHaveBeenCalledWith(exampleFileData, exampleFileContent, exampleEncryptionKey)
     })
 
@@ -211,6 +211,6 @@ describe("Upload file modal", () => {
 
         expect(closeMock).toHaveBeenCalledTimes(1)
         expect(uploadFileMock).not.toHaveBeenCalled()
-        expect(uploadVersionMock).not.toBeCalled()
+        expect(uploadVersionMock).not.toHaveBeenCalled()
     })
 })
