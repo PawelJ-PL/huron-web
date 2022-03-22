@@ -1,0 +1,14 @@
+{
+    "testFiles": "**/*.test.ts",
+    "baseUrl": "http://127.0.0.1:3000",
+    "env": {
+        "FIRST_USER_EMAIL": "firstuser@example.org",
+        "FIRST_USER_PASSWORD": "secret-password",
+        "FIRST_USER_API_PASSWORD": "5584090431efdec1d9fc67b34df1f018a59611de3c189dd352b66c8719b2b247",
+        "DB_HOST": "127.0.0.1",
+        "DB_PORT": "5432",
+        "DB_USER": "postgres",
+        "DB_PASSWORD": "secret",
+        "DB_NAME": "postgres"
+    }
+}
