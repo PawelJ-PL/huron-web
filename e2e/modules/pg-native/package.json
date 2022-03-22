@@ -1,0 +1,6 @@
+{
+    "name": "pg-native",
+    "private": true,
+    "main": "index.js",
+    "version": "2.0.0"
+  }
