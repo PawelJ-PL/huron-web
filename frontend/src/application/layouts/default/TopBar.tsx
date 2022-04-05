@@ -16,6 +16,7 @@ import { apiLogoutAction, resetApiLogoutStatusAction } from "../../../domain/use
 import { useToast } from "@chakra-ui/react"
 import UnlockKeyButton from "./unlock_key/UnlockKeyButton"
 import SelectCollectionButton from "./SelectCollectionButton"
+import { USER_PROFILE_BUTTON } from "./testids"
 
 type Props = ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps> & Pick<WithTranslation, "t">
 
@@ -71,7 +72,7 @@ export const TopBar: React.FC<Props> = ({ userData, t, logout, clearLogoutStatus
                     )}
                     <LanguagePicker />
                     <Menu autoSelect={false}>
-                        <MenuButton>
+                        <MenuButton data-testid={USER_PROFILE_BUTTON}>
                             <Box display="flex" alignItems="center" marginLeft={["0.8em", "1.5em"]}>
                                 <Avatar background="brand.200" size="sm" />
                                 {showUserName && (

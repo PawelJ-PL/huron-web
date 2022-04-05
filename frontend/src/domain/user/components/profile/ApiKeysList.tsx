@@ -33,6 +33,7 @@ import { Editable, EditableInput, EditablePreview } from "@chakra-ui/editable"
 import Confirmation from "../../../../application/components/common/Confirmation"
 import ApiKeyExpirationDateModal from "./ApiKeyExpirationDateModal"
 import NewApiKeyModal from "./NewApiKeyModal"
+import { API_KEY_EXPIRATION_TIME, API_KEY_VALUE, DISABLE_API_KEY_CHECKBOX } from "./testids"
 
 type Props = { apiKeys: ApiKeyDescription[] } & Pick<WithTranslation, "t" | "i18n"> &
     ReturnType<typeof mapStateToProps> &
@@ -209,7 +210,9 @@ const KeyField: React.FC<{ keyValue: string } & Pick<WithTranslation, "t">> = ({
                 onClick={() => setVisible((prev) => !prev)}
                 variant="ghost"
             />{" "}
-            <Box maxWidth={["8ch", "30ch", null, "10ch"]}>{visible ? keyValue : keyValue.slice(0, 4) + "***"}</Box>
+            <Box maxWidth={["8ch", "30ch", null, "10ch"]} data-testid={API_KEY_VALUE}>
+                {visible ? keyValue : keyValue.slice(0, 4) + "***"}
+            </Box>
         </Flex>
     )
 }
@@ -248,7 +251,12 @@ const EnabledField: React.FC<{ isEnabled: boolean; onChange: (newValue: boolean)
 }) => {
     return (
         <>
-            <Checkbox defaultChecked={isEnabled} onChange={(e) => onChange(e.target.checked)} isDisabled={!canChange} />
+            <Checkbox
+                defaultChecked={isEnabled}
+                onChange={(e) => onChange(e.target.checked)}
+                isDisabled={!canChange}
+                data-testid={DISABLE_API_KEY_CHECKBOX}
+            />
         </>
     )
 }
@@ -271,6 +279,7 @@ const ValidToField: React.FC<
             {...textProps}
             cursor={disabled ? "not-allowed" : "pointer"}
             onClick={disabled ? () => void 0 : onClick}
+            data-testid={API_KEY_EXPIRATION_TIME}
         >
             {text}
         </Text>
