@@ -24,6 +24,18 @@
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
 
+export type GetOptions = Partial<Cypress.Loggable & Cypress.Timeoutable & Cypress.Withinable & Cypress.Shadow>
+
 Cypress.Commands.add("loginByApi", (email: string, password: string) => {
     cy.request({ url: "/api/v1/users/auth/login", method: "POST", body: { email, password } })
 })
+
+Cypress.Commands.add("getByTestId", (testId: string, options?: GetOptions) =>
+    cy.get(`[data-testid="${testId}"]`, options)
+)
+
+Cypress.Commands.add("getByRole", (role: string, options?: GetOptions) => cy.get(`[role="${role}"]`, options))
+
+Cypress.Commands.add("getByAriaLabel", (label: string, options?: GetOptions) =>
+    cy.get(`[aria-label="${label}"]`, options)
+)
