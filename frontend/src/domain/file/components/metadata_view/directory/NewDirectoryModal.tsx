@@ -50,7 +50,7 @@ export const NewDirectoryModal: React.FC<Props> = ({ isOpen, onClose, t, createD
             <ModalContent>
                 <ModalBody>
                     <form onSubmit={handleSubmit(onSubmit)} id="new-directory-form">
-                        <FormControl id="description" isInvalid={errors.name !== undefined} isRequired={true}>
+                        <FormControl id="newName" isInvalid={errors.name !== undefined} isRequired={true}>
                             <FormLabel fontSize="sm">
                                 {t("file-view:directory-content-list.new-directory-name")}
                             </FormLabel>

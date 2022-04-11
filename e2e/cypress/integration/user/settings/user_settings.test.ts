@@ -1,3 +1,4 @@
+import { maybeIt } from "../../../utils/conditionalRuns"
 import { clearCookieAndFetchUserData, createApiKeyAndReload } from "./user_settings"
 
 describe("User settings", () => {
@@ -44,7 +45,7 @@ describe("User settings", () => {
         })
 
         // Skipped because test fails in docker because of node forge primes.worker
-        it.skip("should change password", () => {
+        maybeIt("should change password", () => {
             const newPassword = "updated-password"
             const newApiPassword = "371f334ff5778598e19da9fb3ed46952e6fe44219eea78a41d886ec710db5eac"
             cy.get("input#email").type(Cypress.env("FIRST_USER_EMAIL"))

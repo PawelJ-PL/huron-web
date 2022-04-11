@@ -13,5 +13,7 @@ declare namespace Cypress {
             label: string,
             options?: Partial<Cypress.Loggable & Cypress.Timeoutable & Cypress.Withinable & Cypress.Shadow>
         ): Chainable<JQuery<HTMLElement>>
+        containsAlert(text: string): Chainable<JQuery<HTMLElement>>
+        unlockMasterKey(password: string): Chainable<JQuery<HTMLElement>>
     }
 }

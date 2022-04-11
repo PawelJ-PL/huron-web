@@ -39,3 +39,12 @@ Cypress.Commands.add("getByRole", (role: string, options?: GetOptions) => cy.get
 Cypress.Commands.add("getByAriaLabel", (label: string, options?: GetOptions) =>
     cy.get(`[aria-label="${label}"]`, options)
 )
+
+Cypress.Commands.add("containsAlert", (text: string | number | RegExp) => cy.contains("[role=alert]", text))
+
+Cypress.Commands.add("unlockMasterKey", (password: string) => {
+    cy.getByTestId("LOCK_KEY_BUTTON").click()
+    cy.get("input[type=password]").type(password)
+    cy.contains("button", "Unlock").click()
+    cy.getByAriaLabel("The encryption key is unlocked")
+})
