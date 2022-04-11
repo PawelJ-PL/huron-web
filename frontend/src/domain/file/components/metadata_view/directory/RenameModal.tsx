@@ -63,7 +63,7 @@ export const RenameModal: React.FC<Props> = ({ t, requestedFile, clearRequest, r
             <ModalContent data-testid={RENAME_FILE_MODAL}>
                 <ModalBody>
                     <form onSubmit={handleSubmit(onSubmit)} id="rename-form">
-                        <FormControl id="description" isInvalid={errors.name !== undefined} isRequired={true}>
+                        <FormControl id="newName" isInvalid={errors.name !== undefined} isRequired={true}>
                             <FormLabel fontSize="sm">{t("file-view:directory-content-list.new-name-label")}</FormLabel>
                             <Input {...register("name")} data-testid={NEW_FILE_NAME_INPUT} />
                             <FormErrorMessage>{errors.name?.message}</FormErrorMessage>

@@ -5,6 +5,8 @@
         "FIRST_USER_EMAIL": "firstuser@example.org",
         "FIRST_USER_PASSWORD": "secret-password",
         "FIRST_USER_API_PASSWORD": "5584090431efdec1d9fc67b34df1f018a59611de3c189dd352b66c8719b2b247",
+        "TEST_COLLECTION_ID": "0d1f9854-e043-4e96-80cc-cf193ba152d2",
+        "TEST_COLLECTION_ENCRYPTED_KEY_VERSION": "b780958a-b70b-45ed-ae5a-d9f5448dce9d",
         "DB_HOST": "127.0.0.1",
         "DB_PORT": "5432",
         "DB_USER": "postgres",
