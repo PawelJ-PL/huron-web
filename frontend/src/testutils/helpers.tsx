@@ -5,12 +5,14 @@ import { MemoryRouter, Route, Routes } from "react-router"
 import { BrowserRouter } from "react-router-dom"
 import configureMockStore from "redux-mock-store"
 
+type WithChildrenProps = { children?: React.ReactNode }
+
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export const renderWithStoreAndRouter = (reduxState?: unknown) => {
     const mockStore = configureMockStore()
     const store = mockStore(reduxState)
 
-    const Wrapper: React.ComponentType = ({ children }) => (
+    const Wrapper: React.ComponentType<WithChildrenProps> = ({ children }) => (
         <Provider store={store}>
             <MemoryRouter>{children}</MemoryRouter>
         </Provider>
@@ -21,7 +23,7 @@ export const renderWithStoreAndRouter = (reduxState?: unknown) => {
 }
 
 export const renderWithRoute = (path: string) => {
-    const Wrapper: React.ComponentType = ({ children }) => (
+    const Wrapper: React.ComponentType<WithChildrenProps> = ({ children }) => (
         <BrowserRouter>
             <Routes>
                 <Route path={path} element={children} />

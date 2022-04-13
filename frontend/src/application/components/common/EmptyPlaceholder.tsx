@@ -4,6 +4,7 @@ import React from "react"
 import { IconType } from "react-icons/lib"
 
 type Props = {
+    children?: React.ReactNode
     text: string
     icon: IconType
 }

@@ -2,7 +2,11 @@ import { Box } from "@chakra-ui/layout"
 import React from "react"
 import TopBar from "./TopBar"
 
-const DefaultLayout: React.FC = ({ children }) => (
+type Props = {
+    children?: React.ReactNode
+}
+
+const DefaultLayout: React.FC<Props> = ({ children }) => (
     <Box>
         <TopBar />
 

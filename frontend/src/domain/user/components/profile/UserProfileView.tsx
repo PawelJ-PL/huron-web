@@ -87,7 +87,11 @@ export const UserProfileView: React.FC<Props> = ({ userData, t }) => {
     )
 }
 
-type MenuEntryProps = { isSelected?: boolean; onClick: () => void }
+type MenuEntryProps = {
+    children?: React.ReactNode
+    isSelected?: boolean
+    onClick: () => void
+}
 
 const MenuEntry: React.FC<MenuEntryProps> = ({ children, isSelected, onClick }) => (
     <Box

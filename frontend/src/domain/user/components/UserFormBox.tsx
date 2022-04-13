@@ -5,6 +5,7 @@ import ContentBox from "../../../application/components/common/ContentBox"
 import LogoWithText from "../../../resources/logo_transparent_reverse.png"
 
 type Props = {
+    children?: React.ReactNode
     outsideElement?: JSX.Element
 }
 

@@ -5,7 +5,8 @@ import DefaultLayout from "../layouts/default/DefaultLayout"
 
 type Props = {
     routes: AppRoute[]
-    defaultComponent: React.ComponentType<unknown>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    defaultComponent: React.ComponentType<any>
 }
 
 const AppRouter: React.FC<Props> = ({ routes, defaultComponent }) => {

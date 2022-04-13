@@ -72,7 +72,7 @@ const mapStateToProps = (state: AppState) => ({
     knownUsers: state.users.knownUsers,
 })
 
-const MaybeLink: React.FC<{ userId?: string }> = ({ children, userId }) => {
+const MaybeLink: React.FC<{ userId?: string; children?: React.ReactNode }> = ({ children, userId }) => {
     if (userId !== undefined) {
         return (
             <Link as={RouterLink} to={`/user/${userId}`}>
