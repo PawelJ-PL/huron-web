@@ -2,6 +2,7 @@ import { Box, BoxProps } from "@chakra-ui/layout"
 import React from "react"
 
 type Props = {
+    children?: React.ReactNode
     containerProps?: BoxProps & { "data-testid"?: string }
 }
 

@@ -57,7 +57,7 @@ const DisplayOptionsPanel: React.FC<Props> = ({
                         </option>
                     ))}
                 </Select>
-                <Text flexShrink="0" fontSize="md">
+                <Text flexShrink={0} fontSize="md">
                     {t("common:pagination.entries-per-page")}
                 </Text>
             </HStack>

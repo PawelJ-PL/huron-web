@@ -4,7 +4,7 @@ import { connect } from "react-redux"
 import { AppState } from "../../store"
 import { supportedLanguages } from "../i18n"
 
-type Props = WithTranslation & ReturnType<typeof mapStateToProps>
+type Props = { children?: React.ReactNode } & WithTranslation & ReturnType<typeof mapStateToProps>
 
 export const TranslatedApp: React.FC<Props> = ({ children, i18n, language }) => {
     useEffect(() => {
