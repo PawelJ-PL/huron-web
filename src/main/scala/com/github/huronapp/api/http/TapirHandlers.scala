@@ -3,9 +3,9 @@ package com.github.huronapp.api.http
 import org.log4s.getLogger
 import sttp.model.{Header, StatusCode}
 import sttp.tapir.json.circe.jsonBody
-import sttp.tapir.server.interceptor.ValuedEndpointOutput
 import sttp.tapir.server.interceptor.decodefailure.DefaultDecodeFailureHandler
 import sttp.tapir.server.interceptor.decodefailure.DefaultDecodeFailureHandler.{FailureMessages, respond}
+import sttp.tapir.server.model.ValuedEndpointOutput
 import sttp.tapir.{headers, statusCode}
 
 object TapirHandlers {

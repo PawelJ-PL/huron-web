@@ -13,7 +13,6 @@ trait BaseRouter {
     Http4sServerOptions
       .customInterceptors[RouteEffect, RouteEffect]
       .decodeFailureHandler(TapirHandlers.handler)
-      .rejectInterceptor(None)
       .options
 
 }

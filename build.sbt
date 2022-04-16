@@ -36,8 +36,8 @@ val dependencies = {
   ).map(_ % Versions.ciris)
 
   val tapir = Seq(
-    "com.softwaremill.sttp.tapir" %% "tapir-zio",
-    "com.softwaremill.sttp.tapir" %% "tapir-zio-http4s-server",
+    "com.softwaremill.sttp.tapir" %% "tapir-zio1",
+    "com.softwaremill.sttp.tapir" %% "tapir-zio1-http4s-server",
     "com.softwaremill.sttp.tapir" %% "tapir-json-circe",
     "com.softwaremill.sttp.tapir" %% "tapir-openapi-docs",
     "com.softwaremill.sttp.tapir" %% "tapir-openapi-circe-yaml",
