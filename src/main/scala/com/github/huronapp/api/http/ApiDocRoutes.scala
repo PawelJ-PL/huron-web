@@ -9,7 +9,7 @@ import sttp.tapir.Endpoint
 import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
 import sttp.tapir.openapi.circe.yaml._
 import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
-import sttp.tapir.swagger.SwaggerUI
+import sttp.tapir.swagger.{SwaggerUI, SwaggerUIOptions}
 import sttp.tapir.ztapir.ZServerEndpoint
 import zio.{Has, URIO, ZIO, ZLayer}
 
@@ -31,7 +31,7 @@ object ApiDocRoutes {
       private val doc = OpenAPIDocsInterpreter().toOpenAPI(endpoints.toList, "Huron App", "").toYaml
 
       private val swaggerEndpoint: List[ZServerEndpoint[Any, ZioStreams]] =
-        SwaggerUI(doc, yamlName = "api-doc.yaml")
+        SwaggerUI(doc, options = SwaggerUIOptions.default.copy(yamlName = "api-doc.yaml"))
 
       private val swaggerRoutes = ZHttp4sServerInterpreter[Any]().from(swaggerEndpoint).toRoutes
 
