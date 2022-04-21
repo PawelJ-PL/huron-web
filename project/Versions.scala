@@ -12,27 +12,29 @@ object Versions {
 
   val zioNio = "1.0.0-RC12"
 
-  val http4s = "0.23.11"
+  val http4s = "0.23.12"
 
-  val logback = "1.3.0-alpha14"
+  val logback = "1.3.0-alpha16"
 
   val ciris = "2.3.2"
 
-  val tapir = "1.0.0-M6"
+  val tapir = "1.0.0-RC1"
 
-  val circe = "0.14.1"
+  val sttpApiSpec = "0.2.1"
+
+  val circe = "0.14.2"
 
   val cats = "2.7.0"
 
   val semver4j = "3.1.0"
 
-  val liquibase = "4.9.1"
+  val liquibase = "4.11.0"
 
-  val postgresDriver = "42.3.4"
+  val postgresDriver = "42.3.6"
 
   val doobie = "1.0.0-RC1"
 
-  val tranzactio = "3.0.0-M1"
+  val tranzactio = "3.0.0-M3"
 
   val chimney = "0.6.1"
 
@@ -46,7 +48,7 @@ object Versions {
 
   val scalaCache = "1.0.0-M6"
 
-  val kamon = "2.5.1"
+  val kamon = "2.5.3"
 
   val kanelaAgent = "1.0.14"
 
@@ -54,8 +56,8 @@ object Versions {
 
   val newType = "0.4.4"
 
-  val refined = "0.9.28"
+  val refined = "0.9.29"
 
-  val scalaTest = "3.2.11"
+  val scalaTest = "3.2.12"
 
 }

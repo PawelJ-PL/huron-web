@@ -6,6 +6,7 @@ import com.github.huronapp.api.auth.authentication.HttpAuthentication
 import com.github.huronapp.api.auth.authentication.HttpAuthentication.HttpAuthentication
 import com.github.huronapp.api.domain.collections.CollectionsService.CollectionsService
 import com.github.huronapp.api.domain.collections.dto.{CollectionData, EncryptionKeyData}
+import com.github.huronapp.api.domain.users.UserId
 import com.github.huronapp.api.http.{BaseRouter, ErrorResponse}
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import com.github.huronapp.api.http.EndpointSyntax._
@@ -60,6 +61,15 @@ object CollectionsRoutes {
                 dto => collectionService.createCollectionAs(user.userId, dto).map(_.transformInto[CollectionData])
               )
 
+          private val deleteCollectionRoute: HttpRoutes[RouteEffect] = CollectionsEndpoints
+            .deleteCollectionEndpoint
+            .toAuthenticatedRoutes(auth.asUser)(user =>
+              collectionId =>
+                collectionService
+                  .deleteCollectionAs(UserId(user.userId), collectionId)
+                  .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.deleteCollectionError(error)))
+            )
+
           private val getCollectionKeyRoute =
             CollectionsEndpoints
               .getSingleCollectionKeyEndpoint
@@ -79,8 +89,72 @@ object CollectionsRoutes {
                 _ => collectionService.getEncryptionKeysForAllCollectionsOfUser(user.userId).map(_.transformInto[List[EncryptionKeyData]])
               )
 
+          private val inviterMemberRoute = CollectionsEndpoints.inviteCollectionMemberEndpoint.toAuthenticatedRoutes(auth.asUser) { user =>
+            {
+              case (collectionId, memberId, dto) =>
+                collectionService
+                  .inviteMemberAs(UserId(user.userId), collectionId, memberId, dto)
+                  .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.inviteMemberError(error)))
+                  .unit
+            }
+          }
+
+          private val acceptInvitationRoute = CollectionsEndpoints.acceptInvitationEndpoint.toAuthenticatedRoutes(auth.asUser) {
+            user => collectionId =>
+              collectionService
+                .acceptInvitationAs(UserId(user.userId), collectionId)
+                .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.acceptInvitationError(error)))
+          }
+
+          private val getCollectionMembersRoute = CollectionsEndpoints
+            .getCollectionMembersEndpoint
+            .toAuthenticatedRoutes(auth.asUser) { user => collectionId =>
+              collectionService
+                .getCollectionMembersAs(UserId(user.userId), collectionId)
+                .map(_.groupBy(_.userId).map { case (userId, member) => (userId.id -> member.flatMap(_.permissions)) })
+                .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.getMembersError(error)))
+            }
+
+          private val listPermissionsRoute = CollectionsEndpoints.listPermissionsEndpoint.toAuthenticatedRoutes(auth.asUser) { user =>
+            {
+              case (collectionId, memberId) =>
+                collectionService
+                  .getMemberPermissionsAs(UserId(user.userId), collectionId, memberId)
+                  .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.listMemberPermissionsError(error)))
+            }
+          }
+
+          private val setPermissionsRoute = CollectionsEndpoints.setPermissionsEndpoint.toAuthenticatedRoutes(auth.asUser) { user =>
+            {
+              case (collectionId, memberId, newPermissions) =>
+                collectionService
+                  .setMemberPermissionsAs(UserId(user.userId), collectionId, memberId, newPermissions)
+                  .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.setMemberPermissionsError(error)))
+            }
+          }
+
+          private val removeMemberRoute = CollectionsEndpoints.removeCollectionMemberEndpoint.toAuthenticatedRoutes(auth.asUser) { user =>
+            {
+              case (collectionId, memberId) =>
+                collectionService
+                  .deleteMemberAs(UserId(user.userId), collectionId, memberId)
+                  .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.removeMemberError(error)))
+            }
+          }
+
           override val routes: HttpRoutes[RouteEffect] =
-            getAllCollectionsKeysRoute <+> listCollectionsRoute <+> getCollectionDetailsRoute <+> createCollectionRoute <+> getCollectionKeyRoute
+            getAllCollectionsKeysRoute <+>
+              listCollectionsRoute <+>
+              getCollectionDetailsRoute <+>
+              createCollectionRoute <+>
+              deleteCollectionRoute <+>
+              getCollectionKeyRoute <+>
+              inviterMemberRoute <+>
+              acceptInvitationRoute <+>
+              getCollectionMembersRoute <+>
+              listPermissionsRoute <+>
+              setPermissionsRoute <+>
+              removeMemberRoute
 
         }
     )

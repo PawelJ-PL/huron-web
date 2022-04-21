@@ -7,7 +7,7 @@ import org.http4s.dsl.Http4sDsl
 import sttp.capabilities.zio.ZioStreams
 import sttp.tapir.Endpoint
 import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
-import sttp.tapir.openapi.circe.yaml._
+import sttp.apispec.openapi.circe.yaml._
 import sttp.tapir.server.http4s.ztapir.ZHttp4sServerInterpreter
 import sttp.tapir.swagger.{SwaggerUI, SwaggerUIOptions}
 import sttp.tapir.ztapir.ZServerEndpoint

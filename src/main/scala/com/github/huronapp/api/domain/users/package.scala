@@ -1,6 +1,7 @@
 package com.github.huronapp.api.domain
 
-import cats.Show
+import cats.{Eq, Show}
+import cats.syntax.eq._
 import io.chrisdavenport.fuuid.FUUID
 import io.estatico.newtype.macros.newtype
 
@@ -12,6 +13,8 @@ package object users {
   object UserId {
 
     implicit val show: Show[UserId] = Show.show(_.id.show)
+
+    implicit val eq: Eq[UserId] = Eq.instance(_.id === _.id)
 
   }
 

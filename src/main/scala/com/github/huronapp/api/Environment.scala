@@ -109,9 +109,9 @@ object Environment {
     val registrationCleaner = {
       logging ++ Clock.any ++ registrationCleanupConfig ++ usersRepo ++ db ++ securityConfig ++ tracing >>> RegistrationCleaner.live
     }
-    val collectionsService = db ++ collectionsRepo ++ authKernel ++ random ++ logging >>> CollectionsService.live
-    val collectionsRoutes = collectionsService ++ logging ++ httpAuth >>> CollectionsRoutes.live
     val filesRepo = Clock.any >>> FilesMetadataRepository.postgres
+    val collectionsService = db ++ collectionsRepo ++ filesRepo ++ usersRepo ++ authKernel ++ random ++ logging >>> CollectionsService.live
+    val collectionsRoutes = collectionsService ++ logging ++ httpAuth >>> CollectionsRoutes.live
     val fs = Blocking.any ++ tracing >>> conditionalFsService(config.filesystemConfig)
     val outboxRepo = Clock.any >>> OutboxRepository.postgres
     val outboxService = outboxRepo ++ random ++ tracing ++ db >>> OutboxService.live

@@ -4,7 +4,7 @@ import enumeratum._
 
 sealed trait CollectionPermission extends EnumEntry
 
-object CollectionPermission extends Enum[CollectionPermission] {
+object CollectionPermission extends Enum[CollectionPermission] with CirceEnum[CollectionPermission] with CatsEnum[CollectionPermission] {
 
   override def values = findValues
 

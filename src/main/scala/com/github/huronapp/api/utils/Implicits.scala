@@ -2,9 +2,13 @@ package com.github.huronapp.api.utils
 
 import cats.syntax.either._
 import ciris.{ConfigDecoder, ConfigError}
-import com.github.huronapp.api.domain.collections.CollectionId
+import com.github.huronapp.api.domain.collections.{CollectionId, CollectionPermission}
 import com.github.huronapp.api.domain.files.{FileId, FileVersionId}
+import com.github.huronapp.api.domain.users.UserId
 import com.vdurmont.semver4j.Semver
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.collection.NonEmpty
+import eu.timepit.refined.refineV
 import io.chrisdavenport.fuuid.FUUID
 import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
 import sttp.tapir.{Codec, CodecFormat, DecodeResult, Schema}
@@ -41,6 +45,19 @@ object Implicits {
 
   }
 
+  object userId {
+
+    implicit val userIdTapirTextPlainCodec: Codec[String, UserId, CodecFormat.TextPlain] =
+      fuuid.fuuidTapirTextPlainCodec.map(UserId(_))(_.id)
+
+    implicit val userIdTapirSchema: Schema[UserId] = Schema.schemaForString.map(FUUID.fromStringOpt(_).map(UserId(_)))(_.id.show)
+
+    implicit val userIdEncoder: Encoder[UserId] = Encoder.encodeString.contramap(_.id.show)
+
+    implicit val userIdDecoder: Decoder[UserId] = Decoder.decodeString.emap(FUUID.fromString(_).bimap(_.getMessage, UserId(_)))
+
+  }
+
   object collectionId {
 
     implicit val collectionIdTapirTextPlainCodec: Codec[String, CollectionId, CodecFormat.TextPlain] =
@@ -69,6 +86,33 @@ object Implicits {
     implicit val FuuidMapKeyEncoder: KeyEncoder[FUUID] = KeyEncoder.instance(_.show)
 
     implicit def tapirSchemaForFuuidKeyMap[V: Schema]: Schema[Map[FUUID, V]] = Schema.schemaForMap[FUUID, V](_.show)
+
+  }
+
+  object fuuidCollectionPermissionsMap {
+    import sttp.tapir.codec.enumeratum._
+
+    implicit val FuuidMapKeyDecoder: KeyDecoder[FUUID] = KeyDecoder.instance(FUUID.fromStringOpt)
+
+    implicit val FuuidMapKeyEncoder: KeyEncoder[FUUID] = KeyEncoder.instance(_.show)
+
+    implicit val tapirSchemaForFuuidKeyMap: Schema[Map[FUUID, List[CollectionPermission]]] =
+      Schema.schemaForMap[FUUID, List[CollectionPermission]](_.show)
+
+  }
+
+  object nonEmptyList {
+
+    implicit def nonEmptyListEncoder[T: Encoder]: Encoder[List[T] Refined NonEmpty] = Encoder.encodeList[T].contramap(_.value)
+
+    implicit def nonEmptyListDecoder[T: Decoder]: Decoder[List[T] Refined NonEmpty] = Decoder.decodeList[T].emap(refineV(_))
+
+  }
+
+  object collectionPermission {
+
+    implicit val collectionPermissionTapirSchema: Schema[CollectionPermission] =
+      Schema.schemaForString.map(CollectionPermission.withNameOption)(_.entryName)
 
   }
 

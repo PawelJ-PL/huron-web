@@ -60,15 +60,19 @@ describe("User settings", () => {
 
     describe("api keys tab", () => {
         beforeEach(() => {
+            cy.intercept({ url: "/api/v1/users/me/api-keys", method: "GET" }).as("listApiKeys")
             cy.get("div").contains("API keys").click()
+            cy.wait("@listApiKeys")
         })
 
         it("should create valid API key", () => {
             cy.contains("button", "Create new API key").click()
             cy.get("input#description").type("Test Key")
+            cy.intercept({ url: `/api/v1/users/me/api-keys`, method: "POST" }).as("createApiKey")
             cy.get("button")
                 .contains(/^Create$/)
                 .click()
+            cy.wait("@createApiKey")
             cy.getByAriaLabel("Show API key").click()
             cy.getByTestId("API_KEY_VALUE").then((element) =>
                 clearCookieAndFetchUserData(element.text()).its("body").should("contain", { nickName: "firstuser" })
@@ -77,6 +81,7 @@ describe("User settings", () => {
 
         it("should disable API key", () => {
             createApiKeyAndReload()
+            cy.wait("@listApiKeys")
             cy.getByAriaLabel("Show API key").click()
             cy.intercept({ url: "/api/v1/users/me/api-keys/*", method: "PATCH" }).as("editApiKey")
             cy.getByTestId("DISABLE_API_KEY_CHECKBOX").click()
@@ -88,6 +93,7 @@ describe("User settings", () => {
 
         it("should delete API key", () => {
             createApiKeyAndReload()
+            cy.wait("@listApiKeys")
             cy.getByAriaLabel("Show API key").click()
             cy.getByTestId("API_KEY_VALUE").then((element) => {
                 cy.getByAriaLabel("delete").click()
@@ -99,6 +105,7 @@ describe("User settings", () => {
 
         it("should expire API key", () => {
             createApiKeyAndReload()
+            cy.wait("@listApiKeys")
             cy.getByAriaLabel("Show API key").click()
             cy.intercept({ url: "/api/v1/users/me/api-keys/*", method: "PATCH" }).as("editApiKey")
             cy.getByTestId("API_KEY_VALUE").then((element) => {

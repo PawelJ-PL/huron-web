@@ -119,6 +119,9 @@ object FilesMetadataRepositoryFake {
             (maybeUpdatedObject.isDefined, updateState)
         }
 
+      override def isCollectionEmpty(collectionId: collections.CollectionId): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
+        ref.get.map(!_.exists(_.collectionId === collectionId))
+
     })
 
 }

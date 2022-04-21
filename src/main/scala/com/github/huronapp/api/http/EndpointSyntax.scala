@@ -17,7 +17,7 @@ object EndpointSyntax {
     def toRoutes(
       logic: I => ZIO[Any, E, O]
     )(
-      implicit serverOptions: Http4sServerOptions[RouteEffect, RouteEffect],
+      implicit serverOptions: Http4sServerOptions[RouteEffect],
       aIsUnit: S =:= Unit
     ): HttpRoutes[RouteEffect] = {
       val zserver: ZServerEndpoint[Any, ZioStreams] = zendpoint.zServerLogic(logic)
@@ -29,7 +29,7 @@ object EndpointSyntax {
     )(
       logic: AuthenticatedUser => I => ZIO[Any, E, O]
     )(
-      implicit serverOptions: Http4sServerOptions[RouteEffect, RouteEffect]
+      implicit serverOptions: Http4sServerOptions[RouteEffect]
     ): HttpRoutes[RouteEffect] = {
       val partialWithUserServerEndpoint = zendpoint.zServerSecurityLogic[Any, AuthenticatedUser](auth)
       val serverEndpoint: ZServerEndpoint[Any, ZioStreams] = partialWithUserServerEndpoint.serverLogic[Any](logic)
@@ -41,7 +41,7 @@ object EndpointSyntax {
     )(
       logic: I => ZIO[Any, E, O]
     )(
-      implicit serverOptions: Http4sServerOptions[RouteEffect, RouteEffect]
+      implicit serverOptions: Http4sServerOptions[RouteEffect]
     ): HttpRoutes[RouteEffect] = {
       val partialWithUserServerEndpoint = zendpoint.zServerSecurityLogic[Any, AuthenticatedUser](auth)
       val serverEndpoint: ZServerEndpoint[Any, ZioStreams] = partialWithUserServerEndpoint.serverLogic[Any](_ => input => logic(input))

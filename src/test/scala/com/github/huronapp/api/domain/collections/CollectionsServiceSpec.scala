@@ -1,20 +1,31 @@
 package com.github.huronapp.api.domain.collections
 
 import com.github.huronapp.api.auth.authorization.types.Subject
-import com.github.huronapp.api.auth.authorization.{AuthorizationKernel, GetCollectionDetails, GetEncryptionKey, OperationNotPermitted}
-import com.github.huronapp.api.constants.{Collections, MiscConstants, Users}
+import com.github.huronapp.api.auth.authorization.{
+  AuthorizationKernel,
+  DeleteCollection,
+  GetCollectionDetails,
+  GetEncryptionKey,
+  OperationNotPermitted
+}
+import com.github.huronapp.api.constants.{Collections, Files, MiscConstants, Users}
 import com.github.huronapp.api.domain.collections.dto.NewCollectionReq
 import com.github.huronapp.api.domain.collections.dto.fields.{CollectionName, EncryptedCollectionKey}
-import com.github.huronapp.api.testdoubles.{CollectionsRepoFake, RandomUtilsStub}
+import com.github.huronapp.api.domain.files.StorageUnit
+import com.github.huronapp.api.domain.users.UserId
+import com.github.huronapp.api.testdoubles.{CollectionsRepoFake, FilesMetadataRepositoryFake, RandomUtilsStub, UsersRepoFake}
 import io.github.gaelrenoux.tranzactio.doobie.Database
 import zio.{Has, Ref, ZLayer}
 import zio.logging.slf4j.Slf4jLogger
 import zio.test.environment.TestEnvironment
-import zio.test.{DefaultRunnableSpec, ZSpec}
-import zio.test.assert
-import zio.test.Assertion.{equalTo, hasSameElements, isLeft, isNone, isSome}
+import zio.test.{DefaultRunnableSpec, ZSpec, assert, assertTrue}
+import zio.test.Assertion.{equalTo, hasSameElements, isLeft, isNone, isRight, isUnit}
 
-object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with Users with MiscConstants {
+object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with Users with Files with MiscConstants {
+
+  val userId: UserId = UserId(ExampleUserId)
+
+  val collectionId: CollectionId = CollectionId(ExampleCollectionId)
 
   override def spec: ZSpec[TestEnvironment, Any] =
     suite("Collections service suite")(
@@ -26,15 +37,23 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
       readEncryptionKey,
       readEncryptionKeyNotFound,
       readEncryptionKeyNotPermitted,
-      readAllEncryptionKeysOfUser
+      readAllEncryptionKeysOfUser,
+      deleteCollection,
+      deleteCollectionNonExisting,
+      deleteCollectionByNonOwner,
+      deleteNonEmptyCollection
     )
 
   private def createService(
-    collectionsRepoState: Ref[CollectionsRepoFake.CollectionsRepoState]
+    collectionsRepoState: Ref[CollectionsRepoFake.CollectionsRepoState],
+    filesRepoState: Ref[List[StorageUnit]],
+    usersRepoState: Ref[UsersRepoFake.UsersRepoState]
   ): ZLayer[TestEnvironment, Nothing, Has[CollectionsService.Service]] = {
     val collectionsRepo = CollectionsRepoFake.create(collectionsRepoState)
+    val filesRepo = FilesMetadataRepositoryFake.create(filesRepoState)
+    val usersRepo = UsersRepoFake.create(usersRepoState)
     val logger = Slf4jLogger.make((_, str) => str)
-    Database.none ++ collectionsRepo ++ (Database.none ++ collectionsRepo >>> AuthorizationKernel.live) ++ RandomUtilsStub.create ++ logger >>> CollectionsService.live
+    Database.none ++ collectionsRepo ++ filesRepo ++ usersRepo ++ (Database.none ++ collectionsRepo >>> AuthorizationKernel.live) ++ RandomUtilsStub.create ++ logger >>> CollectionsService.live
   }
 
   val crateCollectionDto: NewCollectionReq =
@@ -59,7 +78,11 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
     )
     for {
       collectionsRepo <- Ref.make(initCollectionsRepoState)
-      result          <- CollectionsService.getAllCollectionsOfUser(ExampleUserId, onlyAccepted = false).provideLayer(createService(collectionsRepo))
+      filesRepo       <- Ref.make(List.empty[StorageUnit])
+      usersRepo       <- Ref.make(UsersRepoFake.UsersRepoState())
+      result          <- CollectionsService
+                           .getAllCollectionsOfUser(ExampleUserId, onlyAccepted = false)
+                           .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
     } yield assert(result)(hasSameElements(Set(collection1, collection3, collection5)))
   }
 
@@ -82,7 +105,11 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
     )
     for {
       collectionsRepo <- Ref.make(initCollectionsRepoState)
-      result          <- CollectionsService.getAllCollectionsOfUser(ExampleUserId, onlyAccepted = true).provideLayer(createService(collectionsRepo))
+      filesRepo       <- Ref.make(List.empty[StorageUnit])
+      usersRepo       <- Ref.make(UsersRepoFake.UsersRepoState())
+      result          <- CollectionsService
+                           .getAllCollectionsOfUser(ExampleUserId, onlyAccepted = true)
+                           .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
     } yield assert(result)(hasSameElements(Set(collection1, collection5)))
   }
 
@@ -95,8 +122,12 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
     )
     for {
       collectionsRepo <- Ref.make(initCollectionsRepoState)
-      result          <- CollectionsService.getCollectionDetailsAs(ExampleUserId, ExampleCollectionId).provideLayer(createService(collectionsRepo))
-    } yield assert(result)(equalTo(ExampleCollection))
+      filesRepo       <- Ref.make(List.empty[StorageUnit])
+      usersRepo       <- Ref.make(UsersRepoFake.UsersRepoState())
+      result          <- CollectionsService
+                           .getCollectionDetailsAs(ExampleUserId, ExampleCollectionId)
+                           .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
+    } yield assertTrue(result == ExampleCollection)
   }
 
   private val getCollectionDetailsNotPermitted = testM("should not read collection if user has no rights") {
@@ -108,8 +139,12 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
     )
     for {
       collectionsRepo <- Ref.make(initCollectionsRepoState)
-      result          <-
-        CollectionsService.getCollectionDetailsAs(ExampleUserId, ExampleCollectionId).provideLayer(createService(collectionsRepo)).either
+      filesRepo       <- Ref.make(List.empty[StorageUnit])
+      usersRepo       <- Ref.make(UsersRepoFake.UsersRepoState())
+      result          <- CollectionsService
+                           .getCollectionDetailsAs(ExampleUserId, ExampleCollectionId)
+                           .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
+                           .either
     } yield assert(result)(
       isLeft(equalTo(AuthorizationError(OperationNotPermitted(GetCollectionDetails(Subject(ExampleUserId), ExampleCollectionId)))))
     )
@@ -121,9 +156,13 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
     val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState()
     for {
       collectionsRepo          <- Ref.make(initCollectionsRepoState)
-      result                   <- CollectionsService.createCollectionAs(ExampleUserId, crateCollectionDto).provideLayer(createService(collectionsRepo))
+      filesRepo                <- Ref.make(List.empty[StorageUnit])
+      usersRepo                <- Ref.make(UsersRepoFake.UsersRepoState())
+      result                   <- CollectionsService
+                                    .createCollectionAs(ExampleUserId, crateCollectionDto)
+                                    .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
       finalCollectionRepoState <- collectionsRepo.get
-    } yield assert(result)(equalTo(expectedCollection)) &&
+    } yield assertTrue(result == expectedCollection) &&
       assert(finalCollectionRepoState.collections)(hasSameElements(Set(expectedCollection))) &&
       assert(finalCollectionRepoState.userCollections)(
         hasSameElements(Set(CollectionsRepoFake.UserCollection(FirstRandomFuuid, ExampleUserId, accepted = true)))
@@ -151,10 +190,14 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
     )
     for {
       collectionsRepo          <- Ref.make(initCollectionsRepoState)
-      result                   <- CollectionsService.getEncryptionKeyAs(ExampleUserId, ExampleCollectionId).provideLayer(createService(collectionsRepo))
+      filesRepo                <- Ref.make(List.empty[StorageUnit])
+      usersRepo                <- Ref.make(UsersRepoFake.UsersRepoState())
+      result                   <- CollectionsService
+                                    .getEncryptionKeyAs(ExampleUserId, ExampleCollectionId)
+                                    .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
       finalCollectionRepoState <- collectionsRepo.get
-    } yield assert(result)(isSome(equalTo(expectedKey))) &&
-      assert(finalCollectionRepoState)(equalTo(initCollectionsRepoState))
+    } yield assertTrue(result.get == expectedKey) &&
+      assertTrue(finalCollectionRepoState == initCollectionsRepoState)
   }
 
   private val readEncryptionKeyNotFound = testM("should not read encryption key of collection if key not exist") {
@@ -165,10 +208,14 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
     )
     for {
       collectionsRepo          <- Ref.make(initCollectionsRepoState)
-      result                   <- CollectionsService.getEncryptionKeyAs(ExampleUserId, ExampleCollectionId).provideLayer(createService(collectionsRepo))
+      filesRepo                <- Ref.make(List.empty[StorageUnit])
+      usersRepo                <- Ref.make(UsersRepoFake.UsersRepoState())
+      result                   <- CollectionsService
+                                    .getEncryptionKeyAs(ExampleUserId, ExampleCollectionId)
+                                    .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
       finalCollectionRepoState <- collectionsRepo.get
     } yield assert(result)(isNone) &&
-      assert(finalCollectionRepoState)(equalTo(initCollectionsRepoState))
+      assertTrue(finalCollectionRepoState == initCollectionsRepoState)
   }
 
   private val readEncryptionKeyNotPermitted = testM("should  not read encryption key of collection if user not allowed") {
@@ -182,13 +229,17 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
     )
     for {
       collectionsRepo          <- Ref.make(initCollectionsRepoState)
-      result                   <-
-        CollectionsService.getEncryptionKeyAs(ExampleUserId, ExampleCollectionId).provideLayer(createService(collectionsRepo)).either
+      filesRepo                <- Ref.make(List.empty[StorageUnit])
+      usersRepo                <- Ref.make(UsersRepoFake.UsersRepoState())
+      result                   <- CollectionsService
+                                    .getEncryptionKeyAs(ExampleUserId, ExampleCollectionId)
+                                    .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
+                                    .either
       finalCollectionRepoState <- collectionsRepo.get
     } yield assert(result)(
       isLeft(equalTo(AuthorizationError(OperationNotPermitted(GetEncryptionKey(Subject(ExampleUserId), ExampleCollectionId)))))
     ) &&
-      assert(finalCollectionRepoState)(equalTo(initCollectionsRepoState))
+      assertTrue(finalCollectionRepoState == initCollectionsRepoState)
   }
 
   private val readAllEncryptionKeysOfUser = testM("should read all encryption key of user") {
@@ -203,10 +254,90 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
     )
     for {
       collectionsRepo          <- Ref.make(initCollectionsRepoState)
-      result                   <- CollectionsService.getEncryptionKeysForAllCollectionsOfUser(ExampleUserId).provideLayer(createService(collectionsRepo))
+      filesRepo                <- Ref.make(List.empty[StorageUnit])
+      usersRepo                <- Ref.make(UsersRepoFake.UsersRepoState())
+      result                   <- CollectionsService
+                                    .getEncryptionKeysForAllCollectionsOfUser(ExampleUserId)
+                                    .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
       finalCollectionRepoState <- collectionsRepo.get
     } yield assert(result)(hasSameElements(Set(key1, key3))) &&
-      assert(finalCollectionRepoState)(equalTo(initCollectionsRepoState))
+      assertTrue(finalCollectionRepoState == initCollectionsRepoState)
+  }
+
+  private val deleteCollection = testM("should delete collection") {
+    val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+      collections = Set(ExampleCollection)
+    )
+
+    for {
+      collectionsRepo          <- Ref.make(initCollectionsRepoState)
+      filesRepo                <- Ref.make(List.empty[StorageUnit])
+      usersRepo                <- Ref.make(UsersRepoFake.UsersRepoState())
+      result                   <- CollectionsService
+                                    .deleteCollectionAs(userId, collectionId)
+                                    .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
+                                    .either
+      finalCollectionRepoState <- collectionsRepo.get
+    } yield assert(result)(isRight(isUnit)) &&
+      assertTrue(finalCollectionRepoState.collections.isEmpty)
+  }
+
+  private val deleteCollectionNonExisting = testM("should not delete non existing collection") {
+    val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+      collections = Set(ExampleCollection)
+    )
+
+    for {
+      collectionsRepo          <- Ref.make(initCollectionsRepoState)
+      filesRepo                <- Ref.make(List.empty[StorageUnit])
+      usersRepo                <- Ref.make(UsersRepoFake.UsersRepoState())
+      result                   <- CollectionsService
+                                    .deleteCollectionAs(userId, CollectionId(ExampleFuuid1))
+                                    .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
+                                    .either
+      finalCollectionRepoState <- collectionsRepo.get
+    } yield assert(result)(
+      isLeft(equalTo(AuthorizationError(OperationNotPermitted(DeleteCollection(Subject(ExampleUserId), CollectionId(ExampleFuuid1))))))
+    ) &&
+      assertTrue(finalCollectionRepoState == initCollectionsRepoState)
+  }
+
+  private val deleteCollectionByNonOwner = testM("should not delete collection owned by another user") {
+    val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+      collections = Set(ExampleCollection)
+    )
+
+    for {
+      collectionsRepo          <- Ref.make(initCollectionsRepoState)
+      filesRepo                <- Ref.make(List.empty[StorageUnit])
+      usersRepo                <- Ref.make(UsersRepoFake.UsersRepoState())
+      result                   <- CollectionsService
+                                    .deleteCollectionAs(UserId(ExampleFuuid1), collectionId)
+                                    .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
+                                    .either
+      finalCollectionRepoState <- collectionsRepo.get
+    } yield assert(result)(
+      isLeft(equalTo(AuthorizationError(OperationNotPermitted(DeleteCollection(Subject(ExampleFuuid1), collectionId)))))
+    ) &&
+      assertTrue(finalCollectionRepoState == initCollectionsRepoState)
+  }
+
+  private val deleteNonEmptyCollection = testM("should not delete non empty collection") {
+    val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+      collections = Set(ExampleCollection)
+    )
+
+    for {
+      collectionsRepo          <- Ref.make(initCollectionsRepoState)
+      filesRepo                <- Ref.make(List[StorageUnit](ExampleDirectoryMetadata))
+      usersRepo                <- Ref.make(UsersRepoFake.UsersRepoState())
+      result                   <- CollectionsService
+                                    .deleteCollectionAs(userId, collectionId)
+                                    .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
+                                    .either
+      finalCollectionRepoState <- collectionsRepo.get
+    } yield assert(result)(isLeft(equalTo(CollectionNotEmpty(collectionId)))) &&
+      assertTrue(finalCollectionRepoState == initCollectionsRepoState)
   }
 
 }

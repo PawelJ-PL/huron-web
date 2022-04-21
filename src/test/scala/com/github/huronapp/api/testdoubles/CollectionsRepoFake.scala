@@ -1,8 +1,16 @@
 package com.github.huronapp.api.testdoubles
 
 import cats.syntax.eq._
-import com.github.huronapp.api.domain.collections.{Collection, CollectionPermission, CollectionsRepository, EncryptionKey}
+import com.github.huronapp.api.domain.collections.{
+  Collection,
+  CollectionId,
+  CollectionMember,
+  CollectionPermission,
+  CollectionsRepository,
+  EncryptionKey
+}
 import com.github.huronapp.api.domain.collections.CollectionsRepository.CollectionsRepository
+import com.github.huronapp.api.domain.users.UserId
 import doobie.util.transactor
 import io.chrisdavenport.fuuid.FUUID
 import io.github.gaelrenoux.tranzactio.DbException
@@ -36,6 +44,24 @@ object CollectionsRepoFake {
           state.collections.filter(c => userCollectionIds.contains(c.id)).toList
         }
 
+      override def editUserCollection(
+        userId: UserId,
+        collectionId: CollectionId,
+        encryptedKey: Option[Option[String]],
+        keyVersion: Option[Option[FUUID]],
+        accepted: Option[Boolean]
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Unit] =
+        ref.update { state =>
+          val updatedUserCollection = state
+            .userCollections
+            .map(c =>
+              if (c.userId =!= userId.id || c.collectionId =!= collectionId.id) c
+              else
+                c.copy(accepted = accepted.getOrElse(c.accepted))
+            )
+          state.copy(userCollections = updatedUserCollection)
+        }
+
       override def getCollectionDetails(collectionId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Option[Collection]] =
         ref.get.map(_.collections.find(_.id === collectionId))
 
@@ -63,7 +89,7 @@ object CollectionsRepoFake {
         ref.get.map(_.userCollections.exists(c => c.collectionId === collectionId && c.userId === userId))
 
       override def isAcceptedBy(collectionId: FUUID, userId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Option[Boolean]] =
-        ???
+        ref.get.map(_.userCollections.find(c => c.collectionId === collectionId && c.userId === userId).map(_.accepted))
 
       override def createCollection(
         collection: Collection,
@@ -90,6 +116,12 @@ object CollectionsRepoFake {
           }
           .as(collection)
 
+      override def deleteCollection(collectionId: CollectionId): ZIO[Has[transactor.Transactor[Task]], DbException, Unit] =
+        ref.update { state =>
+          val collections = state.collections.filterNot(_.id === collectionId.id)
+          state.copy(collections = collections)
+        }
+
       override def deleteUserKeyFromAllCollections(userId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Long] =
         ref
           .getAndUpdate { state =>
@@ -114,6 +146,75 @@ object CollectionsRepoFake {
 
           }
           .map(prev => prev.collectionKeys.exists(c => c.collectionId === collectionId && c.userId === userId))
+
+      override def addMember(
+        collectionId: CollectionId,
+        userId: UserId,
+        collectionPermissions: List[CollectionPermission],
+        encryptedKey: String,
+        keyVersion: FUUID
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Unit] =
+        ref.update {
+          state =>
+            val newPermissionEntries = collectionPermissions.map(p => PermissionEntry(collectionId.id, userId.id, p))
+            val updatedUserCollections =
+              state.userCollections.filterNot(c => c.collectionId === collectionId.id && c.userId === userId.id) + UserCollection(
+                collectionId.id,
+                userId.id,
+                accepted = false
+              )
+            val updatedPermissions =
+              state.permissions.filterNot(p => p.userId === userId.id && p.collectionId === collectionId.id) ++ newPermissionEntries
+
+            state.copy(userCollections = updatedUserCollections, permissions = updatedPermissions)
+
+        }
+
+      override def getMembers(collectionId: CollectionId): ZIO[Has[transactor.Transactor[Task]], DbException, List[CollectionMember]] =
+        ref.get.map { state =>
+          val members = state.userCollections.filter(_.collectionId === collectionId.id).map(_.userId)
+          members
+            .map(member =>
+              CollectionMember(
+                collectionId,
+                UserId(member),
+                state.permissions.filter(p => p.collectionId === collectionId.id && p.userId === member).map(_.permission).toList
+              )
+            )
+            .toList
+        }
+
+      override def isMemberOf(userId: UserId, collectionId: CollectionId): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
+        ref
+          .get
+          .map(
+            _.userCollections.exists(userCollection =>
+              userCollection.collectionId === collectionId.id && userCollection.userId === userId.id
+            )
+          )
+
+      override def setPermissions(
+        collectionId: CollectionId,
+        userId: UserId,
+        permissions: List[CollectionPermission]
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Unit] =
+        ref.update { state =>
+          val filteredPermissions =
+            state.permissions.filterNot(permission => permission.userId === userId.id && permission.collectionId === collectionId.id)
+          val newPermissionEntries = permissions.map(p => PermissionEntry(collectionId.id, userId.id, p))
+          val finalPermissions = filteredPermissions ++ newPermissionEntries
+          state.copy(permissions = finalPermissions)
+        }
+
+      override def deleteMember(collectionId: CollectionId, userId: UserId): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
+        ref.modify { state =>
+          val updatedPermissions = state.permissions.filterNot(p => p.userId === userId.id && p.collectionId === collectionId.id)
+          val updateUserCollections = state.userCollections.filterNot(c => c.collectionId === collectionId.id && c.userId === userId.id)
+
+          val newState = state.copy(permissions = updatedPermissions, userCollections = updateUserCollections)
+
+          (newState.userCollections.size < state.userCollections.size, newState)
+        }
 
     })
 
