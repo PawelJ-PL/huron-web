@@ -1,6 +1,7 @@
 import { EncryptionKey } from "./../types/EncryptionKey"
 import { Collection } from "./../types/Collection"
 import { actionCreatorFactory } from "typescript-fsa"
+import { CollectionsListFilter } from "../types/CollectionsListFilter"
 const actionCreator = actionCreatorFactory("COLLECTION")
 
 export const listCollectionsAction = actionCreator.async<boolean, Collection[], Error>("LIST_COLLECTIONS")
@@ -24,3 +25,11 @@ export const fetchAndDecryptCollectionKeyAction = actionCreator.async<
     Error
 >("FETCH_AND_DECRYPT_COLLECTION_KEY")
 export const cleanCollectionKeyAction = actionCreator("CLEAN_COLLECTION_KEY")
+export const updateCollectionsListFilter = actionCreator<Partial<CollectionsListFilter>>(
+    "UPDATE_COLLECTIONS_LIST_FILTER"
+)
+export const changeInvitationAcceptanceAction = actionCreator.async<
+    { collectionId: string; isAccepted: boolean },
+    void,
+    Error
+>("CHANGE_INVITATION_ACCEPTANCE")

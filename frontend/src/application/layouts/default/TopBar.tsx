@@ -87,6 +87,9 @@ export const TopBar: React.FC<Props> = ({ userData, t, logout, clearLogoutStatus
                                 <MenuItem _hover={{ color: "black" }} onClick={() => navigate("/profile")}>
                                     {t("top-bar:account-menu-items.profile")}
                                 </MenuItem>
+                                <MenuItem _hover={{ color: "black" }} onClick={() => navigate("/collections")}>
+                                    {t("top-bar:account-menu-items.collections")}
+                                </MenuItem>
                                 <MenuItem _hover={{ color: "black" }} onClick={() => navigate("/contacts")}>
                                     {t("top-bar:account-menu-items.contacts")}
                                 </MenuItem>

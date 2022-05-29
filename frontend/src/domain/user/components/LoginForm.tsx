@@ -58,7 +58,7 @@ const LoginForm: React.FC<Props> = ({ onSubmit, submitInProgress, t }) => {
                 <Button
                     marginTop="1rem"
                     colorScheme="brand"
-                    isFullWidth={true}
+                    width="full"
                     loadingText="Login"
                     isLoading={isValidating || submitInProgress}
                     type="submit"

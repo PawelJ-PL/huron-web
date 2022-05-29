@@ -86,6 +86,7 @@
         "unknown-user": "Unknown user",
         "account-menu-items": {
             "profile": "User profile",
+            "collections": "Collections",
             "contacts": "Contacts",
             "logout": "Logout"
         },
@@ -265,5 +266,20 @@
     "find-user-modal": {
         "header": "Find user",
         "start-typing": "Start typing a user nickname"
+    },
+    "collections-list-page": {
+        "loader-text": "Loading collections list",
+        "name": "Name",
+        "owner": "Owner",
+        "search-by-name": "<0>Search</0><2> by name</2>",
+        "filter-by-status": "<0>Filter</0><2> by status</2>",
+        "filter-by-status-options": {
+            "all": "All",
+            "only-accepted": "Only accepted",
+            "only-non-accepted": "Only not accepted"
+        },
+        "create-collection-button": "Create collection",
+        "updating-details-overlay-text": "Updating collection details",
+        "updating-details-failed-toast-message": "error while updating collection details"
     }
 }

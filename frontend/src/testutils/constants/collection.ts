@@ -1,3 +1,4 @@
+import { exampleUserId } from "./user"
 import { Collection } from "./../../domain/collection/types/Collection"
 import { EncryptionKey } from "./../../domain/collection/types/EncryptionKey"
 
@@ -14,4 +15,6 @@ export const exampleCollection: Collection = {
     id: exampleCollectionId,
     name: exampleCollectionName,
     encryptionKeyVersion: exampleEncryptionKeyVersion,
+    owner: exampleUserId,
+    isAccepted: true,
 }

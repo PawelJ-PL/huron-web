@@ -2,6 +2,7 @@
 
 import React from "react"
 import CollectionsContainer from "../../domain/collection/components/CollectionsContainer"
+import CollectionsListContainer from "../../domain/collection/components/collections_management/collections_list/CollectionsListContainer"
 import SingleCollectionContainer from "../../domain/collection/components/SingleCollectionContainer"
 import ContactsContainer from "../../domain/user/components/contacts/ContactsContainer"
 import UserProfilePage from "../../domain/user/components/profile/UserProfilePage"
@@ -38,5 +39,10 @@ export const userRoutes: AppRoute[] = [
         path: "/contacts",
         withLayout: true,
         element: <ContactsContainer />,
+    },
+    {
+        path: "/collections",
+        withLayout: true,
+        element: <CollectionsListContainer />,
     },
 ]

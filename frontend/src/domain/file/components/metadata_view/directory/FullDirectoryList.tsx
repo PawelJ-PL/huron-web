@@ -52,7 +52,7 @@ export const FullDirectoryList: React.FC<Props> = ({
                     <FileIcon />
                 </Box>
                 <Link color="text" as={RouterLink} to={`/collection/${collectionId}/file/${fsUnit.id}`} maxWidth="100%">
-                    <Text isTruncated={true}>{fsUnit.name}</Text>
+                    <Text noOfLines={1}>{fsUnit.name}</Text>
                 </Link>
             </Flex>
         )

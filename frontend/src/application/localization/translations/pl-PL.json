@@ -86,6 +86,7 @@
         "unknown-user": "Nieznany użytkownik",
         "account-menu-items": {
             "profile": "Profil użytkownika",
+            "collections": "Kolekcje",
             "contacts": "Kontakty",
             "logout": "Wyloguj"
         },
@@ -266,5 +267,20 @@
     "find-user-modal": {
         "header": "Znajdź użytkownika",
         "start-typing": "Zacznij wprowadzać pseudonim użytkownika"
+    },
+    "collections-list-page": {
+        "loader-text": "Wczytywanie listy kolekcji",
+        "name": "Nazwa",
+        "owner": "Właściciel",
+        "search-by-name": "<0>Szukaj</0><2> po nazwie</2>",
+        "filter-by-status": "<0>Filtruj</0><2> po statusie</2>",
+        "filter-by-status-options": {
+            "all": "Wszystko",
+            "only-accepted": "Tylko zaakceptowane",
+            "only-non-accepted": "Tylko niezaakceptowane"
+        },
+        "create-collection-button": "Stwórz kolekcję",
+        "updating-details-overlay-text": "Aktualizacja szczegółów kolekcji",
+        "updating-details-failed-toast-message": "Błąd w trakcie zmiany szczegółów kolekcji"
     }
 }

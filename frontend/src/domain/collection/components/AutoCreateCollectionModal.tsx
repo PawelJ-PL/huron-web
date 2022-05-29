@@ -14,16 +14,26 @@ import { AppState } from "../../../application/store"
 import { createCollectionAction } from "../store/Actions"
 import { collectionNameSchema } from "../types/fieldSchemas"
 
-type Props = Pick<WithTranslation, "t"> & ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps>
+type Props = {
+    isOpen: boolean
+    onClose?: () => void
+} & Pick<WithTranslation, "t"> &
+    ReturnType<typeof mapStateToProps> &
+    ReturnType<typeof mapDispatchToProps>
 
-const AutoCreateCollectionModal: React.FC<Props> = ({ t, createCollection, createResult }) => {
+const AutoCreateCollectionModal: React.FC<Props> = ({ t, createCollection, createResult, isOpen, onClose }) => {
     const formSchema = z.object({
         collectionName: collectionNameSchema(t),
     })
 
     type FormData = z.infer<typeof formSchema>
 
-    const onSubmit = (data: FormData) => createCollection(data.collectionName)
+    const closeAction = onClose ? onClose : () => void 0
+
+    const onSubmit = (data: FormData) => {
+        createCollection(data.collectionName)
+        closeAction()
+    }
 
     const {
         register,
@@ -32,7 +42,7 @@ const AutoCreateCollectionModal: React.FC<Props> = ({ t, createCollection, creat
     } = useForm<FormData>({ resolver: zodResolver(formSchema), shouldUnregister: true })
 
     return (
-        <Modal isOpen={true} onClose={() => void 0}>
+        <Modal isOpen={isOpen} onClose={closeAction}>
             <ModalOverlay />
             <ModalContent>
                 <ModalHeader>{t("collections-view:auto-create-collection-modal:header")}</ModalHeader>

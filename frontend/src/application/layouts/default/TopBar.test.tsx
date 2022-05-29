@@ -4,6 +4,8 @@ import { MemoryRouter } from "react-router"
 import { exampleHashedEmail, exampleUserId, exampleUserNickname } from "../../../testutils/constants/user"
 import { tFunctionMock } from "../../../testutils/mocks/i18n-mock"
 import { TopBar } from "./TopBar"
+import * as chakraToast from "@chakra-ui/toast"
+import { toastMock } from "../../../testutils/mocks/toast-mock"
 
 jest.mock("@chakra-ui/media-query", () => ({
     ...jest.requireActual("@chakra-ui/media-query"),
@@ -44,7 +46,9 @@ describe("Top bar", () => {
             expect(logoutFn).toHaveBeenCalledTimes(1)
         })
 
-        it("should show toast and reset status", async () => {
+        it("should show toast and reset status", () => {
+            const toast = jest.fn()
+            const useToastMock = jest.spyOn(chakraToast, "useToast").mockImplementation(() => toastMock(toast))
             const logoutFn = jest.fn()
             const clearStatus = jest.fn()
             render(
@@ -58,8 +62,10 @@ describe("Top bar", () => {
                     />
                 </MemoryRouter>
             )
-            await screen.findByText("top-bar:logout-failed-message")
+            expect(toast).toHaveBeenCalledTimes(1)
+            expect(toast).toHaveBeenCalledWith({ status: "error", title: "top-bar:logout-failed-message" })
             expect(clearStatus).toHaveBeenCalledTimes(2)
+            useToastMock.mockRestore()
         })
 
         it("should reset logout status on unmount", () => {

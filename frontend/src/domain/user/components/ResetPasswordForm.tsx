@@ -66,7 +66,7 @@ const ResetPasswordForm: React.FC<Props> = ({ onSubmit, submitInProgress, t }) =
             <Button
                 marginTop="1rem"
                 colorScheme="brand"
-                isFullWidth={true}
+                width="full"
                 loadingText={t("reset-password-page:set-new-password")}
                 isLoading={isValidating || submitInProgress}
                 type="submit"

@@ -9,6 +9,7 @@ import { combineReducers } from "redux"
 import { reducerWithInitialState } from "typescript-fsa-reducers"
 import { createReducer } from "../../../application/store/async/AsyncActionReducer"
 import {
+    changeInvitationAcceptanceAction,
     cleanCollectionDetailsAction,
     cleanCollectionKeyAction,
     createCollectionAction,
@@ -22,7 +23,17 @@ import {
     resetRemovePreferredCollectionResultAction,
     setActiveCollectionAction,
     setPreferredCollectionIdAction,
+    updateCollectionsListFilter,
 } from "./Actions"
+import { CollectionsListFilter } from "../types/CollectionsListFilter"
+
+export const initialCollectionsListFilter: CollectionsListFilter = {
+    nameFilter: "",
+    acceptanceFilter: {
+        showAccepted: true,
+        showNonAccepted: true,
+    },
+}
 
 const listCollectionsReducer = createReducer(listCollectionsAction, resetAvailableCollectionsListAction)
     .case(createCollectionAction.done, (state, action) => {
@@ -33,9 +44,25 @@ const listCollectionsReducer = createReducer(listCollectionsAction, resetAvailab
             return state
         }
     })
+    .case(changeInvitationAcceptanceAction.done, (state, action) => {
+        if (state.status === "FINISHED") {
+            const idx = state.data.findIndex((c) => c.id === action.params.collectionId)
+            const newList = state.data.slice(0)
+            newList[idx] = { ...state.data[idx], isAccepted: action.params.isAccepted }
+            return { ...state, data: newList }
+        }
+        return state
+    })
     .build()
 
-const getCollectionReducer = createReducer(getCollectionDetailsAction, cleanCollectionDetailsAction).build()
+const getCollectionReducer = createReducer(getCollectionDetailsAction, cleanCollectionDetailsAction)
+    .case(changeInvitationAcceptanceAction.done, (state, action) => {
+        if (state.status === "FINISHED" && state.data?.id === action.params.collectionId) {
+            return { ...state, data: { ...state.data, isAccepted: action.params.isAccepted } }
+        }
+        return state
+    })
+    .build()
 
 const createCollectionReducer = createReducer(createCollectionAction, resetCreateCollectionStatusAction).build()
 
@@ -79,6 +106,18 @@ const encryptionKeyReducer = createReducer(fetchAndDecryptCollectionKeyAction, c
     }))
     .build()
 
+const collectionsListFilterReducer = reducerWithInitialState<CollectionsListFilter>(initialCollectionsListFilter)
+    .case(updateCollectionsListFilter, (state, action) => ({
+        nameFilter: action.nameFilter ?? state.nameFilter,
+        acceptanceFilter: {
+            showAccepted: action.acceptanceFilter?.showAccepted ?? state.acceptanceFilter.showAccepted,
+            showNonAccepted: action.acceptanceFilter?.showNonAccepted ?? state.acceptanceFilter.showNonAccepted,
+        },
+    }))
+    .build()
+
+const updateAcceptanceReducer = createReducer(changeInvitationAcceptanceAction).build()
+
 export const collectionsReducer = combineReducers({
     availableCollections: listCollectionsReducer,
     collectionDetails: getCollectionReducer,
@@ -88,4 +127,6 @@ export const collectionsReducer = combineReducers({
     removePreferredCollectionResult: removePreferredCollectionReducer,
     activeCollection: activeCollectionReducer,
     encryptionKey: encryptionKeyReducer,
+    collectionsListFilter: collectionsListFilterReducer,
+    updateAcceptanceResult: updateAcceptanceReducer,
 })
