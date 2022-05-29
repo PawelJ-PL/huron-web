@@ -40,11 +40,12 @@ val dependencies = {
     "com.softwaremill.sttp.tapir" %% "tapir-zio1-http4s-server",
     "com.softwaremill.sttp.tapir" %% "tapir-json-circe",
     "com.softwaremill.sttp.tapir" %% "tapir-openapi-docs",
-    "com.softwaremill.sttp.tapir" %% "tapir-openapi-circe-yaml",
     "com.softwaremill.sttp.tapir" %% "tapir-swagger-ui",
     "com.softwaremill.sttp.tapir" %% "tapir-enumeratum",
     "com.softwaremill.sttp.tapir" %% "tapir-refined"
-  ).map(_ % Versions.tapir)
+  ).map(_ % Versions.tapir) ++ Seq(
+    "com.softwaremill.sttp.apispec" %% "openapi-circe-yaml"
+  ).map(_ % Versions.sttpApiSpec)
 
   val circe = Seq(
     "io.circe" %% "circe-core",

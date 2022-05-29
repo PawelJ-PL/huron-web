@@ -4,6 +4,7 @@ import cats.syntax.eq._
 import com.github.huronapp.api.auth.authorization.types.Subject
 import com.github.huronapp.api.domain.collections.{CollectionId, CollectionPermission, CollectionsRepository}
 import com.github.huronapp.api.domain.collections.CollectionsRepository.CollectionsRepository
+import com.github.huronapp.api.domain.users.UserId
 import io.github.gaelrenoux.tranzactio.doobie.Database
 import zio.{Has, ZIO, ZLayer}
 
@@ -26,13 +27,31 @@ object AuthorizationKernel {
 
         override def authorizeOperation(operation: AuthorizedOperation): ZIO[Any, AuthorizationError, Unit] =
           operation match {
-            case operation @ GetCollectionDetails(subject, collectionId)     =>
+            case operation @ GetCollectionDetails(subject, collectionId)             =>
               db.transactionOrDie(for {
                 hasCollection <- collectionsRepo.isCollectionAssignedToUser(collectionId, subject.userId).orDie
                 _             <- ZIO.cond(hasCollection, (), OperationNotPermitted(operation))
               } yield ())
 
-            case operation @ SetEncryptionKey(subject, collectionId, userId) =>
+            case operation @ InviteCollectionMember(subject, collectionId, _)        =>
+              validateCollectionPermission(subject, collectionId, Set(CollectionPermission.ManageCollection), operation)
+
+            case operation @ GetCollectionMembers(subject, collectionId)             =>
+              validateCollectionPermission(subject, collectionId, Set(CollectionPermission.ManageCollection), operation)
+
+            case operation @ SetCollectionPermissions(subject, collectionId, _)      =>
+              validateCollectionPermission(subject, collectionId, Set(CollectionPermission.ManageCollection), operation)
+
+            case operation @ RemoveCollectionMember(subject, collectionId, memberId) =>
+              if (subject.userId === memberId.id)
+                db.transactionOrDie(for {
+                  isMember <- collectionsRepo.isMemberOf(UserId(subject.userId), collectionId).orDie
+                  _        <- ZIO.cond(isMember, (), OperationNotPermitted(operation))
+                } yield ())
+              else
+                validateCollectionPermission(subject, collectionId, Set(CollectionPermission.ManageCollection), operation)
+
+            case operation @ SetEncryptionKey(subject, collectionId, userId)         =>
               db.transactionOrDie(
                 for {
                   isCollectionAssignedToUser <- collectionsRepo.isCollectionAssignedToUser(collectionId, userId).orDie
@@ -47,7 +66,7 @@ object AuthorizationKernel {
                 } yield ()
               )
 
-            case operation @ GetEncryptionKey(subject, collectionId)         =>
+            case operation @ GetEncryptionKey(subject, collectionId)                 =>
               db.transactionOrDie(
                 collectionsRepo
                   .isCollectionAssignedToUser(collectionId, subject.userId)
@@ -55,7 +74,16 @@ object AuthorizationKernel {
                   .flatMap(isAssigned => ZIO.cond(isAssigned, (), OperationNotPermitted(operation)))
               )
 
-            case operation @ CreateFile(subject, collectionId)               =>
+            case operation @ DeleteCollection(subject, collectionId)                 =>
+              db.transactionOrDie(
+                for {
+                  collectionDetails <-
+                    collectionsRepo.getCollectionDetails(collectionId.id).orDie.someOrFail(OperationNotPermitted(operation))
+                  _                 <- ZIO.cond(collectionDetails.owner === subject.userId, (), OperationNotPermitted(operation))
+                } yield ()
+              )
+
+            case operation @ CreateFile(subject, collectionId)                       =>
               validateCollectionPermission(
                 subject,
                 collectionId,
@@ -63,10 +91,10 @@ object AuthorizationKernel {
                 operation
               )
 
-            case operation @ ReadMetadata(subject, collectionId)             =>
+            case operation @ ReadMetadata(subject, collectionId)                     =>
               validateCollectionPermission(subject, collectionId, Set(CollectionPermission.ReadFileMetadata), operation)
 
-            case operation @ ReadContent(subject, collectionId)              =>
+            case operation @ ReadContent(subject, collectionId)                      =>
               validateCollectionPermission(
                 subject,
                 collectionId,
@@ -74,7 +102,7 @@ object AuthorizationKernel {
                 operation
               )
 
-            case operation @ ModifyFile(subject, collectionId)               =>
+            case operation @ ModifyFile(subject, collectionId)                       =>
               validateCollectionPermission(
                 subject,
                 collectionId,
@@ -82,13 +110,17 @@ object AuthorizationKernel {
                 operation
               )
 
-            case operation @ DeleteFile(subject, collectionId)               =>
+            case operation @ DeleteFile(subject, collectionId)                       =>
               validateCollectionPermission(
                 subject,
                 collectionId,
                 Set(CollectionPermission.ModifyFile, CollectionPermission.ReadFileMetadata),
                 operation
               )
+
+            case operation @ ListMemberPermissions(subject, collectionId, memberId)  =>
+              validateCollectionPermission(subject, collectionId, Set(CollectionPermission.ManageCollection), operation)
+                .unless(subject.userId === memberId.id)
           }
 
         private def validateCollectionPermission(

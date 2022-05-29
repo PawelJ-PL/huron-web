@@ -1,6 +1,7 @@
 package com.github.huronapp.api.domain.collections
 
 import com.github.huronapp.api.database.BasePostgresRepository
+import com.github.huronapp.api.domain.users.UserId
 import doobie.util.transactor
 import io.chrisdavenport.fuuid.FUUID
 import io.getquill.Ord
@@ -20,6 +21,14 @@ object CollectionsRepository {
 
     def listUsersCollections(userId: FUUID, onlyAccepted: Boolean): ZIO[Connection, DbException, List[Collection]]
 
+    def editUserCollection(
+      userId: UserId,
+      collectionId: CollectionId,
+      encryptedKey: Option[Option[String]],
+      keyVersion: Option[Option[FUUID]],
+      accepted: Option[Boolean]
+    ): ZIO[Connection, DbException, Unit]
+
     def getCollectionDetails(collectionId: FUUID): ZIO[Connection, DbException, Option[Collection]]
 
     def getUserPermissionsFor(collectionId: FUUID, userId: FUUID): ZIO[Connection, DbException, List[CollectionPermission]]
@@ -34,6 +43,8 @@ object CollectionsRepository {
 
     def createCollection(collection: Collection, creator: FUUID, creatorsEncryptedKey: String): ZIO[Connection, DbException, Collection]
 
+    def deleteCollection(collectionId: CollectionId): ZIO[Connection, DbException, Unit]
+
     def deleteUserKeyFromAllCollections(userId: FUUID): ZIO[Connection, DbException, Long]
 
     def updateUsersKeyForCollection(
@@ -42,6 +53,26 @@ object CollectionsRepository {
       encryptedKey: String,
       keyVersion: FUUID
     ): ZIO[Connection, DbException, Boolean]
+
+    def addMember(
+      collectionId: CollectionId,
+      userId: UserId,
+      collectionPermissions: List[CollectionPermission],
+      encryptedKey: String,
+      keyVersion: FUUID
+    ): ZIO[Connection, DbException, Unit]
+
+    def getMembers(collectionId: CollectionId): ZIO[Connection, DbException, List[CollectionMember]]
+
+    def isMemberOf(userId: UserId, collectionId: CollectionId): ZIO[Connection, DbException, Boolean]
+
+    def setPermissions(
+      collectionId: CollectionId,
+      userId: UserId,
+      permissions: List[CollectionPermission]
+    ): ZIO[Connection, DbException, Unit]
+
+    def deleteMember(collectionId: CollectionId, userId: UserId): ZIO[Connection, DbException, Boolean]
 
   }
 
@@ -66,6 +97,30 @@ object CollectionsRepository {
             )
           ).map(_.transformInto[List[Collection]])
         )
+
+      override def editUserCollection(
+        userId: UserId,
+        collectionId: CollectionId,
+        encryptedKey: Option[Option[String]],
+        keyVersion: Option[Option[FUUID]],
+        accepted: Option[Boolean]
+      ): ZIO[Connection, DbException, Unit] =
+        for {
+          now <- clock.instant
+          _   <- tzio(
+                   run(
+                     userCollections
+                       .dynamic
+                       .filter(c => c.collectionId == lift(collectionId.id) && c.userId == lift(userId.id))
+                       .update(
+                         setOpt(_.encryptedKey, encryptedKey),
+                         setOpt(_.keyVersion, keyVersion),
+                         setOpt(_.accepted, accepted),
+                         setOpt(_.updatedAt, if (encryptedKey.isDefined || keyVersion.isDefined || accepted.isDefined) Some(now) else None)
+                       )
+                   )
+                 )
+        } yield ()
 
       override def getCollectionDetails(collectionId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Option[Collection]] =
         tzio(
@@ -169,6 +224,15 @@ object CollectionsRepository {
           _   <- tzio(run(quote(liftQuery(permissionEntities).foreach(p => permissions.insert(p)))))
         } yield collectionEntity.transformInto[Collection]
 
+      override def deleteCollection(collectionId: CollectionId): ZIO[Has[transactor.Transactor[Task]], DbException, Unit] =
+        tzio(
+          run(
+            quote(
+              collections.filter(_.id == lift(collectionId.id)).delete
+            )
+          )
+        ).unit
+
       override def deleteUserKeyFromAllCollections(userId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Long] =
         for {
           now    <- clock.instant
@@ -202,6 +266,67 @@ object CollectionsRepository {
               )
             )
         } yield result > 0
+
+      override def addMember(
+        collectionId: CollectionId,
+        userId: UserId,
+        collectionPermissions: List[CollectionPermission],
+        encryptedKey: String,
+        keyVersion: FUUID
+      ): ZIO[Connection, DbException, Unit] =
+        for {
+          now <- clock.instant
+          userCollectionEntity =
+            UserCollectionEntity(userId.id, collectionId.id, Some(encryptedKey), Some(keyVersion), accepted = false, now)
+          permissionEntities = collectionPermissions.map(p => CollectionPermissionEntity(collectionId.id, userId.id, p, now))
+          _   <- tzio(run(quote(userCollections.insert(lift(userCollectionEntity)))))
+          _   <- tzio(run(quote(permissions.filter(p => p.collectionId == lift(collectionId.id) && p.userId == lift(userId.id)).delete)))
+          _   <- tzio(run(quote(liftQuery(permissionEntities).foreach(p => permissions.insert(p)))))
+        } yield ()
+
+      override def getMembers(collectionId: CollectionId): ZIO[Connection, DbException, List[CollectionMember]] =
+        tzio(
+          run(
+            quote(
+              for {
+                userCollection       <- userCollections.filter(_.collectionId == lift(collectionId.id))
+                collectionPermission <-
+                  permissions.filter(_.collectionId == lift(collectionId.id)).leftJoin(_.userId == userCollection.userId)
+              } yield (userCollection.userId, collectionPermission.map(_.permission))
+            )
+          ).map(_.groupBy(_._1).map {
+            case (userId, userWithPermission) =>
+              CollectionMember(collectionId, UserId(userId), userWithPermission.map(_._2).collect { case Some(permission) => permission })
+          }.toList)
+        )
+
+      override def isMemberOf(userId: UserId, collectionId: CollectionId): ZIO[Has[transactor.Transactor[Task]], DbException, Boolean] =
+        tzio(
+          run(
+            quote(
+              userCollections.filter(c => c.collectionId == lift(collectionId.id) && c.userId == lift(userId.id)).size
+            )
+          ).map(_ > 0)
+        )
+
+      override def setPermissions(
+        collectionId: CollectionId,
+        userId: UserId,
+        newPermissions: List[CollectionPermission]
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Unit] =
+        for {
+          now <- clock.instant
+          _   <- tzio(run(quote(permissions.filter(p => p.collectionId == lift(collectionId.id) && p.userId == lift(userId.id)).delete)))
+          permissionEntities = newPermissions.map(p => CollectionPermissionEntity(collectionId.id, userId.id, p, now))
+          _   <- tzio(run(quote(liftQuery(permissionEntities).foreach(p => permissions.insert(p)))))
+        } yield ()
+
+      override def deleteMember(collectionId: CollectionId, userId: UserId): ZIO[Connection, DbException, Boolean] =
+        for {
+          _     <- tzio(run(quote(permissions.filter(p => p.collectionId == lift(collectionId.id) && p.userId == lift(userId.id)).delete)))
+          count <-
+            tzio(run(quote(userCollections.filter(c => c.collectionId == lift(collectionId.id) && c.userId == lift(userId.id)).delete)))
+        } yield count > 0
 
       private val collections = quote {
         querySchema[CollectionEntity]("collections")

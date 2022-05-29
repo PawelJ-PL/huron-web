@@ -55,6 +55,8 @@ object FilesMetadataRepository {
       newDescription: Option[Option[String]]
     ): ZIO[Connection, DbException, Boolean]
 
+    def isCollectionEmpty(collectionId: CollectionId): ZIO[Connection, DbException, Boolean]
+
   }
 
   val postgres: ZLayer[Clock, Nothing, FilesMetadataRepository] = ZLayer.fromService(clock =>
@@ -306,6 +308,15 @@ object FilesMetadataRepository {
               )
           )
         ).map(_ > 0)
+
+      override def isCollectionEmpty(collectionId: CollectionId): ZIO[Connection, DbException, Boolean] =
+        tzio(
+          run(
+            quote(
+              filesMetadata.filter(_.collectionId == lift(collectionId.id)).map(_.id).take(1)
+            )
+          ).map(_.isEmpty)
+        )
 
       private val filesMetadata = quote {
         querySchema[FileMetadataEntity]("files_metadata")

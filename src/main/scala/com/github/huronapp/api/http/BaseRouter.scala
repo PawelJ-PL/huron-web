@@ -9,9 +9,9 @@ import zio.interop.catz._
 
 trait BaseRouter {
 
-  implicit val serverOpts: Http4sServerOptions[RouteEffect, RouteEffect] =
+  implicit val serverOpts: Http4sServerOptions[RouteEffect] =
     Http4sServerOptions
-      .customInterceptors[RouteEffect, RouteEffect]
+      .customiseInterceptors[RouteEffect]
       .decodeFailureHandler(TapirHandlers.handler)
       .options
 
