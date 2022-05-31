@@ -5,7 +5,7 @@ import cats.syntax.show._
 import com.github.huronapp.api.auth.authentication.AuthenticationInputs
 import com.github.huronapp.api.auth.authentication.TapirAuthenticationInputs.authRequestParts
 import com.github.huronapp.api.domain.collections.dto.fields.EncryptedCollectionKey
-import com.github.huronapp.api.domain.collections.dto.{CollectionData, EncryptionKeyData, NewCollectionReq, NewMemberReq}
+import com.github.huronapp.api.domain.collections.dto.{UserCollectionData, EncryptionKeyData, NewCollectionReq, NewMemberReq}
 import com.github.huronapp.api.domain.users.UserId
 import com.github.huronapp.api.http.{BaseEndpoint, ErrorResponse}
 import com.github.huronapp.api.utils.Implicits.fuuid._
@@ -77,22 +77,22 @@ object CollectionsEndpoints extends BaseEndpoint {
 
   private val collectionsEndpoint: PublicEndpoint[Unit, Unit, Unit, Any] = publicApiEndpoint.tag("collections").in("collections")
 
-  val listCollectionsEndpoint: Endpoint[AuthenticationInputs, Option[Boolean], ErrorResponse, List[CollectionData], Any] =
+  val listCollectionsEndpoint: Endpoint[AuthenticationInputs, Option[Boolean], ErrorResponse, List[UserCollectionData], Any] =
     collectionsEndpoint
       .summary("List collections available to user")
       .get
       .securityIn(authRequestParts)
       .in(query[Option[Boolean]]("onlyAccepted").description("Should return only collections accepted by user (default false)"))
-      .out(jsonBody[List[CollectionData]])
+      .out(jsonBody[List[UserCollectionData]])
       .errorOut(oneOf[ErrorResponse](unauthorized))
 
-  val getCollectionDetailsEndpoint: Endpoint[AuthenticationInputs, FUUID, ErrorResponse, CollectionData, Any] =
+  val getCollectionDetailsEndpoint: Endpoint[AuthenticationInputs, FUUID, ErrorResponse, UserCollectionData, Any] =
     collectionsEndpoint
       .summary("Get collection details")
       .get
       .securityIn(authRequestParts)
       .in(path[FUUID]("collectionId"))
-      .out(jsonBody[CollectionData])
+      .out(jsonBody[UserCollectionData])
       .errorOut(
         oneOf[ErrorResponse](
           badRequest,
@@ -101,13 +101,13 @@ object CollectionsEndpoints extends BaseEndpoint {
         )
       )
 
-  val createCollectionEndpoint: Endpoint[AuthenticationInputs, NewCollectionReq, ErrorResponse, CollectionData, Any] =
+  val createCollectionEndpoint: Endpoint[AuthenticationInputs, NewCollectionReq, ErrorResponse, UserCollectionData, Any] =
     collectionsEndpoint
       .summary("Create new collection")
       .post
       .securityIn(authRequestParts)
       .in(jsonBody[NewCollectionReq])
-      .out(jsonBody[CollectionData])
+      .out(jsonBody[UserCollectionData])
       .errorOut(oneOf[ErrorResponse](badRequest, unauthorized))
 
   val deleteCollectionEndpoint: Endpoint[AuthenticationInputs, CollectionId, ErrorResponse, Unit, Any] = collectionsEndpoint

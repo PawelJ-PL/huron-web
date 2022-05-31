@@ -83,7 +83,7 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
       result          <- CollectionsService
                            .getAllCollectionsOfUser(ExampleUserId, onlyAccepted = false)
                            .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
-    } yield assert(result)(hasSameElements(Set(collection1, collection3, collection5)))
+    } yield assert(result)(hasSameElements(Set((collection1, true), (collection3, false), (collection5, true))))
   }
 
   private val getOnlyAcceptedCollections = testM("should list accepted collections of user") {
@@ -110,7 +110,7 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
       result          <- CollectionsService
                            .getAllCollectionsOfUser(ExampleUserId, onlyAccepted = true)
                            .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
-    } yield assert(result)(hasSameElements(Set(collection1, collection5)))
+    } yield assert(result)(hasSameElements(Set((collection1, true), (collection5, true))))
   }
 
   private val getCollectionDetails = testM("should read collection details") {
@@ -127,7 +127,7 @@ object CollectionsServiceSpec extends DefaultRunnableSpec with Collections with 
       result          <- CollectionsService
                            .getCollectionDetailsAs(ExampleUserId, ExampleCollectionId)
                            .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
-    } yield assertTrue(result == ExampleCollection)
+    } yield assertTrue(result == (ExampleCollection, true))
   }
 
   private val getCollectionDetailsNotPermitted = testM("should not read collection if user has no rights") {

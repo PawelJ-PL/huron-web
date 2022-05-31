@@ -5,7 +5,7 @@ import com.github.huronapp.api.auth.authorization.types.Subject
 import com.github.huronapp.api.auth.authorization.{DeleteCollection, GetCollectionDetails, GetEncryptionKey, OperationNotPermitted}
 import com.github.huronapp.api.constants.{Collections, Users}
 import com.github.huronapp.api.domain.collections.dto.fields.{CollectionName, EncryptedCollectionKey}
-import com.github.huronapp.api.domain.collections.dto.{CollectionData, EncryptionKeyData, NewCollectionReq}
+import com.github.huronapp.api.domain.collections.dto.{UserCollectionData, EncryptionKeyData, NewCollectionReq}
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
 import com.github.huronapp.api.http.ErrorResponse
 import com.github.huronapp.api.testdoubles.HttpAuthenticationFake.validAuthHeader
@@ -82,9 +82,13 @@ object CollectionsRoutesSpec extends DefaultRunnableSpec with Collections with U
       routes <- CollectionsRoutes.routes.provideLayer(createRoutes(collectionServicesResponses, logs)).map(_.orNotFound)
       req = Request[RouteEffect](method = Method.GET, uri"/api/v1/collections").withHeaders(validAuthHeader)
       result <- routes.run(req)
-      body   <- result.as[List[CollectionData]]
+      body   <- result.as[List[UserCollectionData]]
     } yield assertTrue(result.status == Status.Ok) &&
-      assertTrue(body == List(CollectionData(ExampleCollectionId, ExampleCollectionName, ExampleEncryptionKeyVersion)))
+      assertTrue(
+        body == List(
+          UserCollectionData(ExampleCollectionId, ExampleCollectionName, ExampleEncryptionKeyVersion, ExampleUserId, isAccepted = true)
+        )
+      )
   }
 
   private val listCollectionsUnauthorized = testM("should generate response for collection list request if user is unauthorized") {
@@ -109,9 +113,17 @@ object CollectionsRoutesSpec extends DefaultRunnableSpec with Collections with U
       req = Request[RouteEffect](method = Method.GET, Uri.unsafeFromString(s"/api/v1/collections/${ExampleCollectionId.toString()}"))
               .withHeaders(validAuthHeader)
       result <- routes.run(req)
-      body   <- result.as[CollectionData]
+      body   <- result.as[UserCollectionData]
     } yield assertTrue(result.status == Status.Ok) &&
-      assertTrue(body == CollectionData(ExampleCollectionId, ExampleCollectionName, ExampleEncryptionKeyVersion))
+      assertTrue(
+        body == UserCollectionData(
+          ExampleCollectionId,
+          ExampleCollectionName,
+          ExampleEncryptionKeyVersion,
+          ExampleUserId,
+          isAccepted = true
+        )
+      )
   }
 
   private val getCollectionNotPermitted = testM("should generate response for get collection request if action is not permitted") {
@@ -173,9 +185,17 @@ object CollectionsRoutesSpec extends DefaultRunnableSpec with Collections with U
       req =
         Request[RouteEffect](method = Method.POST, uri"/api/v1/collections").withHeaders(validAuthHeader).withEntity(createCollectionDto)
       result <- routes.run(req)
-      body   <- result.as[CollectionData]
+      body   <- result.as[UserCollectionData]
     } yield assertTrue(result.status == Status.Ok) &&
-      assertTrue(body == CollectionData(ExampleCollectionId, ExampleCollectionName, ExampleEncryptionKeyVersion))
+      assertTrue(
+        body == UserCollectionData(
+          ExampleCollectionId,
+          ExampleCollectionName,
+          ExampleEncryptionKeyVersion,
+          ExampleUserId,
+          isAccepted = true
+        )
+      )
   }
 
   private val createCollectionUnauthorized = testM("should generate response for create collection request if user is unauthorized") {

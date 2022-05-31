@@ -19,7 +19,7 @@ object CollectionsRepository {
 
   trait Service {
 
-    def listUsersCollections(userId: FUUID, onlyAccepted: Boolean): ZIO[Connection, DbException, List[Collection]]
+    def listUsersCollections(userId: FUUID, onlyAccepted: Boolean): ZIO[Connection, DbException, List[(Collection, Boolean)]]
 
     def editUserCollection(
       userId: UserId,
@@ -30,6 +30,8 @@ object CollectionsRepository {
     ): ZIO[Connection, DbException, Unit]
 
     def getCollectionDetails(collectionId: FUUID): ZIO[Connection, DbException, Option[Collection]]
+
+    def getUserCollectionDetails(collectionId: FUUID): ZIO[Connection, DbException, Option[(Collection, Boolean)]]
 
     def getUserPermissionsFor(collectionId: FUUID, userId: FUUID): ZIO[Connection, DbException, List[CollectionPermission]]
 
@@ -84,18 +86,18 @@ object CollectionsRepository {
       override def listUsersCollections(
         userId: FUUID,
         onlyAccepted: Boolean
-      ): ZIO[Has[transactor.Transactor[Task]], DbException, List[Collection]] =
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, List[(Collection, Boolean)]] =
         tzio(
           run(
             quote(
               for {
-                filtered       <- userCollections
+                userCollection <- userCollections
                                     .filter(c => c.userId == lift(userId) && (c.accepted == lift(true) || c.accepted == lift(onlyAccepted)))
                                     .sortBy(_.updatedAt)(Ord.desc)
-                collectionData <- collections.join(_.id == filtered.collectionId)
-              } yield collectionData
+                collectionData <- collections.join(_.id == userCollection.collectionId)
+              } yield (collectionData, userCollection.accepted)
             )
-          ).map(_.transformInto[List[Collection]])
+          ).map(_.transformInto[List[(Collection, Boolean)]])
         )
 
       override def editUserCollection(
@@ -129,6 +131,20 @@ object CollectionsRepository {
               collections.filter(_.id == lift(collectionId))
             )
           ).map(_.headOption.transformInto[Option[Collection]])
+        )
+
+      override def getUserCollectionDetails(
+        collectionId: FUUID
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Option[(Collection, Boolean)]] =
+        tzio(
+          run(
+            quote(
+              for {
+                userCollection    <- userCollections.filter(_.collectionId == lift(collectionId))
+                collectionDetails <- collections.join(_.id == userCollection.collectionId)
+              } yield (collectionDetails, userCollection.accepted)
+            )
+          ).map(_.headOption.transformInto[Option[(Collection, Boolean)]])
         )
 
       override def getUserPermissionsFor(
