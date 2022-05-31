@@ -5,7 +5,7 @@ import cats.syntax.semigroupk._
 import com.github.huronapp.api.auth.authentication.HttpAuthentication
 import com.github.huronapp.api.auth.authentication.HttpAuthentication.HttpAuthentication
 import com.github.huronapp.api.domain.collections.CollectionsService.CollectionsService
-import com.github.huronapp.api.domain.collections.dto.{CollectionData, EncryptionKeyData}
+import com.github.huronapp.api.domain.collections.dto.{UserCollectionData, EncryptionKeyData}
 import com.github.huronapp.api.domain.users.UserId
 import com.github.huronapp.api.http.{BaseRouter, ErrorResponse}
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
@@ -40,7 +40,10 @@ object CollectionsRoutes {
                 onlyAccepted =>
                   collectionService
                     .getAllCollectionsOfUser(user.userId, onlyAccepted.getOrElse(false))
-                    .map(_.transformInto[List[CollectionData]])
+                    .map(_.map {
+                      case (collection, isAccepted) =>
+                        UserCollectionData(collection.id, collection.name, collection.encryptionKeyVersion, collection.owner, isAccepted)
+                    })
               )
 
           private val getCollectionDetailsRoute: HttpRoutes[RouteEffect] =
@@ -50,7 +53,10 @@ object CollectionsRoutes {
                 collectionId =>
                   collectionService
                     .getCollectionDetailsAs(user.userId, collectionId)
-                    .map(_.transformInto[CollectionData])
+                    .map {
+                      case (collection, isAccepted) =>
+                        UserCollectionData(collection.id, collection.name, collection.encryptionKeyVersion, collection.owner, isAccepted)
+                    }
                     .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.getCollectionDetailsError(error)))
               )
 
@@ -58,7 +64,10 @@ object CollectionsRoutes {
             CollectionsEndpoints
               .createCollectionEndpoint
               .toAuthenticatedRoutes(auth.asUser)(user =>
-                dto => collectionService.createCollectionAs(user.userId, dto).map(_.transformInto[CollectionData])
+                dto =>
+                  collectionService
+                    .createCollectionAs(user.userId, dto)
+                    .map(_.into[UserCollectionData].withFieldConst(_.isAccepted, true).transform)
               )
 
           private val deleteCollectionRoute: HttpRoutes[RouteEffect] = CollectionsEndpoints

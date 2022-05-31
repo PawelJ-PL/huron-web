@@ -34,14 +34,17 @@ object CollectionsRepoFake {
       override def listUsersCollections(
         userId: FUUID,
         onlyAccepted: Boolean
-      ): ZIO[Has[transactor.Transactor[Task]], DbException, List[Collection]] =
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, List[(Collection, Boolean)]] =
         ref.get.map { state =>
-          val userCollectionIds = state
+          state
             .userCollections
             .filter(_.userId === userId)
             .filter(c => c.accepted === true || c.accepted === onlyAccepted)
-            .map(_.collectionId)
-          state.collections.filter(c => userCollectionIds.contains(c.id)).toList
+            .map(c => (state.collections.find(_.id === c.collectionId), c.accepted))
+            .collect {
+              case (Some(collection), bool) => (collection, bool)
+            }
+            .toList
         }
 
       override def editUserCollection(
@@ -64,6 +67,18 @@ object CollectionsRepoFake {
 
       override def getCollectionDetails(collectionId: FUUID): ZIO[Has[transactor.Transactor[Task]], DbException, Option[Collection]] =
         ref.get.map(_.collections.find(_.id === collectionId))
+
+      override def getUserCollectionDetails(
+        collectionId: FUUID
+      ): ZIO[Has[transactor.Transactor[Task]], DbException, Option[(Collection, Boolean)]] =
+        ref
+          .get
+          .map(state =>
+            for {
+              userCollection    <- state.userCollections.find(_.collectionId === collectionId)
+              collectionDetails <- state.collections.find(_.id === collectionId)
+            } yield (collectionDetails, userCollection.accepted)
+          )
 
       override def getUserPermissionsFor(
         collectionId: FUUID,

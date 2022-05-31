@@ -38,9 +38,9 @@ object CollectionsService {
 
   trait Service {
 
-    def getAllCollectionsOfUser(userId: FUUID, onlyAccepted: Boolean): ZIO[Any, Nothing, List[Collection]]
+    def getAllCollectionsOfUser(userId: FUUID, onlyAccepted: Boolean): ZIO[Any, Nothing, List[(Collection, Boolean)]]
 
-    def getCollectionDetailsAs(userId: FUUID, collectionId: FUUID): ZIO[Any, GetCollectionDetailsError, Collection]
+    def getCollectionDetailsAs(userId: FUUID, collectionId: FUUID): ZIO[Any, GetCollectionDetailsError, (Collection, Boolean)]
 
     def createCollectionAs(userId: FUUID, dto: NewCollectionReq): ZIO[Any, Nothing, Collection]
 
@@ -94,14 +94,14 @@ object CollectionsService {
       CollectionsService.Service
     ] { (db, collectionsRepo, filesRepo, usersRepo, authKernel, random, logger) =>
       new Service {
-        override def getAllCollectionsOfUser(userId: FUUID, onlyAccepted: Boolean): ZIO[Any, Nothing, List[Collection]] =
+        override def getAllCollectionsOfUser(userId: FUUID, onlyAccepted: Boolean): ZIO[Any, Nothing, List[(Collection, Boolean)]] =
           db.transactionOrDie(collectionsRepo.listUsersCollections(userId, onlyAccepted).orDie)
 
-        override def getCollectionDetailsAs(userId: FUUID, collectionId: FUUID): ZIO[Any, GetCollectionDetailsError, Collection] =
+        override def getCollectionDetailsAs(userId: FUUID, collectionId: FUUID): ZIO[Any, GetCollectionDetailsError, (Collection, Boolean)] =
           db.transactionOrDie(
             for {
               _    <- authKernel.authorizeOperation(GetCollectionDetails(Subject(userId), collectionId)).mapError(AuthorizationError)
-              data <- collectionsRepo.getCollectionDetails(collectionId).orDie.someOrFail(CollectionNotFound(collectionId))
+              data <- collectionsRepo.getUserCollectionDetails(collectionId).orDie.someOrFail(CollectionNotFound(collectionId))
             } yield data
           )
 

@@ -29,8 +29,8 @@ import zio.{ULayer, ZIO, ZLayer}
 object CollectionsServiceStub extends Collections {
 
   final case class CollectionsServiceResponses(
-    getAllCollections: ZIO[Any, Nothing, List[Collection]] = ZIO.succeed(List(ExampleCollection)),
-    getCollectionDetails: ZIO[Any, GetCollectionDetailsError, Collection] = ZIO.succeed(ExampleCollection),
+    getAllCollections: ZIO[Any, Nothing, List[(Collection, Boolean)]] = ZIO.succeed(List((ExampleCollection, true))),
+    getCollectionDetails: ZIO[Any, GetCollectionDetailsError, (Collection, Boolean)] = ZIO.succeed((ExampleCollection, true)),
     createCollection: ZIO[Any, Nothing, Collection] = ZIO.succeed(ExampleCollection),
     getEncryptionKey: ZIO[Any, GetEncryptionKeyError, Option[EncryptionKey]] = ZIO.some(ExampleEncryptionKey),
     getAllEncryptionKeys: ZIO[Any, Nothing, List[EncryptionKey]] = ZIO.succeed(List(ExampleEncryptionKey)),
@@ -48,10 +48,10 @@ object CollectionsServiceStub extends Collections {
   def withResponses(responses: CollectionsServiceResponses): ULayer[CollectionsService] =
     ZLayer.succeed(new CollectionsService.Service {
 
-      override def getAllCollectionsOfUser(userId: FUUID, onlyAccepted: Boolean): ZIO[Any, Nothing, List[Collection]] =
+      override def getAllCollectionsOfUser(userId: FUUID, onlyAccepted: Boolean): ZIO[Any, Nothing, List[(Collection, Boolean)]] =
         responses.getAllCollections
 
-      override def getCollectionDetailsAs(userId: FUUID, collectionId: FUUID): ZIO[Any, GetCollectionDetailsError, Collection] =
+      override def getCollectionDetailsAs(userId: FUUID, collectionId: FUUID): ZIO[Any, GetCollectionDetailsError, (Collection, Boolean)] =
         responses.getCollectionDetails
 
       override def createCollectionAs(userId: FUUID, dto: NewCollectionReq): ZIO[Any, Nothing, Collection] = responses.createCollection
