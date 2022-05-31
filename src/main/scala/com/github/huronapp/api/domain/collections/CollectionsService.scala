@@ -97,7 +97,10 @@ object CollectionsService {
         override def getAllCollectionsOfUser(userId: FUUID, onlyAccepted: Boolean): ZIO[Any, Nothing, List[(Collection, Boolean)]] =
           db.transactionOrDie(collectionsRepo.listUsersCollections(userId, onlyAccepted).orDie)
 
-        override def getCollectionDetailsAs(userId: FUUID, collectionId: FUUID): ZIO[Any, GetCollectionDetailsError, (Collection, Boolean)] =
+        override def getCollectionDetailsAs(
+          userId: FUUID,
+          collectionId: FUUID
+        ): ZIO[Any, GetCollectionDetailsError, (Collection, Boolean)] =
           db.transactionOrDie(
             for {
               _    <- authKernel.authorizeOperation(GetCollectionDetails(Subject(userId), collectionId)).mapError(AuthorizationError)
