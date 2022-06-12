@@ -5,6 +5,7 @@ import com.github.huronapp.api.domain.collections.CollectionsService.Collections
 import com.github.huronapp.api.domain.collections.dto.{NewCollectionReq, NewMemberReq}
 import com.github.huronapp.api.domain.collections.{
   AcceptInvitationError,
+  CancelInvitationAcceptanceError,
   Collection,
   CollectionId,
   CollectionMember,
@@ -42,6 +43,7 @@ object CollectionsServiceStub extends Collections {
         UserId(ExampleUserId), List(CollectionPermission.ReadFileMetadata))),
     deleteMember: ZIO[Any, RemoveMemberError, Unit] = ZIO.unit,
     acceptInvitation: ZIO[Any, AcceptInvitationError, Unit] = ZIO.unit,
+    cancelAcceptance: ZIO[Any, CancelInvitationAcceptanceError, Unit] = ZIO.unit,
     listPermissions: ZIO[Any, ListMemberPermissionsError, List[CollectionPermission]] =
       ZIO.succeed(List(CollectionPermission.ReadFileMetadata, CollectionPermission.ReadFile)))
 
@@ -74,6 +76,11 @@ object CollectionsServiceStub extends Collections {
 
       override def acceptInvitationAs(userId: UserId, collectionId: CollectionId): ZIO[Any, AcceptInvitationError, Unit] =
         responses.acceptInvitation
+
+      override def cancelInvitationAcceptanceAs(
+        userId: UserId,
+        collectionId: CollectionId
+      ): ZIO[Any, CancelInvitationAcceptanceError, Unit] = responses.cancelAcceptance
 
       override def getMemberPermissionsAs(
         userId: UserId,

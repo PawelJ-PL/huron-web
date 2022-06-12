@@ -115,6 +115,13 @@ object CollectionsRoutes {
                 .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.acceptInvitationError(error)))
           }
 
+          private val cancelInvitationAcceptanceRoute =
+            CollectionsEndpoints.cancelInvitationAcceptanceEndpoint.toAuthenticatedRoutes(auth.asUser) { user => collectionId =>
+              collectionService
+                .cancelInvitationAcceptanceAs(UserId(user.userId), collectionId)
+                .flatMapError(error => logger.warn(error.logMessage).as(CollectionsErrorMapping.cancelInvitationAcceptanceError(error)))
+            }
+
           private val getCollectionMembersRoute = CollectionsEndpoints
             .getCollectionMembersEndpoint
             .toAuthenticatedRoutes(auth.asUser) { user => collectionId =>
@@ -160,6 +167,7 @@ object CollectionsRoutes {
               getCollectionKeyRoute <+>
               inviterMemberRoute <+>
               acceptInvitationRoute <+>
+              cancelInvitationAcceptanceRoute <+>
               getCollectionMembersRoute <+>
               listPermissionsRoute <+>
               setPermissionsRoute <+>

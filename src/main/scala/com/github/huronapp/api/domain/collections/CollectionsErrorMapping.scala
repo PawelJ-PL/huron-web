@@ -59,6 +59,12 @@ object CollectionsErrorMapping {
       case _: InvitationAlreadyAccepted => CollectionsEndpoints.Responses.invitationAlreadyAccepted
     }
 
+  def cancelInvitationAcceptanceError(error: CancelInvitationAcceptanceError): ErrorResponse =
+    error match {
+      case _: InvitationNotFound    => ErrorResponse.NotFound("Invitation not found")
+      case _: InvitationNotAccepted => CollectionsEndpoints.Responses.invitationNotAccepted
+    }
+
   def listMemberPermissionsError(error: ListMemberPermissionsError): ErrorResponse =
     error match {
       case _: AuthorizationError => ErrorResponse.Forbidden("Operation not permitted")
