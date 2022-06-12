@@ -73,6 +73,10 @@ object CollectionsRoutesMemberSpec extends DefaultRunnableSpec with Collections 
       acceptInvitationNotFound,
       acceptInvitationAlreadyAccepted,
       acceptInvitationUnauthorized,
+      cancelAcceptance,
+      cancelAcceptInvitationNotFound,
+      cancelAcceptanceInvitationNotAccepted,
+      cancelAcceptanceUnauthorized,
       listMemberPermissions,
       listMemberPermissionsForbidden,
       listMemberPermissionsUnauthorized
@@ -569,6 +573,8 @@ object CollectionsRoutesMemberSpec extends DefaultRunnableSpec with Collections 
       uri = uri"/api/v1/collections"
               .addSegment(ExampleCollectionId.show)
               .addSegment("members")
+              .addSegment("me")
+              .addSegment("approval")
       req = Request[RouteEffect](method = Method.PUT, uri).withHeaders(validAuthHeader)
       result <- routes.run(req)
     } yield assertTrue(result.status == Status.NoContent)
@@ -584,6 +590,8 @@ object CollectionsRoutesMemberSpec extends DefaultRunnableSpec with Collections 
       uri = uri"/api/v1/collections"
               .addSegment(ExampleCollectionId.show)
               .addSegment("members")
+              .addSegment("me")
+              .addSegment("approval")
       req = Request[RouteEffect](method = Method.PUT, uri).withHeaders(validAuthHeader)
       result <- routes.run(req)
       body   <- result.as[ErrorResponse.NotFound]
@@ -602,6 +610,8 @@ object CollectionsRoutesMemberSpec extends DefaultRunnableSpec with Collections 
         uri = uri"/api/v1/collections"
                 .addSegment(ExampleCollectionId.show)
                 .addSegment("members")
+                .addSegment("me")
+                .addSegment("approval")
         req = Request[RouteEffect](method = Method.PUT, uri).withHeaders(validAuthHeader)
         result <- routes.run(req)
         body   <- result.as[ErrorResponse.PreconditionFailed]
@@ -620,7 +630,82 @@ object CollectionsRoutesMemberSpec extends DefaultRunnableSpec with Collections 
         uri = uri"/api/v1/collections"
                 .addSegment(ExampleCollectionId.show)
                 .addSegment("members")
+                .addSegment("me")
+                .addSegment("approval")
         req = Request[RouteEffect](method = Method.PUT, uri)
+        result <- routes.run(req)
+      } yield assertTrue(result.status == Status.Unauthorized)
+    }
+
+  private val cancelAcceptance = testM("should generate response for cancel invitation acceptance request") {
+    val collectionServicesResponses = CollectionsServiceStub.CollectionsServiceResponses()
+
+    for {
+      logs   <- Ref.make(Chain.empty[String])
+      routes <- CollectionsRoutes.routes.provideLayer(createRoutes(collectionServicesResponses, logs)).map(_.orNotFound)
+      uri = uri"/api/v1/collections"
+              .addSegment(ExampleCollectionId.show)
+              .addSegment("members")
+              .addSegment("me")
+              .addSegment("approval")
+      req = Request[RouteEffect](method = Method.DELETE, uri).withHeaders(validAuthHeader)
+      result <- routes.run(req)
+    } yield assertTrue(result.status == Status.NoContent)
+  }
+
+  private val cancelAcceptInvitationNotFound = testM("should generate response for accept invitation request if invitation was not found") {
+    val collectionServicesResponses =
+      CollectionsServiceStub.CollectionsServiceResponses(cancelAcceptance = ZIO.fail(InvitationNotFound(collectionId, userId)))
+
+    for {
+      logs   <- Ref.make(Chain.empty[String])
+      routes <- CollectionsRoutes.routes.provideLayer(createRoutes(collectionServicesResponses, logs)).map(_.orNotFound)
+      uri = uri"/api/v1/collections"
+              .addSegment(ExampleCollectionId.show)
+              .addSegment("members")
+              .addSegment("me")
+              .addSegment("approval")
+      req = Request[RouteEffect](method = Method.DELETE, uri).withHeaders(validAuthHeader)
+      result <- routes.run(req)
+      body   <- result.as[ErrorResponse.NotFound]
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(body == ErrorResponse.NotFound("Invitation not found"))
+  }
+
+  private val cancelAcceptanceInvitationNotAccepted =
+    testM("should generate response for accept invitation request if invitation was not accepted") {
+      val collectionServicesResponses =
+        CollectionsServiceStub.CollectionsServiceResponses(cancelAcceptance = ZIO.fail(InvitationNotAccepted(collectionId, userId)))
+
+      for {
+        logs   <- Ref.make(Chain.empty[String])
+        routes <- CollectionsRoutes.routes.provideLayer(createRoutes(collectionServicesResponses, logs)).map(_.orNotFound)
+        uri = uri"/api/v1/collections"
+                .addSegment(ExampleCollectionId.show)
+                .addSegment("members")
+                .addSegment("me")
+                .addSegment("approval")
+        req = Request[RouteEffect](method = Method.DELETE, uri).withHeaders(validAuthHeader)
+        result <- routes.run(req)
+        body   <- result.as[ErrorResponse.PreconditionFailed]
+      } yield assertTrue(result.status == Status.PreconditionFailed) &&
+        assertTrue(body == ErrorResponse.PreconditionFailed("Invitation is not accepted", Some("InvitationNotAccepted")))
+    }
+
+  private val cancelAcceptanceUnauthorized =
+    testM("should generate response for cancel invitation acceptance request if user not logged in") {
+      val collectionServicesResponses =
+        CollectionsServiceStub.CollectionsServiceResponses()
+
+      for {
+        logs   <- Ref.make(Chain.empty[String])
+        routes <- CollectionsRoutes.routes.provideLayer(createRoutes(collectionServicesResponses, logs)).map(_.orNotFound)
+        uri = uri"/api/v1/collections"
+                .addSegment(ExampleCollectionId.show)
+                .addSegment("members")
+                .addSegment("me")
+                .addSegment("approval")
+        req = Request[RouteEffect](method = Method.DELETE, uri)
         result <- routes.run(req)
       } yield assertTrue(result.status == Status.Unauthorized)
     }

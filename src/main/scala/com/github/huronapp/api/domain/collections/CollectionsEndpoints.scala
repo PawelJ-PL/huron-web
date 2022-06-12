@@ -46,6 +46,9 @@ object CollectionsEndpoints extends BaseEndpoint {
     val invitationAlreadyAccepted: ErrorResponse.PreconditionFailed =
       ErrorResponse.PreconditionFailed("Invitation already accepted", Some("InvitationAlreadyAccepted"))
 
+    val invitationNotAccepted: ErrorResponse.PreconditionFailed =
+      ErrorResponse.PreconditionFailed("Invitation is not accepted", Some("InvitationNotAccepted"))
+
   }
 
   private val exampleCollectionId = CollectionId(FUUID.fuuid("de3ad125-f16f-49ef-81d4-7a0d17b2a73b"))
@@ -74,6 +77,9 @@ object CollectionsEndpoints extends BaseEndpoint {
 
   private val invitationAlreadyAcceptedExample =
     Example(Responses.invitationAlreadyAccepted, Responses.invitationAlreadyAccepted.reason, Responses.invitationAlreadyAccepted.reason)
+
+  private val invitationNotAcceptedExample =
+    Example(Responses.invitationNotAccepted, Responses.invitationNotAccepted.reason, Responses.invitationNotAccepted.reason)
 
   private val collectionsEndpoint: PublicEndpoint[Unit, Unit, Unit, Any] = publicApiEndpoint.tag("collections").in("collections")
 
@@ -187,7 +193,7 @@ object CollectionsEndpoints extends BaseEndpoint {
     .summary("Accept invitation to collection")
     .put
     .securityIn(authRequestParts)
-    .in(path[CollectionId]("collectionId") / "members")
+    .in(path[CollectionId]("collectionId") / "members" / "me" / "approval")
     .out(statusCode(StatusCode.NoContent))
     .errorOut(
       oneOf[ErrorResponse](
@@ -197,6 +203,24 @@ object CollectionsEndpoints extends BaseEndpoint {
         oneOfVariant(
           StatusCode.PreconditionFailed,
           jsonBody[ErrorResponse].examples(List(invitationAlreadyAcceptedExample))
+        )
+      )
+    )
+
+  val cancelInvitationAcceptanceEndpoint: Endpoint[AuthenticationInputs, CollectionId, ErrorResponse, Unit, Any] = collectionsEndpoint
+    .summary("Cancel invitation to collection acceptance")
+    .delete
+    .securityIn(authRequestParts)
+    .in(path[CollectionId]("collectionId") / "members" / "me" / "approval")
+    .out(statusCode(StatusCode.NoContent))
+    .errorOut(
+      oneOf[ErrorResponse](
+        badRequest,
+        unauthorized,
+        oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Invitation not found")),
+        oneOfVariant(
+          StatusCode.PreconditionFailed,
+          jsonBody[ErrorResponse].examples(List(invitationNotAcceptedExample))
         )
       )
     )
@@ -282,6 +306,7 @@ object CollectionsEndpoints extends BaseEndpoint {
       getEncryptionKeysForAllCollectionsEndpoint,
       inviteCollectionMemberEndpoint,
       acceptInvitationEndpoint,
+      cancelInvitationAcceptanceEndpoint,
       getCollectionMembersEndpoint,
       listPermissionsEndpoint,
       setPermissionsEndpoint,

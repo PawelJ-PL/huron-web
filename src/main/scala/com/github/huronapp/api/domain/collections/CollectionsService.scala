@@ -59,6 +59,8 @@ object CollectionsService {
 
     def acceptInvitationAs(userId: UserId, collectionId: CollectionId): ZIO[Any, AcceptInvitationError, Unit]
 
+    def cancelInvitationAcceptanceAs(userId: UserId, collectionId: CollectionId): ZIO[Any, CancelInvitationAcceptanceError, Unit]
+
     def getMemberPermissionsAs(
       userId: UserId,
       collectionId: CollectionId,
@@ -185,6 +187,20 @@ object CollectionsService {
               _                  <- ZIO.cond(!collectionAccepted, (), InvitationAlreadyAccepted(collectionId, userId))
               _                  <- collectionsRepo.editUserCollection(userId, collectionId, None, None, accepted = Some(true)).orDie
               _                  <- logger.info(show"User $userId accepted invitation to collection $collectionId")
+            } yield ()
+          )
+
+        override def cancelInvitationAcceptanceAs(
+          userId: UserId,
+          collectionId: CollectionId
+        ): ZIO[Any, CancelInvitationAcceptanceError, Unit] =
+          db.transactionOrDie(
+            for {
+              collectionAccepted <-
+                collectionsRepo.isAcceptedBy(collectionId.id, userId.id).orDie.someOrFail(InvitationNotFound(collectionId, userId))
+              _                  <- ZIO.cond(collectionAccepted, (), InvitationNotAccepted(collectionId, userId))
+              _                  <- collectionsRepo.editUserCollection(userId, collectionId, None, None, accepted = Some(false)).orDie
+              _                  <- logger.info(show"User $userId canceled invitation acceptance to collection $collectionId")
             } yield ()
           )
 

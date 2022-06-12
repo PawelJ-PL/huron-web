@@ -27,6 +27,8 @@ sealed trait RemoveMemberError extends CollectionError
 
 sealed trait AcceptInvitationError extends CollectionError
 
+sealed trait CancelInvitationAcceptanceError extends CollectionError
+
 sealed trait ListMemberPermissionsError extends CollectionError
 
 final case class AuthorizationError(error: AuthError)
@@ -108,7 +110,9 @@ final case class RemoveCollectionOwnerNotAllowed(userId: UserId, collectionId: C
 
 }
 
-final case class InvitationNotFound(collectionId: CollectionId, userId: UserId) extends AcceptInvitationError {
+final case class InvitationNotFound(collectionId: CollectionId, userId: UserId)
+    extends AcceptInvitationError
+    with CancelInvitationAcceptanceError {
 
   override val logMessage: String = show"Invitation to collection $collectionId not found for user $userId"
 
@@ -117,5 +121,11 @@ final case class InvitationNotFound(collectionId: CollectionId, userId: UserId) 
 final case class InvitationAlreadyAccepted(collectionId: CollectionId, userId: UserId) extends AcceptInvitationError {
 
   override val logMessage: String = show"Invitation to collection $collectionId was already accepted by user $userId"
+
+}
+
+final case class InvitationNotAccepted(collectionId: CollectionId, userId: UserId) extends CancelInvitationAcceptanceError {
+
+  override val logMessage: String = show"Collection ${collectionId} was not accepted yet by user ${userId}"
 
 }

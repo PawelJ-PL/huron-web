@@ -50,6 +50,9 @@ object CollectionsServiceMemberSpec extends DefaultRunnableSpec with Collections
       acceptInvitation,
       acceptInvitationNotFound,
       acceptAlreadyAcceptedInvitation,
+      cancelInvitationAcceptance,
+      cancelAcceptanceInvitationNotFound,
+      cancelNotAcceptedInvitation,
       listMemberPermissions,
       listSelfPermissions,
       listMemberPermissionsForbidden
@@ -847,6 +850,66 @@ object CollectionsServiceMemberSpec extends DefaultRunnableSpec with Collections
                            .either
       updatedRepo     <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(InvitationAlreadyAccepted(collectionId, userId)))) &&
+      assertTrue(updatedRepo == initCollectionsRepoState)
+  }
+
+  private val cancelInvitationAcceptance = testM("should cancel invitation acceptance") {
+    val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+      userCollections = Set(
+        UserCollection(ExampleCollectionId, ExampleUserId, accepted = true)
+      )
+    )
+    val usersRepoState = UsersRepoFake.UsersRepoState()
+
+    for {
+      collectionsRepo <- Ref.make(initCollectionsRepoState)
+      filesRepo       <- Ref.make(List.empty[StorageUnit])
+      usersRepo       <- Ref.make(usersRepoState)
+      _               <- CollectionsService
+                           .cancelInvitationAcceptanceAs(userId, collectionId)
+                           .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
+      updatedRepo     <- collectionsRepo.get
+    } yield assertTrue(updatedRepo.userCollections == Set(UserCollection(ExampleCollectionId, ExampleUserId, accepted = false)))
+  }
+
+  private val cancelAcceptanceInvitationNotFound =
+    testM("should return error when accepted cancelling acceptance invitation which not exists") {
+      val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+        userCollections = Set()
+      )
+      val usersRepoState = UsersRepoFake.UsersRepoState()
+
+      for {
+        collectionsRepo <- Ref.make(initCollectionsRepoState)
+        filesRepo       <- Ref.make(List.empty[StorageUnit])
+        usersRepo       <- Ref.make(usersRepoState)
+        result          <- CollectionsService
+                             .cancelInvitationAcceptanceAs(userId, collectionId)
+                             .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
+                             .either
+        updatedRepo     <- collectionsRepo.get
+      } yield assert(result)(isLeft(equalTo(InvitationNotFound(collectionId, userId)))) &&
+        assertTrue(updatedRepo == initCollectionsRepoState)
+    }
+
+  private val cancelNotAcceptedInvitation = testM("should return error when accepted invitation which is not accepted yet") {
+    val initCollectionsRepoState = CollectionsRepoFake.CollectionsRepoState(
+      userCollections = Set(
+        UserCollection(ExampleCollectionId, ExampleUserId, accepted = false)
+      )
+    )
+    val usersRepoState = UsersRepoFake.UsersRepoState()
+
+    for {
+      collectionsRepo <- Ref.make(initCollectionsRepoState)
+      filesRepo       <- Ref.make(List.empty[StorageUnit])
+      usersRepo       <- Ref.make(usersRepoState)
+      result          <- CollectionsService
+                           .cancelInvitationAcceptanceAs(userId, collectionId)
+                           .provideLayer(createService(collectionsRepo, filesRepo, usersRepo))
+                           .either
+      updatedRepo     <- collectionsRepo.get
+    } yield assert(result)(isLeft(equalTo(InvitationNotAccepted(collectionId, userId)))) &&
       assertTrue(updatedRepo == initCollectionsRepoState)
   }
 
