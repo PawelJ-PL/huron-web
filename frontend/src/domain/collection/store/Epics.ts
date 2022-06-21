@@ -4,6 +4,7 @@ import { combineEpics, Epic } from "redux-observable"
 import { Collection } from "./../types/Collection"
 import { createEpic } from "../../../application/store/async/AsyncActionEpic"
 import {
+    changeInvitationAcceptanceAction,
     createCollectionAction,
     fetchAndDecryptCollectionKeyAction,
     getCollectionDetailsAction,
@@ -111,6 +112,14 @@ const fetchAndDecryptCollectionKeyOnCollectionChange: Epic<AnyAction, AnyAction,
         })
     )
 
+const updateAcceptanceEpic = createEpic(changeInvitationAcceptanceAction, ({ collectionId, isAccepted }) => {
+    if (isAccepted) {
+        return CollectionsApi.acceptInvitation(collectionId)
+    } else {
+        return CollectionsApi.cancelInvitationAcceptance(collectionId)
+    }
+})
+
 export const collectionsEpics = combineEpics<Action, Action, AppState>(
     listCollectionsEpic,
     getCollectionEpic,
@@ -121,5 +130,6 @@ export const collectionsEpics = combineEpics<Action, Action, AppState>(
     removePreferredCollectionOnLocalLogoutEpic,
     fetchAndDecryptCollectionKeyEpic,
     fetchAndDecryptCollectionKeyOnKeypairDecryptedEpic,
-    fetchAndDecryptCollectionKeyOnCollectionChange
+    fetchAndDecryptCollectionKeyOnCollectionChange,
+    updateAcceptanceEpic
 )

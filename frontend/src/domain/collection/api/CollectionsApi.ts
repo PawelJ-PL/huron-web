@@ -32,6 +32,12 @@ const api = {
     createCollection(data: NewCollectionReq): Promise<Collection> {
         return client.post("collections", { json: data }).then((resp) => validatedResponse(resp, CollectionSchema))
     },
+    acceptInvitation(collectionId: string): Promise<void> {
+        return client.put(`collections/${collectionId}/members/me/approval`).then(() => undefined)
+    },
+    cancelInvitationAcceptance(collectionId: string): Promise<void> {
+        return client.delete(`collections/${collectionId}/members/me/approval`).then(() => undefined)
+    },
 }
 
 export default api

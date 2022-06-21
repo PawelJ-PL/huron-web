@@ -12,7 +12,13 @@ import {
     exampleEncryptionKeyVersion,
 } from "./../../../testutils/constants/collection"
 import { exampleCollectionName } from "../../../testutils/constants/collection"
-import { createCollectionAction, setActiveCollectionAction, setPreferredCollectionIdAction } from "./Actions"
+import {
+    changeInvitationAcceptanceAction,
+    createCollectionAction,
+    setActiveCollectionAction,
+    setPreferredCollectionIdAction,
+    updateCollectionsListFilter,
+} from "./Actions"
 import { collectionsReducer } from "./Reducers"
 
 type State = ReturnType<typeof collectionsReducer>
@@ -59,6 +65,31 @@ describe("Collections reducers", () => {
                 status: "FAILED",
                 params: true,
                 error: new Error("Some error"),
+            })
+        })
+
+        it("should update acceptance status", () => {
+            const collection1 = { ...exampleCollection, id: "a1490b4c-3f25-49f6-a4bb-6a2e7c7dd6ce", name: "col1" }
+            const collection2 = { ...exampleCollection, id: "f75039b6-31e9-4b88-a03b-4fde25145831", name: "col2" }
+            const collection3 = { ...exampleCollection, id: "dc9776d7-de4a-4d4e-9f16-fafc2e4b6fee", name: "col3" }
+            const state: State = {
+                ...defaultState,
+                availableCollections: {
+                    status: "FINISHED",
+                    params: true,
+                    data: [collection1, collection2, collection3],
+                },
+            }
+
+            const action = changeInvitationAcceptanceAction.done({
+                params: { collectionId: "f75039b6-31e9-4b88-a03b-4fde25145831", isAccepted: false },
+                result: undefined,
+            })
+            const result = collectionsReducer(state, action)
+            expect(result.availableCollections).toStrictEqual({
+                status: "FINISHED",
+                params: true,
+                data: [collection1, { ...collection2, isAccepted: false }, collection3],
             })
         })
     })
@@ -226,6 +257,77 @@ describe("Collections reducers", () => {
             const action = clearMasterKeyAction()
             const result = collectionsReducer(state, action)
             expect(result.encryptionKey).toEqual({ status: "NOT_STARTED" })
+        })
+    })
+
+    describe("get collection", () => {
+        it("Should update acceptance status", () => {
+            const state: State = {
+                ...defaultState,
+                collectionDetails: { status: "FINISHED", params: exampleCollectionId, data: exampleCollection },
+            }
+            const action = changeInvitationAcceptanceAction.done({
+                params: { collectionId: exampleCollectionId, isAccepted: false },
+                result: undefined,
+            })
+            const result = collectionsReducer(state, action)
+            expect(result.collectionDetails).toStrictEqual({
+                status: "FINISHED",
+                params: exampleCollectionId,
+                data: { ...exampleCollection, isAccepted: false },
+            })
+        })
+
+        it("Should not update acceptance status if called for another collection", () => {
+            const state: State = {
+                ...defaultState,
+                collectionDetails: { status: "FINISHED", params: exampleCollectionId, data: exampleCollection },
+            }
+            const action = changeInvitationAcceptanceAction.done({
+                params: { collectionId: "other-collection", isAccepted: false },
+                result: undefined,
+            })
+            const result = collectionsReducer(state, action)
+            expect(result.collectionDetails).toStrictEqual(state.collectionDetails)
+        })
+    })
+
+    describe("collection filter", () => {
+        it("should update all filters", () => {
+            const state: State = {
+                ...defaultState,
+                collectionsListFilter: {
+                    acceptanceFilter: { showAccepted: true, showNonAccepted: true },
+                    nameFilter: "foo",
+                },
+            }
+            const action = updateCollectionsListFilter({
+                acceptanceFilter: { showAccepted: false, showNonAccepted: false },
+                nameFilter: "bar",
+            })
+            const result = collectionsReducer(state, action)
+            expect(result.collectionsListFilter).toStrictEqual({
+                acceptanceFilter: { showAccepted: false, showNonAccepted: false },
+                nameFilter: "bar",
+            })
+        })
+
+        it("should update partial filter", () => {
+            const state: State = {
+                ...defaultState,
+                collectionsListFilter: {
+                    acceptanceFilter: { showAccepted: true, showNonAccepted: true },
+                    nameFilter: "foo",
+                },
+            }
+            const action = updateCollectionsListFilter({
+                acceptanceFilter: { showAccepted: false, showNonAccepted: false },
+            })
+            const result = collectionsReducer(state, action)
+            expect(result.collectionsListFilter).toStrictEqual({
+                acceptanceFilter: { showAccepted: false, showNonAccepted: false },
+                nameFilter: "foo",
+            })
         })
     })
 })

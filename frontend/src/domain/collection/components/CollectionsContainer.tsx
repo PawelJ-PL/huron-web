@@ -60,7 +60,7 @@ export const CollectionsContainer: React.FC<Props> = ({
     }, [getPreferredCollection, removePreferredCollectionResult])
 
     if (collections.status === "FINISHED" && collections.data.length < 1) {
-        return <AutoCreateCollectionModal />
+        return <AutoCreateCollectionModal isOpen={true} />
     } else if (collections.status === "FINISHED" && collections.data.length === 1) {
         return <Navigate to={`/collection/${collections.data[0].id}`} />
     } else if (collections.status === "FINISHED" && collections.data.length > 1) {

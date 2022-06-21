@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import React from "react"
 import { exampleCollectionId, exampleEncryptionKey } from "../../../../../testutils/constants/collection"
 import { exampleFileContent, exampleFileData } from "../../../../../testutils/constants/files"
@@ -137,7 +138,7 @@ describe("Upload file modal", () => {
         await waitFor(() => fireEvent.change(uploadInput, { target: { files: [exampleFileContent] } }))
 
         const confirmButton = screen.getByText("file-view:directory-content-list.encrypt-and-send")
-        fireEvent.click(confirmButton)
+        await userEvent.click(confirmButton)
 
         expect(closeMock).toHaveBeenCalledTimes(1)
         expect(uploadFileMock).toHaveBeenCalledTimes(1)
@@ -172,7 +173,7 @@ describe("Upload file modal", () => {
         await waitFor(() => fireEvent.change(uploadInput, { target: { files: [exampleFileContent] } }))
 
         const confirmButton = screen.getByText("file-view:directory-content-list.encrypt-and-send")
-        fireEvent.click(confirmButton)
+        await userEvent.click(confirmButton)
 
         expect(closeMock).toHaveBeenCalledTimes(1)
         expect(uploadFileMock).not.toHaveBeenCalled()

@@ -75,7 +75,7 @@ const SignupForm: React.FC<Props> = ({ t, onSubmit, submitInProgress }) => {
                 <Button
                     marginTop="1rem"
                     colorScheme="brand"
-                    isFullWidth={true}
+                    width="full"
                     loadingText={t("signup-page:create-account")}
                     isLoading={isValidating || submitInProgress}
                     type="submit"

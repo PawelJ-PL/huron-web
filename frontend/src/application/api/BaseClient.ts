@@ -19,6 +19,7 @@ let currentCsrfToken: string | undefined = undefined
 const createBaseClient = () =>
     ky.create({
         prefixUrl: process.env.REACT_APP_API_PREFIX + "api/v1",
+        timeout: 30000,
         retry: 0,
         headers: {
             Accept: "application/json",

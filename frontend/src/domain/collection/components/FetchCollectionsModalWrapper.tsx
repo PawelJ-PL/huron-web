@@ -50,7 +50,7 @@ export const FetchCollectionsModalWrapper: React.FC<Props> = ({
     if (isOpen && collectionsResult.status === "FINISHED") {
         return (
             <SelectCollectionModal
-                availableCollections={collectionsResult.data}
+                availableCollections={collectionsResult.data.filter((c) => c.isAccepted)}
                 onClose={handleClose}
                 selectedCollection={activeCollection ?? undefined}
             />

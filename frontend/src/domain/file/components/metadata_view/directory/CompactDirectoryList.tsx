@@ -60,7 +60,7 @@ export const CompactDirectoryList: React.FC<Props> = ({
                     </Box>
                     <Flex direction="column" width={["55%", "70%", "80%"]}>
                         <Link to={`/collection/${collectionId}/file/${unit.id}`}>
-                            <Heading isTruncated={true} as="h4" size="md">
+                            <Heading noOfLines={1} as="h4" size="md">
                                 {unit.name}
                             </Heading>
                         </Link>

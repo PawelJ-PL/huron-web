@@ -35,7 +35,7 @@ const FileBreadCrumb: React.FC<Props> = ({ collection, objectTree }) => {
                 <BreadcrumbItem key={item.link}>
                     <Tooltip label={item.name} aria-label={item.name} hasArrow={true}>
                         <BreadcrumbLink as={Link} to={item.link}>
-                            <Text isTruncated={true} wordBreak="break-all" maxWidth="30vw">
+                            <Text noOfLines={1} wordBreak="break-all" maxWidth="30vw">
                                 {item.name}
                             </Text>
                         </BreadcrumbLink>

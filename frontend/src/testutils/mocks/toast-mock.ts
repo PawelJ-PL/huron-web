@@ -6,13 +6,14 @@ export const toastMock = (callMock?: jest.Mock) => {
 
     const fn = (options?: UseToastOptions) => {
         mock(options)
-        return undefined
+        return 1
     }
     const rest = {
         close: () => void 0,
         closeAll: () => void 0,
         update: () => void 0,
-        isActive: () => void 0,
+        isActive: () => false,
+        promise: () => 1,
     }
 
     return Object.assign(fn, rest)
