@@ -13,6 +13,7 @@ import {
     exampleCollectionName,
 } from "./../../../testutils/constants/collection"
 import {
+    changeInvitationAcceptanceAction,
     createCollectionAction,
     fetchAndDecryptCollectionKeyAction,
     removePreferredCollectionIdAction,
@@ -160,5 +161,39 @@ describe("Collections epics", () => {
             marbles: "-a",
             values: { a: removePreferredCollectionIdAction.started() },
         })
+    })
+
+    it("should trigger invitation accept if acceptance set to true", async () => {
+        const acceptInvitationSpy = jest.spyOn(CollectionsApi, "acceptInvitation").mockResolvedValue(undefined)
+        const trigger = changeInvitationAcceptanceAction.started({
+            collectionId: exampleCollectionId,
+            isAccepted: true,
+        })
+        const state = {} as AppState
+        const expectedAction = changeInvitationAcceptanceAction.done({
+            params: { collectionId: exampleCollectionId, isAccepted: true },
+            result: undefined,
+        })
+        const result = await runAsyncEpic(trigger, collectionsEpics, state)
+        expect(result).toStrictEqual(expectedAction)
+        expect(acceptInvitationSpy).toHaveBeenCalledTimes(1)
+        expect(acceptInvitationSpy).toHaveBeenCalledWith(exampleCollectionId)
+    })
+
+    it("should trigger invitation cancel if acceptance set to false", async () => {
+        const cancelInvitationSpy = jest.spyOn(CollectionsApi, "cancelInvitationAcceptance").mockResolvedValue(undefined)
+        const trigger = changeInvitationAcceptanceAction.started({
+            collectionId: exampleCollectionId,
+            isAccepted: false,
+        })
+        const state = {} as AppState
+        const expectedAction = changeInvitationAcceptanceAction.done({
+            params: { collectionId: exampleCollectionId, isAccepted: false },
+            result: undefined,
+        })
+        const result = await runAsyncEpic(trigger, collectionsEpics, state)
+        expect(result).toStrictEqual(expectedAction)
+        expect(cancelInvitationSpy).toHaveBeenCalledTimes(1)
+        expect(cancelInvitationSpy).toHaveBeenCalledWith(exampleCollectionId)
     })
 })
