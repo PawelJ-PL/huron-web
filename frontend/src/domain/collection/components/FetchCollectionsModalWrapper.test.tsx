@@ -71,6 +71,33 @@ describe("Fetch collections modal wrapper", () => {
         expect(modal.textContent).toMatch(`COLLECTIONS: ${JSON.stringify([exampleCollection])}`)
     })
 
+    it("should filter out non accepted collections", () => {
+        const collection1 = exampleCollection
+        const collection2 = { ...exampleCollection, id: "c2", isAccepted: false }
+        const collection3 = { ...exampleCollection, id: "c3" }
+        const collection4 = { ...exampleCollection, id: "c4", isAccepted: false }
+
+        render(
+            <FetchCollectionsModalWrapper
+                isOpen={true}
+                onClose={jest.fn()}
+                collectionsResult={{
+                    status: "FINISHED",
+                    params: true,
+                    data: [collection1, collection2, collection3, collection4],
+                }}
+                fetchCollections={jest.fn()}
+                activeCollection={exampleCollectionId}
+                t={tFunctionMock}
+                resetCollections={jest.fn()}
+            />
+        )
+        const modal = screen.getByTestId("SELECT_COLLECTION_MODAL_MOCK")
+
+        expect(modal.textContent).toMatch(`SELECTED_COLLECTION: ${exampleCollectionId}`)
+        expect(modal.textContent).toMatch(`COLLECTIONS: ${JSON.stringify([collection1, collection3])}`)
+    })
+
     it("should render nothing if isOpen is false", () => {
         const { container } = render(
             <FetchCollectionsModalWrapper

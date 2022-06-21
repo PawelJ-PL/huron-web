@@ -13,7 +13,13 @@ type Props = { collections: Collection[] } & Pick<WithTranslation, "t"> & Return
 
 const UPDATE_FAILED_TOAST_ID = "update-failed"
 
-const CollectionsListPage: React.FC<Props> = ({ t, collections, listFilter, updatingDetails, updateDetailsFailed }) => {
+export const CollectionsListPage: React.FC<Props> = ({
+    t,
+    collections,
+    listFilter,
+    updatingDetails,
+    updateDetailsFailed,
+}) => {
     const filterByName = (collection: Collection) =>
         !listFilter.nameFilter || collection.name.toLowerCase().includes(listFilter.nameFilter.toLocaleLowerCase())
 

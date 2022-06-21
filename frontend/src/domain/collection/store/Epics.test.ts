@@ -181,7 +181,9 @@ describe("Collections epics", () => {
     })
 
     it("should trigger invitation cancel if acceptance set to false", async () => {
-        const cancelInvitationSpy = jest.spyOn(CollectionsApi, "cancelInvitationAcceptance").mockResolvedValue(undefined)
+        const cancelInvitationSpy = jest
+            .spyOn(CollectionsApi, "cancelInvitationAcceptance")
+            .mockResolvedValue(undefined)
         const trigger = changeInvitationAcceptanceAction.started({
             collectionId: exampleCollectionId,
             isAccepted: false,

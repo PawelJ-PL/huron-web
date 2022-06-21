@@ -11,7 +11,7 @@ import CollectionsListPage from "./CollectionsListPage"
 
 type Props = ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps> & Pick<WithTranslation, "t">
 
-const CollectionsListContainer: React.FC<Props> = ({
+export const CollectionsListContainer: React.FC<Props> = ({
     t,
     collections,
     fetchAllCollections,
@@ -48,7 +48,7 @@ const CollectionsListContainer: React.FC<Props> = ({
                 fetchAuthors(unknownUsers)
             }
         }
-    })
+    }, [collections, fetchAuthors, knownUsers])
 
     if (collections.status === "FAILED") {
         return <UnexpectedErrorMessage error={collections.error} />
