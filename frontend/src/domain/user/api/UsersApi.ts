@@ -3,7 +3,12 @@ import { UserContact } from "./../types/UserContact"
 import { UserContactSchema } from "../types/UserContact"
 import { UserPublicData, UserPublicDataSchema } from "./../types/UserPublicData"
 import { EncryptionKey } from "./../../collection/types/EncryptionKey"
-import { EncryptedKeyPair, EncryptedKeyPairSchema } from "./../types/EncryptedKeyPair"
+import {
+    EncryptedKeyPair,
+    EncryptedKeyPairSchema,
+    PublicKeyData,
+    publicKeyDataSchema,
+} from "./../types/EncryptedKeyPair"
 import { OptionalValue } from "./../../../application/api/OptionalValue"
 import { ApiKeyDescription, ApiKeyDescriptionSchema } from "./../types/ApiKey"
 import {
@@ -234,6 +239,12 @@ const api = {
         return client
             .get(`users/nicknames/${nickNameStart}`, { searchParams: maybeSearchParams })
             .then((resp) => validatePagedResponse(resp, UserPublicDataSchema.array()))
+    },
+    getPublicKey(userId: string): Promise<PublicKeyData | null> {
+        return client
+            .get(`users/${userId}/public-key`)
+            .then((resp) => validatedResponse(resp, publicKeyDataSchema))
+            .catch((error) => errorResponseToData(error, null, 404))
     },
 }
 

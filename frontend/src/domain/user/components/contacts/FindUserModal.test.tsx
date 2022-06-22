@@ -22,6 +22,7 @@ describe("Find user modal", () => {
                 matchingUsers={matchingUsers}
                 findUsers={jest.fn()}
                 resetFindResult={jest.fn()}
+                excludeContacts={true}
             />
         )
 
@@ -46,6 +47,7 @@ describe("Find user modal", () => {
                 matchingUsers={[]}
                 findUsers={fetchAction}
                 resetFindResult={jest.fn()}
+                excludeContacts={true}
             />
         )
 
@@ -68,6 +70,7 @@ describe("Find user modal", () => {
                 matchingUsers={[]}
                 findUsers={fetchAction}
                 resetFindResult={jest.fn()}
+                excludeContacts={true}
             />
         )
 
@@ -96,6 +99,7 @@ describe("Find user modal", () => {
                 matchingUsers={matchingUsers}
                 findUsers={jest.fn()}
                 resetFindResult={jest.fn()}
+                excludeContacts={true}
             />
         )
 

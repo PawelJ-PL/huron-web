@@ -33,11 +33,7 @@ export const SingleCollectionContainer: React.FC<Props> = ({
 
     useEffect(() => {
         resetRemovePreferredCollectionResult()
-        if (
-            fetchCollectionResult.status === "NOT_STARTED" ||
-            fetchCollectionResult.status === "FAILED" ||
-            fetchCollectionResult.params !== collectionId
-        ) {
+        if (fetchCollectionResult.status === "NOT_STARTED" || fetchCollectionResult.status === "FAILED") {
             fetchCollectionData(collectionId)
         }
         return () => {
@@ -46,6 +42,12 @@ export const SingleCollectionContainer: React.FC<Props> = ({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
+
+    useEffect(() => {
+        if (fetchCollectionResult.status !== "NOT_STARTED" && fetchCollectionResult.params !== collectionId) {
+            fetchCollectionData(collectionId)
+        }
+    }, [collectionId, fetchCollectionData, fetchCollectionResult])
 
     useEffect(() => {
         if (fetchCollectionResult.status === "FINISHED" && fetchCollectionResult.params === collectionId) {

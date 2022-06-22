@@ -5,6 +5,7 @@ import { Dispatch } from "redux"
 import Author from "../../../../file/components/metadata_view/file/Author"
 import { changeInvitationAcceptanceAction } from "../../../store/Actions"
 import { Collection } from "../../../types/Collection"
+import { Link as RouterLink } from "react-router-dom"
 
 type Props = { collection: Collection } & ReturnType<typeof mapDispatchToProps>
 
@@ -19,7 +20,7 @@ const CollectionListEntry: React.FC<Props> = ({ collection, changeAcceptance }) 
                 />
             </Td>
             <Td>
-                <Link key={collection.id}>
+                <Link as={RouterLink} to={`/collection/${collection.id}/manage`}>
                     <Heading as="h6" size="xs">
                         {collection.name}
                     </Heading>

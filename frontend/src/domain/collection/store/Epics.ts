@@ -4,14 +4,20 @@ import { combineEpics, Epic } from "redux-observable"
 import { Collection } from "./../types/Collection"
 import { createEpic } from "../../../application/store/async/AsyncActionEpic"
 import {
+    addMemberAction,
     changeInvitationAcceptanceAction,
     createCollectionAction,
+    deleteCollectionAction,
+    deleteMemberAction,
     fetchAndDecryptCollectionKeyAction,
     getCollectionDetailsAction,
+    getCollectionMembersAction,
     getPreferredCollectionIdAction,
     listCollectionsAction,
+    listMyPermissionsToCollectionActions,
     removePreferredCollectionIdAction,
     setActiveCollectionAction,
+    setMemberPermissionsAction,
     setPreferredCollectionIdAction,
 } from "./Actions"
 import CollectionsApi from "../api/CollectionsApi"
@@ -24,6 +30,15 @@ import { filter, mergeMap, map } from "rxjs/operators"
 import { fetchAndDecryptKeyPairAction, localLogoutAction } from "../../user/store/Actions"
 
 const PREFERRED_COLLECTION_KEY = "preferredCollectionId"
+
+const readOrFetchKeypair = async (state: AppState, masterKey: string) => {
+    if (state.users.keyPair.status === "FINISHED") {
+        return state.users.keyPair.data
+    }
+    const encryptedKeyPair = await UsersApi.fetchKeyPair()
+    const decryptedPrivateKey = await CryptoApi.decryptToString(encryptedKeyPair.encryptedPrivateKey, masterKey, false)
+    return { publicKey: encryptedKeyPair.publicKey, privateKey: decryptedPrivateKey }
+}
 
 const listCollectionsEpic = createEpic<boolean, Collection[], Error>(listCollectionsAction, (onlyAccepted) =>
     CollectionsApi.listCollections(onlyAccepted)
@@ -120,6 +135,123 @@ const updateAcceptanceEpic = createEpic(changeInvitationAcceptanceAction, ({ col
     }
 })
 
+const getCollectionMembersEpic = createEpic(getCollectionMembersAction, (collectionId) =>
+    CollectionsApi.getCollectionMembers(collectionId)
+)
+
+const listMyPermissionsEpic = createEpic(listMyPermissionsToCollectionActions, (collectionId, state) => {
+    if (state.users.userData.status !== "FINISHED") {
+        return Promise.reject(new Error("User data not loaded yet"))
+    }
+    const myId = state.users.userData.data.id
+    return CollectionsApi.getMemberPermissions(collectionId, myId)
+})
+
+const deleteCollectionEpic = createEpic(deleteCollectionAction, CollectionsApi.deleteCollection)
+
+const deletePreferredCollectionOnCollectionRemoveEpic: Epic<AnyAction, AnyAction, AppState> = (action$, state$) =>
+    action$.pipe(
+        filter(deleteCollectionAction.done.match),
+        mergeMap((action) => {
+            const preferredCollectionResult = state$.value.collections.getPreferredCollectionResult
+            const maybePreferredCollection =
+                preferredCollectionResult.status === "FINISHED" ? preferredCollectionResult.data : null
+            const setPreferredCollectionResult = state$.value.collections.setPreferredCollectionResult
+            const setPreferredCollectionParams =
+                setPreferredCollectionResult.status !== "NOT_STARTED" ? setPreferredCollectionResult.params : null
+            if (
+                action.payload.params === maybePreferredCollection ||
+                action.payload.params === setPreferredCollectionParams
+            ) {
+                return of(removePreferredCollectionIdAction.started())
+            } else {
+                return EMPTY
+            }
+        })
+    )
+
+const addMemberEpic = createEpic(addMemberAction, async ({ collectionId, userId, permissions, masterKey }, state) => {
+    const collectionKey = await CollectionsApi.fetchEncryptionKey(collectionId)
+    if (!collectionKey) {
+        const failedResult: Promise<never> = Promise.reject(
+            new Error(`Encryption key not set for collection ${collectionId}`)
+        )
+        return failedResult
+    }
+    const keyPair =
+        state.users.keyPair.status === "FINISHED"
+            ? state.users.keyPair.data
+            : await readOrFetchKeypair(state, masterKey)
+    const decryptedKey = await CryptoApi.asymmetricDecrypt(collectionKey.key, keyPair.privateKey)
+    const targetUserPublicKey = await UsersApi.getPublicKey(userId)
+    if (!targetUserPublicKey) {
+        const failedResult: Promise<never> = Promise.reject(new Error("User has no public key"))
+        return failedResult
+    }
+    const encryptedCollectionKey = await CryptoApi.asymmetricEncrypt(decryptedKey, targetUserPublicKey.publicKey)
+    await CollectionsApi.addMember({
+        collectionId,
+        userId,
+        collectionKeyVersion: collectionKey.version,
+        encryptedCollectionKey,
+        permissions,
+    })
+})
+
+const deleteMemberEpic = createEpic(deleteMemberAction, ({ memberId, collectionId }) =>
+    CollectionsApi.deleteMember(collectionId, memberId)
+)
+
+const resetCollectionOnLeaveEpic: Epic<AnyAction, AnyAction, AppState> = (action$, state$) =>
+    action$.pipe(
+        filter(deleteMemberAction.done.match),
+        mergeMap((action) => {
+            const currentCollectionResult = state$.value.collections.collectionDetails
+            if (currentCollectionResult.status !== "FINISHED") {
+                return EMPTY
+            }
+            const currentCollection = currentCollectionResult.data?.id
+            const currentUser =
+                state$.value.users.userData.status === "FINISHED" ? state$.value.users.userData.data.id : undefined
+            if (
+                action.payload.params.collectionId === currentCollection &&
+                action.payload.params.memberId === currentUser
+            ) {
+                return of(getCollectionDetailsAction.done({ params: currentCollectionResult.params, result: null }))
+            }
+            return EMPTY
+        })
+    )
+
+const setPermissionsEpic = createEpic(setMemberPermissionsAction, ({ collectionId, memberId, permissions }) =>
+    CollectionsApi.setMemberPermissions(collectionId, memberId, permissions)
+)
+
+const updateMyPermissionsEpic: Epic<AnyAction, AnyAction, AppState> = (action$, state$) =>
+    action$.pipe(
+        filter(setMemberPermissionsAction.done.match),
+        mergeMap((action) => {
+            const myId =
+                state$.value.users.userData.status === "FINISHED" ? state$.value.users.userData.data.id : undefined
+            const collectionIdForPermissions =
+                state$.value.collections.myPermissions.status !== "NOT_STARTED"
+                    ? state$.value.collections.myPermissions.params
+                    : undefined
+            if (
+                action.payload.params.collectionId === collectionIdForPermissions &&
+                action.payload.params.memberId === myId
+            ) {
+                return of(
+                    listMyPermissionsToCollectionActions.done({
+                        params: action.payload.params.collectionId,
+                        result: action.payload.params.permissions,
+                    })
+                )
+            }
+            return EMPTY
+        })
+    )
+
 export const collectionsEpics = combineEpics<Action, Action, AppState>(
     listCollectionsEpic,
     getCollectionEpic,
@@ -131,5 +263,14 @@ export const collectionsEpics = combineEpics<Action, Action, AppState>(
     fetchAndDecryptCollectionKeyEpic,
     fetchAndDecryptCollectionKeyOnKeypairDecryptedEpic,
     fetchAndDecryptCollectionKeyOnCollectionChange,
-    updateAcceptanceEpic
+    updateAcceptanceEpic,
+    getCollectionMembersEpic,
+    listMyPermissionsEpic,
+    deleteCollectionEpic,
+    deletePreferredCollectionOnCollectionRemoveEpic,
+    addMemberEpic,
+    deleteMemberEpic,
+    resetCollectionOnLeaveEpic,
+    setPermissionsEpic,
+    updateMyPermissionsEpic
 )

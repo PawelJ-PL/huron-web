@@ -282,5 +282,37 @@
         "create-collection-button": "Stwórz kolekcję",
         "updating-details-overlay-text": "Aktualizacja szczegółów kolekcji",
         "updating-details-failed-toast-message": "Błąd w trakcie zmiany szczegółów kolekcji"
+    },
+    "collection-manage-page": {
+        "collection-not-found-placeholder": "Nie odnaleziono kolekcji",
+        "loading-collection-data": "Wczytywanie danych kolekcji",
+        "collection-action-buttons": {
+            "remove-collection": "Usuń kolekcję",
+            "leave-collection": "Opuść kolekcję",
+            "invite-member": "Zaproś użytkownika"
+        },
+        "collection-delete-confirmation": "Czy na pewno chcesz usunąć kolekcję {{collectionName}}?",
+        "collection-not-empty-error": "Kolekcja nie jest pusta",
+        "user-already-member": "Użytkownik jest już członkiem kolekcji",
+        "set-permissions": "Ustaw uprawnienia dla kolekcji {{collectionName}}",
+        "unable-to-add-member-key-locked": "Nie można dodać członka, ponieważ klucz szyfrujący jest zablokowany",
+        "leave-collection-confirmation": {
+            "title": "Czy na pewno chcesz opuścić kolekcję {{collectionName}}?",
+            "content": "Aby uzyskać do niej dostęp ponownie konieczne będzie zaproszenie."
+        },
+        "members": "Członkowie",
+        "member-actions": {
+            "edit-permissions": "Edytuj uprawnienia",
+            "remove-member": "Usuń członka"
+        },
+        "remove-member-confirmation": "Czy na pewno usunąć członka kolekcji?",
+        "go-to-collection": "Przejdź do kolekcji"
+    },
+    "collection-permission": {
+        "manage-collection": "Zarządzanie kolekcją",
+        "create-file": "Tworzenie plików",
+        "modify-file": "Edycja plików",
+        "read-file": "Czytanie zawartości plików",
+        "read-file-metadata": "Czytanie metadanych plików"
     }
 }

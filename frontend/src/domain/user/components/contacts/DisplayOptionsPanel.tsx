@@ -37,6 +37,7 @@ const DisplayOptionsPanel: React.FC<Props> = ({
                 isOpen={findUserDisclosure.isOpen}
                 onClose={findUserDisclosure.onClose}
                 onSelect={(user) => setRequestedContactId(user.userId)}
+                excludeContacts={true}
             />
             {requestedContactId && (
                 <AddOrUpdateContactModal

@@ -9,23 +9,38 @@ import { combineReducers } from "redux"
 import { reducerWithInitialState } from "typescript-fsa-reducers"
 import { createReducer } from "../../../application/store/async/AsyncActionReducer"
 import {
+    addMemberAction,
     changeInvitationAcceptanceAction,
     cleanCollectionDetailsAction,
     cleanCollectionKeyAction,
+    clearSetMemberPermissionsResultAction,
     createCollectionAction,
+    deleteCollectionAction,
+    deleteMemberAction,
     fetchAndDecryptCollectionKeyAction,
     getCollectionDetailsAction,
+    getCollectionMembersAction,
     getPreferredCollectionIdAction,
     listCollectionsAction,
+    listMyPermissionsToCollectionActions,
     removePreferredCollectionIdAction,
+    requestMemberDeleteAction,
+    requestPermissionsChangeForMemberAction,
+    RequestPermissionsUpdateParams,
+    resetAddMemberResultAction,
     resetAvailableCollectionsListAction,
+    resetCollectionMembersResultAction,
     resetCreateCollectionStatusAction,
+    resetDeleteCollectionResultAction,
+    resetDeleteMemberStatsAction,
     resetRemovePreferredCollectionResultAction,
     setActiveCollectionAction,
+    setMemberPermissionsAction,
     setPreferredCollectionIdAction,
     updateCollectionsListFilter,
 } from "./Actions"
 import { CollectionsListFilter } from "../types/CollectionsListFilter"
+import omit from "lodash/omit"
 
 export const initialCollectionsListFilter: CollectionsListFilter = {
     nameFilter: "",
@@ -53,12 +68,25 @@ const listCollectionsReducer = createReducer(listCollectionsAction, resetAvailab
         }
         return state
     })
+    .case(deleteCollectionAction.done, (state, action) => {
+        if (state.status === "FINISHED") {
+            const filteredData = state.data.filter((c) => c.id !== action.params)
+            return { ...state, data: filteredData }
+        }
+        return state
+    })
     .build()
 
 const getCollectionReducer = createReducer(getCollectionDetailsAction, cleanCollectionDetailsAction)
     .case(changeInvitationAcceptanceAction.done, (state, action) => {
         if (state.status === "FINISHED" && state.data?.id === action.params.collectionId) {
             return { ...state, data: { ...state.data, isAccepted: action.params.isAccepted } }
+        }
+        return state
+    })
+    .case(deleteCollectionAction.done, (state, action) => {
+        if (state.status !== "NOT_STARTED" && state.params === action.params) {
+            return { status: "FINISHED", params: state.params, data: null }
         }
         return state
     })
@@ -85,6 +113,12 @@ const setPreferredCollectionReducer = createReducer(setPreferredCollectionIdActi
 const activeCollectionReducer = reducerWithInitialState<string | null>(null)
     .case(setActiveCollectionAction, (_, action) => action)
     .case(localLogoutAction, () => null)
+    .case(deleteCollectionAction.done, (state, action) => {
+        if (state === action.params) {
+            return null
+        }
+        return state
+    })
     .build()
 
 const encryptionKeyReducer = createReducer(fetchAndDecryptCollectionKeyAction, cleanCollectionKeyAction, {
@@ -118,6 +152,50 @@ const collectionsListFilterReducer = reducerWithInitialState<CollectionsListFilt
 
 const updateAcceptanceReducer = createReducer(changeInvitationAcceptanceAction).build()
 
+const collectionMembersReducer = createReducer(getCollectionMembersAction, resetCollectionMembersResultAction)
+    .case(addMemberAction.done, (state, action) => {
+        if (state.status === "FINISHED" && state.params === action.params.collectionId) {
+            const updated = { ...state.data, [action.params.userId]: action.params.permissions }
+            return { ...state, data: updated }
+        }
+        return state
+    })
+    .case(deleteMemberAction.done, (state, action) => {
+        if (state.status === "FINISHED" && state.params === action.params.collectionId) {
+            const filtered = omit(state.data, action.params.memberId)
+            return { ...state, data: filtered }
+        }
+        return state
+    })
+    .case(setMemberPermissionsAction.done, (state, action) => {
+        if (state.status === "FINISHED" && state.params === action.params.collectionId) {
+            const updated = { ...state.data, [action.params.memberId]: action.params.permissions }
+            return { ...state, data: updated }
+        }
+        return state
+    })
+    .build()
+
+const myPermissionsReducer = createReducer(listMyPermissionsToCollectionActions).build()
+
+const deleteCollectionReducer = createReducer(deleteCollectionAction, resetDeleteCollectionResultAction).build()
+
+const addCollectionMemberReducer = createReducer(addMemberAction, resetAddMemberResultAction, {
+    params: (origParams) => ({ ...origParams, masterKey: "" }),
+}).build()
+
+const deleteMemberReducer = createReducer(deleteMemberAction, resetDeleteMemberStatsAction).build()
+
+const requestDeleteMemberReducer = reducerWithInitialState<string | null>(null)
+    .case(requestMemberDeleteAction, (_, action) => action)
+    .build()
+
+const setPermissionsReducer = createReducer(setMemberPermissionsAction, clearSetMemberPermissionsResultAction).build()
+
+const requestPermissionUpdate = reducerWithInitialState<RequestPermissionsUpdateParams | null>(null)
+    .case(requestPermissionsChangeForMemberAction, (_, action) => action)
+    .build()
+
 export const collectionsReducer = combineReducers({
     availableCollections: listCollectionsReducer,
     collectionDetails: getCollectionReducer,
@@ -129,4 +207,12 @@ export const collectionsReducer = combineReducers({
     encryptionKey: encryptionKeyReducer,
     collectionsListFilter: collectionsListFilterReducer,
     updateAcceptanceResult: updateAcceptanceReducer,
+    collectionMembers: collectionMembersReducer,
+    myPermissions: myPermissionsReducer,
+    deleteCollectionResult: deleteCollectionReducer,
+    requestDeleteMember: requestDeleteMemberReducer,
+    addMember: addCollectionMemberReducer,
+    deleteMember: deleteMemberReducer,
+    setPermissions: setPermissionsReducer,
+    requestedPermissionUpdateForMember: requestPermissionUpdate,
 })
