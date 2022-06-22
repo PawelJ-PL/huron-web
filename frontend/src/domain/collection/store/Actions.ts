@@ -1,3 +1,4 @@
+import { CollectionPermission } from "./../types/CollectionPermission"
 import { EncryptionKey } from "./../types/EncryptionKey"
 import { Collection } from "./../types/Collection"
 import { actionCreatorFactory } from "typescript-fsa"
@@ -33,3 +34,12 @@ export const changeInvitationAcceptanceAction = actionCreator.async<
     void,
     Error
 >("CHANGE_INVITATION_ACCEPTANCE")
+export const getCollectionMembersAction = actionCreator.async<
+    string,
+    Record<string, CollectionPermission[]> | null,
+    Error
+>("GET_COLLECTION_MEMBERS")
+export const resetCollectionMembersResultAction = actionCreator("RESET_COLLECTION_MEMBERS_RESULT")
+export const listMyPermissionsToCollectionActions = actionCreator.async<string, CollectionPermission[], Error>(
+    "LIST_MY_COLLECTION_PERMISSIONS"
+)

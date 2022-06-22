@@ -1,8 +1,10 @@
+import { CollectionPermission, collectionPermissionSchema } from "./../types/CollectionPermission"
 import { EncryptionKeySchema } from "./../types/EncryptionKey"
 import { errorResponseToData, validatedResponse } from "./../../../application/api/helpers"
 import { client } from "../../../application/api/BaseClient"
 import { EncryptionKey } from "../types/EncryptionKey"
 import { Collection, CollectionSchema } from "../types/Collection"
+import { z } from "zod"
 
 type NewCollectionReq = { name: string; encryptedKey: string }
 
@@ -37,6 +39,17 @@ const api = {
     },
     cancelInvitationAcceptance(collectionId: string): Promise<void> {
         return client.delete(`collections/${collectionId}/members/me/approval`).then(() => undefined)
+    },
+    getCollectionMembers(collectionId: string): Promise<Record<string, CollectionPermission[]> | null> {
+        return client
+            .get(`collections/${collectionId}/members`)
+            .then((resp) => validatedResponse(resp, z.record(collectionPermissionSchema.array())))
+            .catch((error) => errorResponseToData(error, null, 400, 403, 404))
+    },
+    getMemeberPermissions(collectionId: string, memberId: string): Promise<CollectionPermission[]> {
+        return client
+            .get(`collections/${collectionId}/members/${memberId}/permission`)
+            .then((resp) => validatedResponse(resp, collectionPermissionSchema.array()))
     },
 }
 

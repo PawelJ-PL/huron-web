@@ -281,5 +281,9 @@
         "create-collection-button": "Create collection",
         "updating-details-overlay-text": "Updating collection details",
         "updating-details-failed-toast-message": "error while updating collection details"
+    },
+    "collection-manage-page": {
+        "collection-not-found-placeholder": "Collection not found",
+        "loading-collection-data": "Loading collection data"
     }
 }

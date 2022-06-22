@@ -8,8 +8,10 @@ import {
     createCollectionAction,
     fetchAndDecryptCollectionKeyAction,
     getCollectionDetailsAction,
+    getCollectionMembersAction,
     getPreferredCollectionIdAction,
     listCollectionsAction,
+    listMyPermissionsToCollectionActions,
     removePreferredCollectionIdAction,
     setActiveCollectionAction,
     setPreferredCollectionIdAction,
@@ -120,6 +122,18 @@ const updateAcceptanceEpic = createEpic(changeInvitationAcceptanceAction, ({ col
     }
 })
 
+const getCollectionMembersEpic = createEpic(getCollectionMembersAction, (collectionId) =>
+    CollectionsApi.getCollectionMembers(collectionId)
+)
+
+const listMyPermissionsEpic = createEpic(listMyPermissionsToCollectionActions, (collectionId, state) => {
+    if (state.users.userData.status !== "FINISHED") {
+        return Promise.reject(new Error("User data not loaded yet"))
+    }
+    const myId = state.users.userData.data.id
+    return CollectionsApi.getMemeberPermissions(collectionId, myId)
+})
+
 export const collectionsEpics = combineEpics<Action, Action, AppState>(
     listCollectionsEpic,
     getCollectionEpic,
@@ -131,5 +145,7 @@ export const collectionsEpics = combineEpics<Action, Action, AppState>(
     fetchAndDecryptCollectionKeyEpic,
     fetchAndDecryptCollectionKeyOnKeypairDecryptedEpic,
     fetchAndDecryptCollectionKeyOnCollectionChange,
-    updateAcceptanceEpic
+    updateAcceptanceEpic,
+    getCollectionMembersEpic,
+    listMyPermissionsEpic
 )

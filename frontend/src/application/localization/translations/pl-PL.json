@@ -282,5 +282,9 @@
         "create-collection-button": "Stwórz kolekcję",
         "updating-details-overlay-text": "Aktualizacja szczegółów kolekcji",
         "updating-details-failed-toast-message": "Błąd w trakcie zmiany szczegółów kolekcji"
+    },
+    "collection-manage-page": {
+        "collection-not-found-placeholder": "Nie odnaleziono kolekcji",
+        "loading-collection-data": "Wczytywanie danych kolekcji"
     }
 }

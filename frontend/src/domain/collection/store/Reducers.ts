@@ -15,10 +15,13 @@ import {
     createCollectionAction,
     fetchAndDecryptCollectionKeyAction,
     getCollectionDetailsAction,
+    getCollectionMembersAction,
     getPreferredCollectionIdAction,
     listCollectionsAction,
+    listMyPermissionsToCollectionActions,
     removePreferredCollectionIdAction,
     resetAvailableCollectionsListAction,
+    resetCollectionMembersResultAction,
     resetCreateCollectionStatusAction,
     resetRemovePreferredCollectionResultAction,
     setActiveCollectionAction,
@@ -118,6 +121,10 @@ const collectionsListFilterReducer = reducerWithInitialState<CollectionsListFilt
 
 const updateAcceptanceReducer = createReducer(changeInvitationAcceptanceAction).build()
 
+const collectionMembersReducer = createReducer(getCollectionMembersAction, resetCollectionMembersResultAction).build()
+
+const myPermissionsReducer = createReducer(listMyPermissionsToCollectionActions).build()
+
 export const collectionsReducer = combineReducers({
     availableCollections: listCollectionsReducer,
     collectionDetails: getCollectionReducer,
@@ -129,4 +136,6 @@ export const collectionsReducer = combineReducers({
     encryptionKey: encryptionKeyReducer,
     collectionsListFilter: collectionsListFilterReducer,
     updateAcceptanceResult: updateAcceptanceReducer,
+    collectionMembers: collectionMembersReducer,
+    myPermissions: myPermissionsReducer,
 })
