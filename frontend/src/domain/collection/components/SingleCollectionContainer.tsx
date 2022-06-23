@@ -33,11 +33,7 @@ export const SingleCollectionContainer: React.FC<Props> = ({
 
     useEffect(() => {
         resetRemovePreferredCollectionResult()
-        if (
-            fetchCollectionResult.status === "NOT_STARTED" ||
-            fetchCollectionResult.status === "FAILED" ||
-            fetchCollectionResult.params !== collectionId
-        ) {
+        if (fetchCollectionResult.status === "NOT_STARTED" || fetchCollectionResult.status === "FAILED") {
             fetchCollectionData(collectionId)
         }
         return () => {

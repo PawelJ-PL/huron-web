@@ -46,7 +46,7 @@ const api = {
             .then((resp) => validatedResponse(resp, z.record(collectionPermissionSchema.array())))
             .catch((error) => errorResponseToData(error, null, 400, 403, 404))
     },
-    getMemeberPermissions(collectionId: string, memberId: string): Promise<CollectionPermission[]> {
+    getMemberPermissions(collectionId: string, memberId: string): Promise<CollectionPermission[]> {
         return client
             .get(`collections/${collectionId}/members/${memberId}/permission`)
             .then((resp) => validatedResponse(resp, collectionPermissionSchema.array()))

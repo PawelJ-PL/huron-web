@@ -131,7 +131,7 @@ const listMyPermissionsEpic = createEpic(listMyPermissionsToCollectionActions, (
         return Promise.reject(new Error("User data not loaded yet"))
     }
     const myId = state.users.userData.data.id
-    return CollectionsApi.getMemeberPermissions(collectionId, myId)
+    return CollectionsApi.getMemberPermissions(collectionId, myId)
 })
 
 export const collectionsEpics = combineEpics<Action, Action, AppState>(

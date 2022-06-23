@@ -19,7 +19,7 @@ import { fetchMultipleUsersPublicDataAction } from "../../../../user/store/Actio
 
 type Props = ReturnType<typeof mapStateToProps> & ReturnType<typeof mapDispatchToProps> & Pick<WithTranslation, "t">
 
-const SingleCollectionManagementContainer: React.FC<Props> = ({
+export const SingleCollectionManagementContainer: React.FC<Props> = ({
     collection,
     members,
     myPermissions,
@@ -75,6 +75,9 @@ const SingleCollectionManagementContainer: React.FC<Props> = ({
         }
     }, [fetchMembersDetails, knownUsers, members])
 
+    if (fetchError) {
+        return <UnexpectedErrorMessage error={fetchError} />
+    }
     if (collection.status === "FINISHED" && collection.data && members.status === "FINISHED" && maybeMyPermissions) {
         return (
             <SingleCollectionManagementPage
@@ -83,15 +86,13 @@ const SingleCollectionManagementContainer: React.FC<Props> = ({
                 members={members.data ?? undefined}
             />
         )
-    } else if (collection.status === "FINISHED") {
+    } else if (collection.status === "FINISHED" && !collection.data) {
         return (
             <EmptyPlaceholder
                 text={t("collection-manage-page:collection-not-found-placeholder")}
                 icon={RiForbid2Line}
             />
         )
-    } else if (fetchError) {
-        return <UnexpectedErrorMessage error={fetchError} />
     } else {
         return <Loader title={t("collection-manage-page:loading-collection-data")} />
     }
