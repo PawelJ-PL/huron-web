@@ -1857,8 +1857,8 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       usersRepo             <- Ref.make(initUsersRepoState)
       collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
       result                <- UsersService
-        .getPublicKeyOf(UserId(ExampleUserId))
-        .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+                                 .getPublicKeyOf(UserId(ExampleUserId))
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
