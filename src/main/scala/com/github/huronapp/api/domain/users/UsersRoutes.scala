@@ -9,12 +9,13 @@ import com.github.huronapp.api.auth.authentication.SessionRepository.SessionRepo
 import com.github.huronapp.api.domain.users.UsersService.UsersService
 import com.github.huronapp.api.domain.users.dto.{
   ApiKeyDataResp,
+  PublicKeyResp,
   PublicUserContactResp,
   PublicUserDataResp,
   UserContactResponse,
   UserDataResp
 }
-import com.github.huronapp.api.domain.users.dto.fields.{KeyPair => KeyPairDto}
+import com.github.huronapp.api.domain.users.dto.fields.{PublicKey, KeyPair => KeyPairDto}
 import com.github.huronapp.api.http.{BaseRouter, ErrorResponse}
 import com.github.huronapp.api.http.EndpointSyntax._
 import com.github.huronapp.api.http.BaseRouter.RouteEffect
@@ -277,9 +278,22 @@ object UsersRoutes {
               .toAuthenticatedRoutes(auth.asUser)(user =>
                 _ =>
                   usersService
-                    .getKeyPairOf(user.userId)
+                    .getKeyPairOfUserAs(user.userId, user.userId)
+                    .flatMapError(error =>
+                      logger.warn(show"Unable to get keypair: ${error.logMessage}").as(UserErrorsMapping.getKeyPairError(error))
+                    )
                     .someOrFail(ErrorResponse.NotFound("Key pair not found"))
                     .map(_.transformInto[KeyPairDto])
+              )
+
+          private val getPublicKey: HttpRoutes[RouteEffect] =
+            UsersEndpoints
+              .getPublicKeyEndpoint
+              .toAuthenticatedRoutes_(auth.asUser)(targetUser =>
+                usersService
+                  .getPublicKeyOf(UserId(targetUser))
+                  .someOrFail(ErrorResponse.NotFound("Public key or user not found"))
+                  .map { case (algorithm, publicKey) => PublicKeyResp(algorithm, PublicKey(publicKey)) }
               )
 
           private val createContactRoutes: HttpRoutes[RouteEffect] =
@@ -355,6 +369,7 @@ object UsersRoutes {
               deleteApiKeyRoutes <+>
               updateApiKey <+>
               getUsersKeyPair <+>
+              getPublicKey <+>
               createContactRoutes <+>
               listContactsRoutes <+>
               deleteContactRoutes <+>

@@ -4,7 +4,7 @@ import cats.data.Chain
 import cats.syntax.eq._
 import cats.syntax.show._
 import com.github.huronapp.api.auth.authorization.types.Subject
-import com.github.huronapp.api.auth.authorization.{OperationNotPermitted, SetEncryptionKey}
+import com.github.huronapp.api.auth.authorization.{GetKeyPair, OperationNotPermitted, SetEncryptionKey}
 import com.github.huronapp.api.constants.{Collections, Config, MiscConstants, Users}
 import com.github.huronapp.api.domain.collections.dto.EncryptionKeyData
 import com.github.huronapp.api.domain.users.UsersRoutes.UserRoutes
@@ -27,6 +27,7 @@ import com.github.huronapp.api.domain.users.dto.{
   PasswordResetReq,
   PatchContactReq,
   PatchUserDataReq,
+  PublicKeyResp,
   PublicUserContactResp,
   PublicUserDataResp,
   UpdateApiKeyDataReq,
@@ -52,8 +53,8 @@ import zio.clock.Clock
 import zio.{Ref, ZIO, ZLayer}
 import zio.interop.catz._
 import zio.test.environment.TestEnvironment
-import zio.test.Assertion.{containsString, equalTo, isEmpty, isNone, isSome}
-import zio.test.{DefaultRunnableSpec, ZSpec, assert}
+import zio.test.Assertion.{containsString, isNone, isSome}
+import zio.test.{DefaultRunnableSpec, ZSpec, assert, assertTrue}
 
 import java.time.Instant
 
@@ -140,7 +141,11 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       updateApiKeyUnauthorized,
       getKeyPairs,
       getNonExistingKeyPairs,
+      getKeyPairForbidden,
       getKeyPairsUnauthorized,
+      getPublicKey,
+      getPublicKeyNotFound,
+      getPublicKeyUnauthorized,
       createContact,
       createContactUserNotFound,
       createContactAliasConflict,
@@ -179,8 +184,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users").withEntity(dto)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body        <- result.as[ErrorResponse.BadRequest]
-    } yield assert(result.status)(equalTo(Status.BadRequest)) &&
-      assert(body)(equalTo(ErrorResponse.BadRequest("Invalid request")))
+    } yield assertTrue(result.status == Status.BadRequest) &&
+      assertTrue(body == ErrorResponse.BadRequest("Invalid request"))
   }
 
   private val keyPairDto = KeyPairDto(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey), PrivateKey(ExamplePrivateKey))
@@ -203,9 +208,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Created)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    } yield assertTrue(result.status == Status.Created) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val registerUserWithEmailConflict = testM("should generate response on registration email conflict") {
@@ -223,12 +228,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.Conflict]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Conflict)) &&
-      assert(body)(equalTo(ErrorResponse.Conflict("Email already registered", Some("EmailAlreadyRegistered")))) &&
-      assert(loggedMessages)(
-        equalTo(Chain.one("Unable to register user: Email with digest digest(alice@example.org) already registered"))
-      ) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    } yield assertTrue(result.status == Status.Conflict) &&
+      assertTrue(body == ErrorResponse.Conflict("Email already registered", Some("EmailAlreadyRegistered"))) &&
+      assertTrue(loggedMessages == Chain.one("Unable to register user: Email with digest digest(alice@example.org) already registered")) &&
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val registerUserWithNickNameConflict = testM("should generate response on registration nickname conflict") {
@@ -246,12 +249,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.Conflict]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Conflict)) &&
-      assert(body)(equalTo(ErrorResponse.Conflict("Nickname already registered", Some("NickNameAlreadyRegistered")))) &&
-      assert(loggedMessages)(
-        equalTo(Chain.one(show"Unable to register user: Nickname $ExampleUserNickName already registered"))
-      ) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    } yield assertTrue(result.status == Status.Conflict) &&
+      assertTrue(body == ErrorResponse.Conflict("Nickname already registered", Some("NickNameAlreadyRegistered"))) &&
+      assertTrue(loggedMessages == Chain.one(show"Unable to register user: Nickname $ExampleUserNickName already registered")) &&
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val findUsersByNickname = testM("should generate response on users by nickname search") {
@@ -267,12 +268,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[List[PublicUserDataResp]]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(
-        equalTo(List(PublicUserDataResp(ExampleUserId, ExampleUserNickName, Some(PublicUserContactResp(ExampleContact.alias)))))
-      ) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == List(PublicUserDataResp(ExampleUserId, ExampleUserNickName, Some(PublicUserContactResp(ExampleContact.alias))))) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val findUsersByNicknameWithNonTrimmedFilter =
@@ -288,9 +287,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
         finalSessionRepo <- sessionRepo.get
-      } yield assert(result.status)(equalTo(Status.BadRequest)) &&
-        assert(loggedMessages)(equalTo(Chain.empty)) &&
-        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+      } yield assertTrue(result.status == Status.BadRequest) &&
+        assertTrue(loggedMessages == Chain.empty) &&
+        assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
     }
 
   private val findUsersByNicknameWithTooShortNickname =
@@ -306,9 +305,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
         finalSessionRepo <- sessionRepo.get
-      } yield assert(result.status)(equalTo(Status.BadRequest)) &&
-        assert(loggedMessages)(equalTo(Chain.empty)) &&
-        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+      } yield assertTrue(result.status == Status.BadRequest) &&
+        assertTrue(loggedMessages == Chain.empty) &&
+        assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
     }
 
   private val findUsersByNicknameWithTooSmallLimit =
@@ -324,9 +323,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
         finalSessionRepo <- sessionRepo.get
-      } yield assert(result.status)(equalTo(Status.BadRequest)) &&
-        assert(loggedMessages)(equalTo(Chain.empty)) &&
-        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+      } yield assertTrue(result.status == Status.BadRequest) &&
+        assertTrue(loggedMessages == Chain.empty) &&
+        assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
     }
 
   private val findUsersByNicknameWithTooBigLimit =
@@ -342,9 +341,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
         finalSessionRepo <- sessionRepo.get
-      } yield assert(result.status)(equalTo(Status.BadRequest)) &&
-        assert(loggedMessages)(equalTo(Chain.empty)) &&
-        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+      } yield assertTrue(result.status == Status.BadRequest) &&
+        assertTrue(loggedMessages == Chain.empty) &&
+        assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
     }
 
   private val findUsersByNicknameWithNonPositivePage =
@@ -360,9 +359,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
         finalSessionRepo <- sessionRepo.get
-      } yield assert(result.status)(equalTo(Status.BadRequest)) &&
-        assert(loggedMessages)(equalTo(Chain.empty)) &&
-        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+      } yield assertTrue(result.status == Status.BadRequest) &&
+        assertTrue(loggedMessages == Chain.empty) &&
+        assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
     }
 
   private val findUsersByNicknameUnauthorized =
@@ -378,9 +377,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         loggedMessages   <- logs.get
         finalSessionRepo <- sessionRepo.get
-      } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-        assert(loggedMessages)(equalTo(Chain.empty)) &&
-        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+      } yield assertTrue(result.status == Status.Unauthorized) &&
+        assertTrue(loggedMessages == Chain.empty) &&
+        assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
     }
 
   private val getMultipleUsers = testM("should generate response for multiple users request") {
@@ -396,19 +395,17 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[Map[FUUID, Option[PublicUserDataResp]]]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(
-        equalTo(
-          Map(
-            ExampleUserId -> Some(
-              PublicUserDataResp(ExampleUserId, ExampleUserNickName, Some(PublicUserContactResp(ExampleContact.alias)))
-            ),
-            ExampleFuuid1 -> None
-          )
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(
+        body == Map(
+          ExampleUserId -> Some(
+            PublicUserDataResp(ExampleUserId, ExampleUserNickName, Some(PublicUserContactResp(ExampleContact.alias)))
+          ),
+          ExampleFuuid1 -> None
         )
       ) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val getTooManyMultipleUsers = testM("should generate response for multiple users request if too many user ids provided") {
@@ -449,9 +446,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.BadRequest)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    } yield assertTrue(result.status == Status.BadRequest) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val getMultipleUsersUnauthorized = testM("should generate response for multiple users request when user not logged in") {
@@ -466,9 +463,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val confirmRegistration = testM("should generate response on signup confirmation success") {
@@ -482,9 +479,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.NoContent)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    } yield assertTrue(result.status == Status.NoContent) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val confirmRegistrationWithInvalidToken = testM("should generate response on signup confirmation failure with invalid token") {
@@ -499,10 +496,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.NotFound]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(body)(equalTo(ErrorResponse.NotFound("Invalid token"))) &&
-      assert(loggedMessages)(equalTo(Chain.one("SignUp confirmation failed: Token abc is not valid"))) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(body == ErrorResponse.NotFound("Invalid token")) &&
+      assertTrue(loggedMessages == Chain.one("SignUp confirmation failed: Token abc is not valid")) &&
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val confirmRegistrationWithAlreadyConfirmed =
@@ -518,10 +515,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         body             <- result.as[ErrorResponse.NotFound]
         loggedMessages   <- logs.get
         finalSessionRepo <- sessionRepo.get
-      } yield assert(result.status)(equalTo(Status.NotFound)) &&
-        assert(body)(equalTo(ErrorResponse.NotFound("Invalid token"))) &&
-        assert(loggedMessages)(equalTo(Chain.one("SignUp confirmation failed: Registration for user was already confirmed"))) &&
-        assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+      } yield assertTrue(result.status == Status.NotFound) &&
+        assertTrue(body == ErrorResponse.NotFound("Invalid token")) &&
+        assertTrue(loggedMessages == Chain.one("SignUp confirmation failed: Registration for user was already confirmed")) &&
+        assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
     }
 
   private val loginUser = testM("should generate response successful login") {
@@ -539,28 +536,24 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
       sessionCookie = result.cookies.find(_.name === "session")
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest))) &&
-      assert(sessionCookie)(
-        isSome(
-          equalTo(
-            ResponseCookie(
-              "session",
-              FirstRandomFuuid.show,
-              maxAge = Some(604800),
-              path = Some("/"),
-              httpOnly = true,
-              secure = true,
-              sameSite = Some(SameSite.Lax)
-            )
-          )
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest)) &&
+      assertTrue(
+        sessionCookie.get == ResponseCookie(
+          "session",
+          FirstRandomFuuid.show,
+          maxAge = Some(604800),
+          path = Some("/"),
+          httpOnly = true,
+          secure = true,
+          sameSite = Some(SameSite.Lax)
         )
       ) &&
-      assert(result.headers.get(CIString("x-csrf-token")).map(_.head.value))(isSome(equalTo(SecondRandomFuuid.show))) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(
-        equalTo(
-          SessionRepoFake.SessionRepoState(sessions = Set(UserSession(FirstRandomFuuid, ExampleUserId, SecondRandomFuuid, Instant.EPOCH)))
+      assertTrue(result.headers.get(CIString("x-csrf-token")).map(_.head.value).get == SecondRandomFuuid.show) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(
+        finalSessionRepo == SessionRepoFake.SessionRepoState(sessions =
+          Set(UserSession(FirstRandomFuuid, ExampleUserId, SecondRandomFuuid, Instant.EPOCH))
         )
       )
   }
@@ -579,14 +572,14 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.Unauthorized]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(body)(equalTo(ErrorResponse.Unauthorized("Invalid credentials"))) &&
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(body == ErrorResponse.Unauthorized("Invalid credentials")) &&
       assert(result.headers.get(CIString("set-cookie")))(isNone) &&
       assert(result.headers.get(CIString("x-csrf-token")))(isNone) &&
-      assert(loggedMessages)(
-        equalTo(Chain.one("Credentials verification failed: User with email hash digest(alice@example.org) not found"))
+      assertTrue(
+        loggedMessages == Chain.one("Credentials verification failed: User with email hash digest(alice@example.org) not found")
       ) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val loginUserInactiveUser = testM("should generate response for failed login if user is inactive") {
@@ -603,14 +596,12 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.Unauthorized]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(body)(equalTo(ErrorResponse.Unauthorized("Invalid credentials"))) &&
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(body == ErrorResponse.Unauthorized("Invalid credentials")) &&
       assert(result.headers.get(CIString("set-cookie")))(isNone) &&
       assert(result.headers.get(CIString("x-csrf-token")))(isNone) &&
-      assert(loggedMessages)(
-        equalTo(Chain.one("Credentials verification failed: User 431e092f-50ce-47eb-afbd-b806514d3f2c is not active"))
-      ) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+      assertTrue(loggedMessages == Chain.one("Credentials verification failed: User 431e092f-50ce-47eb-afbd-b806514d3f2c is not active")) &&
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val loginUserInvalidCredentials = testM("should generate response for failed login if credentials are invalid") {
@@ -627,14 +618,14 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.Unauthorized]
       loggedMessages   <- logs.get
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(body)(equalTo(ErrorResponse.Unauthorized("Invalid credentials"))) &&
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(body == ErrorResponse.Unauthorized("Invalid credentials")) &&
       assert(result.headers.get(CIString("set-cookie")))(isNone) &&
       assert(result.headers.get(CIString("x-csrf-token")))(isNone) &&
-      assert(loggedMessages)(
-        equalTo(Chain.one("Credentials verification failed: Invalid password for user with email hash digest(alice@example.org)"))
+      assertTrue(
+        loggedMessages == Chain.one("Credentials verification failed: Invalid password for user with email hash digest(alice@example.org)")
       ) &&
-      assert(finalSessionRepo)(equalTo(SessionRepoFake.SessionRepoState()))
+      assertTrue(finalSessionRepo == SessionRepoFake.SessionRepoState())
   }
 
   private val logoutUser = testM("should generate response successful logout") {
@@ -649,10 +640,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       finalSessionRepo <- sessionRepo.get
       firstCookie = result.headers.get(CIString("set-cookie")).map(_.head.value)
       _ = println(firstCookie)
-    } yield assert(result.status)(equalTo(Status.NoContent)) &&
+    } yield assertTrue(result.status == Status.NoContent) &&
       assert(firstCookie)(isSome(containsString("session=invalid;"))) &&
       assert(firstCookie)(isSome(containsString("Max-Age=0;"))) &&
-      assert(finalSessionRepo.sessions)(isEmpty)
+      assertTrue(finalSessionRepo.sessions.isEmpty)
   }
 
   private val logoutApiKeyUser = testM("should generate logout response for user authenticated with API key") {
@@ -668,10 +659,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.Forbidden]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Forbidden)) &&
-      assert(body)(equalTo(ErrorResponse.Forbidden("Logout not allowed for this authentication method"))) &&
+    } yield assertTrue(result.status == Status.Forbidden) &&
+      assertTrue(body == ErrorResponse.Forbidden("Logout not allowed for this authentication method")) &&
       assert(result.headers.get(CIString("set-cookie")))(isNone) &&
-      assert(finalSessionRepo)(equalTo(initSessionsRepoState))
+      assertTrue(finalSessionRepo == initSessionsRepoState)
   }
 
   private val logoutUserUnauthorized = testM("should generate response for logout if user unauthorized") {
@@ -686,9 +677,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       req = Request[RouteEffect](method = Method.DELETE, uri = uri"/api/v1/users/me/session")
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
+    } yield assertTrue(result.status == Status.Unauthorized) &&
       assert(result.headers.get(CIString("set-cookie")))(isNone) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val userData = testM("should generate response for user data") {
@@ -704,10 +695,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[UserDataResp]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(result.headers.get(CIString("X-Csrf-Token")).map(_.head.value))(isSome(equalTo(ExampleFuuid2.show))) &&
-      assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(result.headers.get(CIString("X-Csrf-Token")).map(_.head.value).get == ExampleFuuid2.show) &&
+      assertTrue(body == UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest)) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val userDataAuthenticatedWithApiKey = testM("should generate response for API key user data") {
@@ -724,10 +715,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[UserDataResp]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
+    } yield assertTrue(result.status == Status.Ok) &&
       assert(result.headers.get(CIString("X-Csrf-Token")))(isNone) &&
-      assert(body)(equalTo(UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+      assertTrue(body == UserDataResp(ExampleUserId, ExampleUserNickName, ExampleUserLanguage, ExampleUserEmailDigest)) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val userDataNotFound = testM("should generate response for user data if not found") {
@@ -742,8 +733,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/data").withHeaders(validAuthHeader)
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val userDataUnauthorized = testM("should generate response for user data if unauthorized") {
@@ -758,8 +749,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/data")
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val userPublicData = testM("should generate response for user public data") {
@@ -776,9 +767,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[PublicUserDataResp]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(equalTo(PublicUserDataResp(ExampleContact.contactId, "user2", Some(PublicUserContactResp(ExampleContact.alias))))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == PublicUserDataResp(ExampleContact.contactId, "user2", Some(PublicUserContactResp(ExampleContact.alias)))) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val userPublicDataUserNotFound = testM("should generate response for user public data if user not found") {
@@ -795,9 +786,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.NotFound]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(body)(equalTo(ErrorResponse.NotFound("User not found"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(body == ErrorResponse.NotFound("User not found")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val userPublicDataUnauthorized = testM("should generate response for user public data if user is not logged in") {
@@ -812,8 +803,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       req = Request[RouteEffect](method = Method.GET, uri = Uri.unsafeFromString(show"/api/v1/users/${ExampleContact.contactId}/data"))
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val updateUserData = testM("should generate response for user data update") {
@@ -831,9 +822,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[UserDataResp]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(equalTo(UserDataResp(ExampleUserId, "NewName", ExampleUserLanguage, ExampleUserEmailDigest))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == UserDataResp(ExampleUserId, "NewName", ExampleUserLanguage, ExampleUserEmailDigest)) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val updateUserDataNoUpdates = testM("should generate response for user data update if no updates provided") {
@@ -851,9 +842,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.BadRequest]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.BadRequest)) &&
-      assert(body)(equalTo(ErrorResponse.BadRequest("No updates in request"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.BadRequest) &&
+      assertTrue(body == ErrorResponse.BadRequest("No updates in request")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val updateUserDataNickNameConflict = testM("should generate response for user data update if nickname already registered") {
@@ -871,9 +862,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.Conflict]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Conflict)) &&
-      assert(body)(equalTo(ErrorResponse.Conflict("Nickname already registered", Some("NickNameAlreadyRegistered")))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Conflict) &&
+      assertTrue(body == ErrorResponse.Conflict("Nickname already registered", Some("NickNameAlreadyRegistered"))) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val updateUserDataUserNotFound = testM("should generate response for user data update if user not found") {
@@ -891,9 +882,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.NotFound]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(body)(equalTo(ErrorResponse.NotFound("User not found"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(body == ErrorResponse.NotFound("User not found")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val updateUserDataUserUnauthorized = testM("should generate response for user data update if user not authorized") {
@@ -910,8 +901,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       req = Request[RouteEffect](method = Method.PATCH, uri = uri"/api/v1/users/me/data").withEntity(dto)
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val changePassword = testM("should generate response for password change") {
@@ -928,8 +919,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withHeaders(validAuthHeader).withEntity(dto)
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.NoContent)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NoContent) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val changePasswordUserNotFound = testM("should generate response for password change if user not found") {
@@ -946,8 +937,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withHeaders(validAuthHeader).withEntity(dto)
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val changePasswordInvalidCredentials = testM("should generate response for password change if old password is incorrect") {
@@ -965,9 +956,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.PreconditionFailed]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
-      assert(body)(equalTo(ErrorResponse.PreconditionFailed("Current password is incorrect", Some("InvalidCurrentPassword")))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.PreconditionFailed) &&
+      assertTrue(body == ErrorResponse.PreconditionFailed("Current password is incorrect", Some("InvalidCurrentPassword"))) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val changePasswordInvalidEmails = testM("should generate response for password change if email address is incorrect") {
@@ -987,9 +978,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.PreconditionFailed]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
-      assert(body)(equalTo(ErrorResponse.PreconditionFailed("Email is incorrect", Some("InvalidEmail")))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.PreconditionFailed) &&
+      assertTrue(body == ErrorResponse.PreconditionFailed("Email is incorrect", Some("InvalidEmail"))) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val changePasswordPasswordsEqual = testM("should generate response for password change if old and new passwords are equal") {
@@ -1007,9 +998,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.PreconditionFailed]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
-      assert(body)(equalTo(ErrorResponse.PreconditionFailed("New and old passwords are equal", Some("PasswordsEqual")))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.PreconditionFailed) &&
+      assertTrue(body == ErrorResponse.PreconditionFailed("New and old passwords are equal", Some("PasswordsEqual"))) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val changePasswordUnauthorized = testM("should generate response for password change if user unathorized") {
@@ -1026,8 +1017,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       req = Request[RouteEffect](method = Method.POST, uri = uri"/api/v1/users/me/password").withEntity(dto)
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val changePasswordWithMissingEncryptionKey =
@@ -1049,16 +1040,14 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
         body             <- result.as[ErrorResponse.PreconditionFailed]
         finalSessionRepo <- sessionRepo.get
-      } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
-        assert(body)(
-          equalTo(
-            ErrorResponse.PreconditionFailed(
-              s"Missing encryption key for collections: $ExampleFuuid1, $ExampleFuuid2",
-              Some("MissingEncryptionKeys")
-            )
+      } yield assertTrue(result.status == Status.PreconditionFailed) &&
+        assertTrue(
+          body == ErrorResponse.PreconditionFailed(
+            s"Missing encryption key for collections: $ExampleFuuid1, $ExampleFuuid2",
+            Some("MissingEncryptionKeys")
           )
         ) &&
-        assert(finalSessionRepo)(equalTo(initSessionRepo))
+        assertTrue(finalSessionRepo == initSessionRepo)
     }
 
   private val changePasswordForbidden = testM("should generate response for not allowed action") {
@@ -1078,9 +1067,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.Forbidden]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.Forbidden)) &&
-      assert(body)(equalTo(ErrorResponse.Forbidden("Action not allowed"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Forbidden) &&
+      assertTrue(body == ErrorResponse.Forbidden("Action not allowed")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val changePasswordWithInvalidKeyVersion = testM("should generate response for password change if key version is invalid") {
@@ -1100,16 +1089,14 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body             <- result.as[ErrorResponse.PreconditionFailed]
       finalSessionRepo <- sessionRepo.get
-    } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
-      assert(body)(
-        equalTo(
-          ErrorResponse.PreconditionFailed(
-            s"Key version for collection $ExampleCollectionId should be $ExampleFuuid1",
-            Some("KeyVersionMismatch")
-          )
+    } yield assertTrue(result.status == Status.PreconditionFailed) &&
+      assertTrue(
+        body == ErrorResponse.PreconditionFailed(
+          s"Key version for collection $ExampleCollectionId should be $ExampleFuuid1",
+          Some("KeyVersionMismatch")
         )
       ) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val resetPasswordRequest = testM("should generate response for password reset request") {
@@ -1127,9 +1114,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NoContent)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NoContent) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val resetPasswordRequestEmailNotFound = testM("should generate response for password reset request if email not found") {
@@ -1147,9 +1134,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NoContent)) &&
-      assert(loggedMessages)(equalTo(Chain.one("Unable to reset password: User with email hash digest(alice@example.org) not found"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NoContent) &&
+      assertTrue(loggedMessages == Chain.one("Unable to reset password: User with email hash digest(alice@example.org) not found")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val resetPasswordRequestInactiveUser = testM("should generate response for password reset request if user is inactive") {
@@ -1167,9 +1154,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NoContent)) &&
-      assert(loggedMessages)(equalTo(Chain.one("Unable to reset password: User 431e092f-50ce-47eb-afbd-b806514d3f2c is not active"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NoContent) &&
+      assertTrue(loggedMessages == Chain.one("Unable to reset password: User 431e092f-50ce-47eb-afbd-b806514d3f2c is not active")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val resetPasswordWithToken = testM("should generate response for password reset") {
@@ -1187,9 +1174,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NoContent)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NoContent) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val resetPasswordWithTokenInvalid = testM("should generate response for password reset if token is invalid") {
@@ -1207,9 +1194,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(loggedMessages)(equalTo(Chain.one("Password reset failed: Token abc is not valid"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(loggedMessages == Chain.one("Password reset failed: Token abc is not valid")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val resetPasswordWithTokenInactiveUser = testM("should generate response for password reset if user is inactive") {
@@ -1227,9 +1214,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(loggedMessages)(equalTo(Chain.one("Password reset failed: User 431e092f-50ce-47eb-afbd-b806514d3f2c is not active"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(loggedMessages == Chain.one("Password reset failed: User 431e092f-50ce-47eb-afbd-b806514d3f2c is not active")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val resetPasswordWithInvalidEmail = testM("should generate response for password reset if email is incorrect") {
@@ -1249,15 +1236,13 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(loggedMessages)(
-        equalTo(
-          Chain.one(
-            "Password reset failed: The digest of user 431e092f-50ce-47eb-afbd-b806514d3f2c email address was expected to be digest(alice@example.org), but otherDigest was found"
-          )
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(
+        loggedMessages == Chain.one(
+          "Password reset failed: The digest of user 431e092f-50ce-47eb-afbd-b806514d3f2c email address was expected to be digest(alice@example.org), but otherDigest was found"
         )
       ) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val createApiKey = testM("should generate response for new API key") {
@@ -1276,10 +1261,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ApiKeyDataResp]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(equalTo(apiKeyToResponse(ExampleApiKey))) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == apiKeyToResponse(ExampleApiKey)) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val createApiKeyUnauthorized = testM("should generate response for new API key for unauthorized user") {
@@ -1297,9 +1282,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val listApiKeys = testM("should generate response for API keys list") {
@@ -1316,10 +1301,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[List[ApiKeyDataResp]]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(equalTo(List(apiKeyToResponse(ExampleApiKey)))) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == List(apiKeyToResponse(ExampleApiKey))) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val listApiKeysUnauthorized = testM("should generate response for API keys list for unauthorized user") {
@@ -1335,9 +1320,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val deleteApiKey = testM("should generate response for API key delete") {
@@ -1354,9 +1339,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NoContent)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NoContent) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val deleteNonExistingApiKey = testM("should generate response for API key delete if key not found") {
@@ -1374,10 +1359,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.NotFound]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(body)(equalTo(ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found"))) &&
-      assert(loggedMessages)(equalTo(Chain.one(s"Unable to delete API key: API key with id $ExampleApiKeyId not found"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(body == ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found")) &&
+      assertTrue(loggedMessages == Chain.one(s"Unable to delete API key: API key with id $ExampleApiKeyId not found")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val deleteApiKeyOwnedByAnotherUser = testM("should generate response for API key delete if key is owned by another user") {
@@ -1397,12 +1382,14 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.NotFound]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(body)(equalTo(ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found"))) &&
-      assert(loggedMessages)(
-        equalTo(Chain.one(s"Unable to delete API key: API key with ID $ExampleApiKeyId belongs to user $ExampleFuuid1, not $ExampleUserId"))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(body == ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found")) &&
+      assertTrue(
+        loggedMessages == Chain.one(
+          s"Unable to delete API key: API key with ID $ExampleApiKeyId belongs to user $ExampleFuuid1, not $ExampleUserId"
+        )
       ) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val deleteApiKeyUnauthorized = testM("should generate response for API key delete for unauthorized user") {
@@ -1418,9 +1405,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val updateApiKey = testM("should generate response for API key update") {
@@ -1441,10 +1428,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ApiKeyDataResp]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(equalTo(apiKeyToResponse(ExampleApiKey))) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == apiKeyToResponse(ExampleApiKey)) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val updateApiKeyWithNoUpdates = testM("should generate response for API key update with missing updates") {
@@ -1465,10 +1452,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.BadRequest]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.BadRequest)) &&
-      assert(body)(equalTo(ErrorResponse.BadRequest("No updates in request"))) &&
-      assert(loggedMessages)(equalTo(Chain.one(s"Unable to update API key: No updates provided for API key $ExampleApiKeyId"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.BadRequest) &&
+      assertTrue(body == ErrorResponse.BadRequest("No updates in request")) &&
+      assertTrue(loggedMessages == Chain.one(s"Unable to update API key: No updates provided for API key $ExampleApiKeyId")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val updateNonExistingApiKey = testM("should generate response for API key update if key not found") {
@@ -1489,10 +1476,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.NotFound]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(body)(equalTo(ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found"))) &&
-      assert(loggedMessages)(equalTo(Chain.one(s"Unable to update API key: API key with id $ExampleApiKeyId not found"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(body == ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found")) &&
+      assertTrue(loggedMessages == Chain.one(s"Unable to update API key: API key with id $ExampleApiKeyId not found")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val updateApiKeyOwnedByAnotherUser = testM("should generate response for API key update if key owned by another user") {
@@ -1515,12 +1502,14 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.NotFound]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(body)(equalTo(ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found"))) &&
-      assert(loggedMessages)(
-        equalTo(Chain.one(s"Unable to update API key: API key with ID $ExampleApiKeyId belongs to user $ExampleFuuid1, not $ExampleUserId"))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(body == ErrorResponse.NotFound(s"API key $ExampleApiKeyId not found")) &&
+      assertTrue(
+        loggedMessages == Chain.one(
+          s"Unable to update API key: API key with ID $ExampleApiKeyId belongs to user $ExampleFuuid1, not $ExampleUserId"
+        )
       ) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val updateApiKeyUnauthorized = testM("should generate response for API key update if user unauthorized") {
@@ -1539,9 +1528,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val getKeyPairs = testM("should generate response with current users keypair") {
@@ -1557,10 +1546,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[KeyPairDto]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(equalTo(KeyPairDto(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey), PrivateKey(ExamplePrivateKey)))) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == KeyPairDto(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey), PrivateKey(ExamplePrivateKey))) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val getNonExistingKeyPairs = testM("should generate response if keypair not found for user") {
@@ -1575,9 +1564,32 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
+  }
+
+  private val getKeyPairForbidden = testM("should generate response if user has no access to the keypair") {
+    val responses = UsersServiceStub.UsersServiceResponses(keyPair =
+      ZIO.fail(AuthorizationError(OperationNotPermitted(GetKeyPair(Subject(ExampleUserId), UserId(ExampleFuuid1)))))
+    )
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/keypair").withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assertTrue(result.status == Status.Forbidden) &&
+      assertTrue(
+        loggedMessages == Chain.one(
+          show"Unable to get keypair: Subject $ExampleUserId not authorized to get keypair of user $ExampleFuuid1"
+        )
+      ) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val getKeyPairsUnauthorized = testM("should generate response for current users keypair when unauthorized") {
@@ -1592,9 +1604,67 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
+  }
+
+  private val getPublicKey = testM("should generate response with public key") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".addPath(ExampleUserId.show).addPath("public-key")
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[PublicKeyResp]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == PublicKeyResp(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey))) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
+  }
+
+  private val getPublicKeyNotFound = testM("should generate response for non existing public key") {
+    val responses = UsersServiceStub.UsersServiceResponses(
+      getPublicKey = ZIO.none
+    )
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".addPath(ExampleUserId.show).addPath("public-key")
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
+  }
+
+  private val getPublicKeyUnauthorized = testM("should generate response for public key request if user not logged in") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".addPath(ExampleUserId.show).addPath("public-key")
+      req = Request[RouteEffect](method = Method.GET, uri = uri)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val createContact = testM("should generate response for create contact action") {
@@ -1612,10 +1682,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[UserContactResponse]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(equalTo(UserContactResponse(ExampleContact.contactId, "user2", ExampleContact.alias))) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == UserContactResponse(ExampleContact.contactId, "user2", ExampleContact.alias)) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val createContactUserNotFound = testM("should generate response for create contact action when user not found") {
@@ -1633,10 +1703,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.NotFound]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(body)(equalTo(ErrorResponse.NotFound("User not found"))) &&
-      assert(loggedMessages)(equalTo(Chain.one(show"Unable to create contact: User with id ${ExampleContact.contactId} not found"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(body == ErrorResponse.NotFound("User not found")) &&
+      assertTrue(loggedMessages == Chain.one(show"Unable to create contact: User with id ${ExampleContact.contactId} not found")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val createContactAliasConflict = testM("should generate response for create contact action when alias already used") {
@@ -1655,14 +1725,14 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.Conflict]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Conflict)) &&
-      assert(body)(equalTo(ErrorResponse.Conflict("Contact alias already exists", Some("ContactAliasAlreadyExists")))) &&
-      assert(loggedMessages)(
-        equalTo(
-          Chain.one(show"Unable to create contact: User $ExampleUserId already has contact with alias Bob related to user $ExampleFuuid1")
+    } yield assertTrue(result.status == Status.Conflict) &&
+      assertTrue(body == ErrorResponse.Conflict("Contact alias already exists", Some("ContactAliasAlreadyExists"))) &&
+      assertTrue(
+        loggedMessages == Chain.one(
+          show"Unable to create contact: User $ExampleUserId already has contact with alias Bob related to user $ExampleFuuid1"
         )
       ) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val createContactConflict = testM("should generate response for create contact action when contact already exists") {
@@ -1681,14 +1751,14 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.Conflict]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Conflict)) &&
-      assert(body)(equalTo(ErrorResponse.Conflict("Contact already exists", Some("ContactAlreadyExists")))) &&
-      assert(loggedMessages)(
-        equalTo(
-          Chain.one(show"Unable to create contact: User $ExampleUserId has already saved contact with user ${ExampleContact.contactId}")
+    } yield assertTrue(result.status == Status.Conflict) &&
+      assertTrue(body == ErrorResponse.Conflict("Contact already exists", Some("ContactAlreadyExists"))) &&
+      assertTrue(
+        loggedMessages == Chain.one(
+          show"Unable to create contact: User $ExampleUserId has already saved contact with user ${ExampleContact.contactId}"
         )
       ) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val createContactAddSelf = testM("should generate response for create contact action when user add self") {
@@ -1707,14 +1777,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.PreconditionFailed]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.PreconditionFailed)) &&
-      assert(body)(equalTo(ErrorResponse.PreconditionFailed("Unable to add self to contacts", Some("AddSelfToContacts")))) &&
-      assert(loggedMessages)(
-        equalTo(
-          Chain.one(show"Unable to create contact: User $ExampleUserId trying to add self to contacts")
-        )
-      ) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.PreconditionFailed) &&
+      assertTrue(body == ErrorResponse.PreconditionFailed("Unable to add self to contacts", Some("AddSelfToContacts"))) &&
+      assertTrue(loggedMessages == Chain.one(show"Unable to create contact: User $ExampleUserId trying to add self to contacts")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val createContactUnauthorized = testM("should generate response for create contact action when user not logged in") {
@@ -1731,9 +1797,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val listContacts = testM("should generate response for list contacts") {
@@ -1747,10 +1813,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       body        <- result.as[List[UserContactResponse]]
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(
-        equalTo(List(UserContactResponse(ExampleUserId, ExampleUserNickName, ExampleContact.alias)))
-      )
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == List(UserContactResponse(ExampleUserId, ExampleUserNickName, ExampleContact.alias)))
   }
 
   private val listContactsWithTooSmallLimit = testM("should generate response for list contacts with too small limit") {
@@ -1763,7 +1827,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       uri = uri"/api/v1/users/me/contacts".withQueryParam("limit", 0)
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
-    } yield assert(result.status)(equalTo(Status.BadRequest))
+    } yield assertTrue(result.status == Status.BadRequest)
   }
 
   private val listContactsWithTooHighLimit = testM("should generate response for list contacts with too high limit") {
@@ -1776,7 +1840,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       uri = uri"/api/v1/users/me/contacts".withQueryParam("limit", 101)
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
-    } yield assert(result.status)(equalTo(Status.BadRequest))
+    } yield assertTrue(result.status == Status.BadRequest)
   }
 
   private val listContactsUnauthorized = testM("should generate response for list contacts if user not logged in") {
@@ -1789,7 +1853,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       uri = uri"/api/v1/users/me/contacts"
       req = Request[RouteEffect](method = Method.GET, uri = uri)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
-    } yield assert(result.status)(equalTo(Status.Unauthorized))
+    } yield assertTrue(result.status == Status.Unauthorized)
   }
 
   private val editContact = testM("should generate response for edit contact action") {
@@ -1806,10 +1870,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[UserContactResponse]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(body)(equalTo(UserContactResponse(ExampleFuuid1, ExampleUser.nickName, ExampleContact.alias))) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == UserContactResponse(ExampleFuuid1, ExampleUser.nickName, ExampleContact.alias)) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val editContactNoUpdated = testM("should generate response for edit contact action if no updates provided") {
@@ -1828,10 +1892,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.BadRequest]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.BadRequest)) &&
-      assert(body)(equalTo(ErrorResponse.BadRequest("No updates in request"))) &&
-      assert(loggedMessages)(equalTo(Chain.one(show"Unable to update contact data: No updates provided for contact ${ExampleUser.id}"))) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.BadRequest) &&
+      assertTrue(body == ErrorResponse.BadRequest("No updates in request")) &&
+      assertTrue(loggedMessages == Chain.one(show"Unable to update contact data: No updates provided for contact ${ExampleUser.id}")) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val editContactAliasExists = testM("should generate response for edit contact action if alias exists") {
@@ -1850,16 +1914,14 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.Conflict]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Conflict)) &&
-      assert(body)(equalTo(ErrorResponse.Conflict("Contact alias already exists", Some("ContactAliasAlreadyExists")))) &&
-      assert(loggedMessages)(
-        equalTo(
-          Chain.one(
-            show"Unable to update contact data: User $ExampleUserId already has contact with alias someAlias related to user ${ExampleContact.contactId}"
-          )
+    } yield assertTrue(result.status == Status.Conflict) &&
+      assertTrue(body == ErrorResponse.Conflict("Contact alias already exists", Some("ContactAliasAlreadyExists"))) &&
+      assertTrue(
+        loggedMessages == Chain.one(
+          show"Unable to update contact data: User $ExampleUserId already has contact with alias someAlias related to user ${ExampleContact.contactId}"
         )
       ) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val editContactNotFound = testM("should generate response for edit contact action if contact not found") {
@@ -1876,16 +1938,14 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       body             <- result.as[ErrorResponse.NotFound]
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.NotFound)) &&
-      assert(body)(equalTo(ErrorResponse.NotFound("Contact not found"))) &&
-      assert(loggedMessages)(
-        equalTo(
-          Chain.one(
-            show"Unable to update contact data: User $ExampleUserId has no contact with user ${ExampleContact.contactId}"
-          )
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(body == ErrorResponse.NotFound("Contact not found")) &&
+      assertTrue(
+        loggedMessages == Chain.one(
+          show"Unable to update contact data: User $ExampleUserId has no contact with user ${ExampleContact.contactId}"
         )
       ) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val editContactUnauthorized = testM("should generate response for edit contact action if user not logged in") {
@@ -1901,9 +1961,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
-    } yield assert(result.status)(equalTo(Status.Unauthorized)) &&
-      assert(loggedMessages)(equalTo(Chain.empty)) &&
-      assert(finalSessionRepo)(equalTo(initSessionRepo))
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
   }
 
   private val returnStandardPageHeaders = testM("should generate response with standard pagination headers with default values") {
@@ -1916,10 +1976,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       uri = uri"/api/v1/users/nicknames/aaaaa"
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(result.headers.get(ci"X-Page").map(_.head.value))(isSome(equalTo("1"))) &&
-      assert(result.headers.get(ci"X-Elements-Per-Page").map(_.head.value))(isSome(equalTo("5"))) &&
-      assert(result.headers.get(ci"X-Total-Pages").map(_.head.value))(isSome(equalTo("1")))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(result.headers.get(ci"X-Page").map(_.head.value).get == "1") &&
+      assertTrue(result.headers.get(ci"X-Elements-Per-Page").map(_.head.value).get == "5") &&
+      assertTrue(result.headers.get(ci"X-Total-Pages").map(_.head.value).get == "1")
   }
 
   private val returnStandardPageHeadersNonDefaultValues =
@@ -1936,10 +1996,10 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("page", 3).withQueryParam("limit", 3)
         req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
         result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
-      } yield assert(result.status)(equalTo(Status.Ok)) &&
-        assert(result.headers.get(ci"X-Page").map(_.head.value))(isSome(equalTo("3"))) &&
-        assert(result.headers.get(ci"X-Elements-Per-Page").map(_.head.value))(isSome(equalTo("3"))) &&
-        assert(result.headers.get(ci"X-Total-Pages").map(_.head.value))(isSome(equalTo("6")))
+      } yield assertTrue(result.status == Status.Ok) &&
+        assertTrue(result.headers.get(ci"X-Page").map(_.head.value).get == "3") &&
+        assertTrue(result.headers.get(ci"X-Elements-Per-Page").map(_.head.value).get == "3") &&
+        assertTrue(result.headers.get(ci"X-Total-Pages").map(_.head.value).get == "6")
     }
 
   private val previousPageHeader = testM("should generate response with X-Prev-Page header") {
@@ -1955,8 +2015,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("page", 3).withQueryParam("limit", 3)
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(result.headers.get(ci"X-Prev-Page").map(_.head.value))(isSome(equalTo("2")))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(result.headers.get(ci"X-Prev-Page").map(_.head.value).get == "2")
   }
 
   private val previousPageOnFirstPage = testM("should generate response without X-Prev-Page header on first page") {
@@ -1969,7 +2029,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       uri = uri"/api/v1/users/nicknames/aaaaa"
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
+    } yield assertTrue(result.status == Status.Ok) &&
       assert(result.headers.get(ci"X-Prev-Page"))(isNone)
   }
 
@@ -1985,7 +2045,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
         uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("page", 30).withQueryParam("limit", 3)
         req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
         result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
-      } yield assert(result.status)(equalTo(Status.Ok)) &&
+      } yield assertTrue(result.status == Status.Ok) &&
         assert(result.headers.get(ci"X-Prev-Page"))(isNone)
     }
 
@@ -2002,8 +2062,8 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("page", 3).withQueryParam("limit", 3)
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
-      assert(result.headers.get(ci"X-Next-Page").map(_.head.value))(isSome(equalTo("4")))
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(result.headers.get(ci"X-Next-Page").map(_.head.value).get == "4")
   }
 
   private val nextPageOnLastPage = testM("should generate response without X-Next-Page header on last page") {
@@ -2019,7 +2079,7 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       uri = uri"/api/v1/users/nicknames/aaaaa".withQueryParam("page", 6).withQueryParam("limit", 3)
       req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
       result      <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
-    } yield assert(result.status)(equalTo(Status.Ok)) &&
+    } yield assertTrue(result.status == Status.Ok) &&
       assert(result.headers.get(ci"X-Next-Page"))(isNone)
   }
 

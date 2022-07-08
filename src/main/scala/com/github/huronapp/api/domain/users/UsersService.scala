@@ -2,7 +2,7 @@ package com.github.huronapp.api.domain.users
 
 import cats.syntax.eq._
 import cats.syntax.show._
-import com.github.huronapp.api.auth.authorization.{AuthorizationKernel, SetEncryptionKey}
+import com.github.huronapp.api.auth.authorization.{AuthorizationKernel, GetKeyPair, SetEncryptionKey}
 import com.github.huronapp.api.auth.authorization.AuthorizationKernel.AuthorizationKernel
 import com.github.huronapp.api.auth.authorization.types.Subject
 import com.github.huronapp.api.config.SecurityConfig
@@ -105,7 +105,9 @@ object UsersService {
 
     def updateApiKeyAs(userId: FUUID, keyId: FUUID, dto: UpdateApiKeyDataReq): ZIO[Any, UpdateApiKeyError, ApiKey]
 
-    def getKeyPairOf(userId: FUUID): ZIO[Any, Nothing, Option[KeyPair]]
+    def getKeyPairOfUserAs(requestorId: FUUID, keyOwner: FUUID): ZIO[Any, GetKeyPairError, Option[KeyPair]]
+
+    def getPublicKeyOf(userId: UserId): ZIO[Any, Nothing, Option[(KeyAlgorithm, String)]]
 
   }
 
@@ -418,8 +420,14 @@ object UsersService {
                 _         <- logger.info(s"Updated API key $keyId for user $userId")
               } yield savedUser)
 
-            override def getKeyPairOf(userId: FUUID): ZIO[Any, Nothing, Option[KeyPair]] =
-              db.transactionOrDie(usersRepo.getKeyPairFor(userId)).orDie
+            override def getKeyPairOfUserAs(requestorId: FUUID, keyOwner: FUUID): ZIO[Any, GetKeyPairError, Option[KeyPair]] =
+              db.transactionOrDie(for {
+                _       <- authKernel.authorizeOperation(GetKeyPair(Subject(requestorId), UserId(keyOwner))).mapError(AuthorizationError)
+                keyPair <- usersRepo.getKeyPairFor(keyOwner).orDie
+              } yield keyPair)
+
+            override def getPublicKeyOf(userId: UserId): ZIO[Any, Nothing, Option[(KeyAlgorithm, String)]] =
+              db.transactionOrDie(usersRepo.getKeyPairFor(userId.id).orDie.map(_.map(keyPair => (keyPair.algorithm, keyPair.publicKey))))
 
           }
       )

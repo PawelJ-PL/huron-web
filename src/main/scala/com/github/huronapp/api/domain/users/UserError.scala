@@ -32,7 +32,9 @@ sealed trait CreateContactError extends UserError
 
 sealed trait EditContactError extends UserError
 
-final case class AuthorizationError(error: AuthError) extends UpdatePasswordError {
+sealed trait GetKeyPairError extends UserError
+
+final case class AuthorizationError(error: AuthError) extends UpdatePasswordError with GetKeyPairError {
 
   override val logMessage: String = error.message
 
