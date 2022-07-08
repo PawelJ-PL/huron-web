@@ -27,6 +27,7 @@ import com.github.huronapp.api.domain.users.dto.{
   PasswordResetReq,
   PatchContactReq,
   PatchUserDataReq,
+  PublicKeyResp,
   PublicUserContactResp,
   PublicUserDataResp,
   UpdateApiKeyDataReq,
@@ -142,6 +143,9 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       getNonExistingKeyPairs,
       getKeyPairForbidden,
       getKeyPairsUnauthorized,
+      getPublicKey,
+      getPublicKeyNotFound,
+      getPublicKeyUnauthorized,
       createContact,
       createContactUserNotFound,
       createContactAliasConflict,
@@ -1580,7 +1584,11 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
     } yield assertTrue(result.status == Status.Forbidden) &&
-      assertTrue(loggedMessages == Chain.one(show"Unable to get keypair: Subject $ExampleUserId not authorized to get keypair of user $ExampleFuuid1")) &&
+      assertTrue(
+        loggedMessages == Chain.one(
+          show"Unable to get keypair: Subject $ExampleUserId not authorized to get keypair of user $ExampleFuuid1"
+        )
+      ) &&
       assertTrue(finalSessionRepo == initSessionRepo)
   }
 
@@ -1593,6 +1601,64 @@ object UsersRoutesSpec extends DefaultRunnableSpec with Config with Users with M
       logs             <- Ref.make(Chain.empty[String])
       routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
       req = Request[RouteEffect](method = Method.GET, uri = uri"/api/v1/users/me/keypair")
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assertTrue(result.status == Status.Unauthorized) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
+  }
+
+  private val getPublicKey = testM("should generate response with public key") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".addPath(ExampleUserId.show).addPath("public-key")
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      body             <- result.as[PublicKeyResp]
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assertTrue(result.status == Status.Ok) &&
+      assertTrue(body == PublicKeyResp(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey))) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
+  }
+
+  private val getPublicKeyNotFound = testM("should generate response for non existing public key") {
+    val responses = UsersServiceStub.UsersServiceResponses(
+      getPublicKey = ZIO.none
+    )
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".addPath(ExampleUserId.show).addPath("public-key")
+      req = Request[RouteEffect](method = Method.GET, uri = uri).withHeaders(validAuthHeader)
+      result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
+      finalSessionRepo <- sessionRepo.get
+      loggedMessages   <- logs.get
+    } yield assertTrue(result.status == Status.NotFound) &&
+      assertTrue(loggedMessages == Chain.empty) &&
+      assertTrue(finalSessionRepo == initSessionRepo)
+  }
+
+  private val getPublicKeyUnauthorized = testM("should generate response for public key request if user not logged in") {
+    val responses = UsersServiceStub.UsersServiceResponses()
+
+    val initSessionRepo = SessionRepoFake.SessionRepoState()
+    for {
+      sessionRepo      <- Ref.make(initSessionRepo)
+      logs             <- Ref.make(Chain.empty[String])
+      routes           <- UsersRoutes.routes.provideLayer(routesLayer(sessionRepo, responses, logs))
+      uri = uri"/api/v1/users".addPath(ExampleUserId.show).addPath("public-key")
+      req = Request[RouteEffect](method = Method.GET, uri = uri)
       result           <- routes.run(req).value.someOrFail(new RuntimeException("Missing route"))
       finalSessionRepo <- sessionRepo.get
       loggedMessages   <- logs.get
