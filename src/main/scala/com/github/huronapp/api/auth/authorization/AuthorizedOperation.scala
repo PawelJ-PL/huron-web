@@ -33,6 +33,12 @@ final case class GetCollectionDetails(subject: Subject, collectionId: FUUID) ext
 
 }
 
+final case class GetKeyPair(subject: Subject, keyPairOwner: UserId) extends AuthorizedOperation {
+
+  override val failureMessage: String = show"Subject $subject not authorized to get keypair of user $keyPairOwner"
+
+}
+
 final case class SetEncryptionKey(subject: Subject, collectionId: FUUID, userId: FUUID) extends AuthorizedOperation {
 
   override val failureMessage: String =

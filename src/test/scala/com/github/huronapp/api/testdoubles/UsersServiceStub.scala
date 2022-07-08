@@ -2,40 +2,8 @@ package com.github.huronapp.api.testdoubles
 
 import com.github.huronapp.api.constants.{MiscConstants, Users}
 import com.github.huronapp.api.domain.users.UsersService.UsersService
-import com.github.huronapp.api.domain.users.dto.{
-  NewContactReq,
-  NewPersonalApiKeyReq,
-  NewUserReq,
-  PasswordResetReq,
-  PatchContactReq,
-  PatchUserDataReq,
-  UpdateApiKeyDataReq,
-  UpdatePasswordReq
-}
-import com.github.huronapp.api.domain.users.{
-  ApiKey,
-  ApiKeyType,
-  ContactWithUser,
-  CreateContactError,
-  CreateUserError,
-  CredentialsVerificationError,
-  DeleteApiKeyError,
-  EditContactError,
-  Email,
-  KeyPair,
-  PasswordResetError,
-  PatchUserError,
-  RequestPasswordResetError,
-  SignUpConfirmationError,
-  TemporaryToken,
-  TokenType,
-  UpdateApiKeyError,
-  UpdatePasswordError,
-  User,
-  UserContact,
-  UserWithContact,
-  UsersService
-}
+import com.github.huronapp.api.domain.users.dto.{NewContactReq, NewPersonalApiKeyReq, NewUserReq, PasswordResetReq, PatchContactReq, PatchUserDataReq, UpdateApiKeyDataReq, UpdatePasswordReq}
+import com.github.huronapp.api.domain.users.{ApiKey, ApiKeyType, ContactWithUser, CreateContactError, CreateUserError, CredentialsVerificationError, DeleteApiKeyError, EditContactError, Email, GetKeyPairError, KeyPair, PasswordResetError, PatchUserError, RequestPasswordResetError, SignUpConfirmationError, TemporaryToken, TokenType, UpdateApiKeyError, UpdatePasswordError, User, UserContact, UserWithContact, UsersService}
 import com.github.huronapp.api.http.pagination.PaginationEnvelope
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.{boolean, string}
@@ -62,7 +30,7 @@ object UsersServiceStub extends Users with MiscConstants {
     listApiKeys: ZIO[Any, Nothing, List[ApiKey]] = ZIO.succeed(List(ExampleApiKey)),
     deleteApiKey: ZIO[Any, DeleteApiKeyError, Unit] = ZIO.unit,
     updateApiKey: ZIO[Any, UpdateApiKeyError, ApiKey] = ZIO.succeed(ExampleApiKey),
-    keyPair: ZIO[Any, Nothing, Option[KeyPair]] = ZIO.some(ExampleKeyPair),
+    keyPair: ZIO[Any, GetKeyPairError, Option[KeyPair]] = ZIO.some(ExampleKeyPair),
     contactData: ZIO[Any, Nothing, Option[UserWithContact]] = ZIO.some((ExampleUser.copy(id = ExampleContact.contactId, nickName = "user2"),
         Some(ExampleContact))),
     createContact: ZIO[Any, CreateContactError, ContactWithUser] = ZIO.succeed((ExampleContact, ExampleUser.copy(id =
@@ -140,7 +108,7 @@ object UsersServiceStub extends Users with MiscConstants {
       override def updateApiKeyAs(userId: FUUID, keyId: FUUID, dto: UpdateApiKeyDataReq): ZIO[Any, UpdateApiKeyError, ApiKey] =
         responses.updateApiKey
 
-      override def getKeyPairOf(userId: FUUID): ZIO[Any, Nothing, Option[KeyPair]] = responses.keyPair
+      override def getKeyPairOfUserAs(requestorId: FUUID, keyOwner: FUUID): ZIO[Any, GetKeyPairError, Option[KeyPair]] = responses.keyPair
 
     })
 

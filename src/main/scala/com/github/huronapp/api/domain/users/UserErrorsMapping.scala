@@ -72,4 +72,9 @@ object UserErrorsMapping {
       case _: ContactNotFound           => ErrorResponse.NotFound("Contact not found")
     }
 
+  def getKeyPairError(error: GetKeyPairError): ErrorResponse =
+    error match {
+      case _: AuthorizationError => ErrorResponse.Forbidden("Action not allowed")
+    }
+
 }

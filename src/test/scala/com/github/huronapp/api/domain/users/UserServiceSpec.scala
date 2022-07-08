@@ -1,7 +1,7 @@
 package com.github.huronapp.api.domain.users
 
 import com.github.huronapp.api.auth.authorization.types.Subject
-import com.github.huronapp.api.auth.authorization.{AuthorizationKernel, OperationNotPermitted, SetEncryptionKey}
+import com.github.huronapp.api.auth.authorization.{AuthorizationKernel, GetKeyPair, OperationNotPermitted, SetEncryptionKey}
 import com.github.huronapp.api.constants.{Collections, Config, MiscConstants, Users}
 import com.github.huronapp.api.domain.collections.EncryptionKey
 import com.github.huronapp.api.domain.collections.dto.EncryptionKeyData
@@ -44,9 +44,9 @@ import zio.blocking.Blocking
 import zio.clock.Clock
 import zio.{Ref, ZLayer}
 import zio.logging.slf4j.Slf4jLogger
-import zio.test.Assertion.{equalTo, hasSameElements, isEmpty, isLeft, isNone, isSome}
+import zio.test.Assertion.{equalTo, hasSameElements, isLeft, isNone}
 import zio.test.environment.TestEnvironment
-import zio.test.{DefaultRunnableSpec, ZSpec, assert}
+import zio.test.{DefaultRunnableSpec, ZSpec, assert, assertTrue}
 import eu.timepit.refined.auto._
 import eu.timepit.refined.collection.MaxSize
 import io.chrisdavenport.fuuid.FUUID
@@ -135,7 +135,8 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       updateNonExistingApiKey,
       updateApiKeyOwnedByAnotherUser,
       getKeyPair,
-      getKeyPairIfNotExists
+      getKeyPairIfNotExists,
+      getKeyPairOfAnotherUser
     )
 
   private val keyPairDto = KeyPairDto(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey), PrivateKey(ExamplePrivateKey))
@@ -158,7 +159,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       expectedToken = "000102030405060708090a0b0c0d0e0f1011121314151617"
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(user)(equalTo(expectedUser)) &&
+    } yield assertTrue(user == expectedUser) &&
       assert(finalUsersRepoState.users)(hasSameElements(Set(expectedUser))) &&
       assert(finalUsersRepoState.auth)(
         hasSameElements(Set(UserAuth(FirstRandomFuuid, "bcrypt(secret-password)", confirmed = false, enabled = true)))
@@ -168,7 +169,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
         hasSameElements(List(InternalMessage.UserRegistered(expectedUser, ExampleUserEmail, expectedToken, Some(Context.Empty))))
       ) &&
       assert(finalUsersRepoState.keyPairs)(hasSameElements(Set(ExampleKeyPair.copy(id = SecondRandomFuuid, userId = FirstRandomFuuid)))) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val createUserWithEmailConflict = testM("should not create user if email registered") {
@@ -183,9 +184,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(EmailAlreadyRegistered("digest(alice@example.org)")))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val createUserWithNickNameConflict = testM("should not create user if nickname registered") {
@@ -199,9 +200,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(NickNameAlreadyRegistered(ExampleUserNickName)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val findUsersByNickname = testM("should return users with matching nickname") {
@@ -224,19 +225,17 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(user.data)(
-      equalTo(
-        List(
-          (user4, None),
-          (user5, None),
-          (user1, None),
-          (user3, None)
-        )
+    } yield assertTrue(
+      user.data == List(
+        (user4, None),
+        (user5, None),
+        (user1, None),
+        (user3, None)
       )
     ) &&
-      assert(finalUsersRepoState)(equalTo(initialState)) &&
-      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
-      assert(sentMessages)(isEmpty)
+      assertTrue(finalUsersRepoState == initialState) &&
+      assertTrue(finalCollectionsState == collectionRepoState) &&
+      assertTrue(sentMessages.isEmpty)
   }
 
   private val findUsersByNicknameWithLimit = testM("should return users with matching nickname with limit") {
@@ -259,17 +258,15 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(user.data)(
-      equalTo(
-        List(
-          (user4, None),
-          (user5, None)
-        )
+    } yield assertTrue(
+      user.data == List(
+        (user4, None),
+        (user5, None)
       )
     ) &&
-      assert(finalUsersRepoState)(equalTo(initialState)) &&
-      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
-      assert(sentMessages)(isEmpty)
+      assertTrue(finalUsersRepoState == initialState) &&
+      assertTrue(finalCollectionsState == collectionRepoState) &&
+      assertTrue(sentMessages.isEmpty)
   }
 
   private val findUsersByNicknameWithDrop = testM("should return users with matching nickname with drop") {
@@ -292,17 +289,15 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(user.data)(
-      equalTo(
-        List(
-          (user1, None),
-          (user3, None)
-        )
+    } yield assertTrue(
+      user.data == List(
+        (user1, None),
+        (user3, None)
       )
     ) &&
-      assert(finalUsersRepoState)(equalTo(initialState)) &&
-      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
-      assert(sentMessages)(isEmpty)
+      assertTrue(finalUsersRepoState == initialState) &&
+      assertTrue(finalCollectionsState == collectionRepoState) &&
+      assertTrue(sentMessages.isEmpty)
   }
 
   private val findUsersByNicknameWithoutSelf = testM("should return users with matching nickname without self") {
@@ -325,18 +320,16 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(user.data)(
-      equalTo(
-        List(
-          (user4, None),
-          (user5, None),
-          (user3, None)
-        )
+    } yield assertTrue(
+      user.data == List(
+        (user4, None),
+        (user5, None),
+        (user3, None)
       )
     ) &&
-      assert(finalUsersRepoState)(equalTo(initialState)) &&
-      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
-      assert(sentMessages)(isEmpty)
+      assertTrue(finalUsersRepoState == initialState) &&
+      assertTrue(finalCollectionsState == collectionRepoState) &&
+      assertTrue(sentMessages.isEmpty)
   }
 
   private val findUsersByNicknameExcludingContacts = testM("should return users with matching nickname excluding contacts") {
@@ -365,17 +358,15 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(user.data)(
-      equalTo(
-        List(
-          (user5, None),
-          (user3, None)
-        )
+    } yield assertTrue(
+      user.data == List(
+        (user5, None),
+        (user3, None)
       )
     ) &&
-      assert(finalUsersRepoState)(equalTo(initialState)) &&
-      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
-      assert(sentMessages)(isEmpty)
+      assertTrue(finalUsersRepoState == initialState) &&
+      assertTrue(finalCollectionsState == collectionRepoState) &&
+      assertTrue(sentMessages.isEmpty)
   }
 
   private val getMultipleUsers = testM("should return multiple users with missing values") {
@@ -405,9 +396,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
         List((ExampleFuuid1, Some((user2, None))), (ExampleFuuid5, None), (ExampleFuuid3, Some((user4, None))), (ExampleFuuid6, None))
       )
     ) &&
-      assert(finalUsersRepoState)(equalTo(initialState)) &&
-      assert(finalCollectionsState)(equalTo(collectionRepoState)) &&
-      assert(sentMessages)(isEmpty)
+      assertTrue(finalUsersRepoState == initialState) &&
+      assertTrue(finalCollectionsState == collectionRepoState) &&
+      assertTrue(sentMessages.isEmpty)
   }
 
   private val confirmSignUp = testM("should confirm registration") {
@@ -423,14 +414,14 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(userId)(equalTo(ExampleUserId)) &&
-      assert(finalUsersRepoState.users)(equalTo(initUsersRepoState.users)) &&
+    } yield assertTrue(userId == ExampleUserId) &&
+      assertTrue(finalUsersRepoState.users == initUsersRepoState.users) &&
       assert(finalUsersRepoState.auth)(
         hasSameElements(Set(UserAuth(ExampleUserId, "passHash", confirmed = true, enabled = true)))
       ) &&
-      assert(finalUsersRepoState.tokens)(isEmpty) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState.tokens.isEmpty) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val confirmSignUpWithInvalidToken = testM("should not confirm registration if token is invalid") {
@@ -444,9 +435,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(NoValidTokenFound("abc")))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val confirmAlreadyConfirmedRegistration = testM("should not confirm registration if already confirmed") {
@@ -463,9 +454,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(RegistrationAlreadyConfirmed(ExampleUserId)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val verifyCredentials = testM("should verify valid credentials") {
@@ -483,10 +474,10 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(user)(equalTo(ExampleUser)) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+    } yield assertTrue(user == ExampleUser) &&
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val verifyCredentialsForNonExistingEmail = testM("should fail on credentials validation if email not found") {
@@ -506,9 +497,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(EmailNotFound("digest(foo@bar)")))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val verifyCredentialsForInvalidPassword = testM("should fail on credentials validation if password is incorrect") {
@@ -528,9 +519,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(InvalidPassword(ExampleUserEmailDigest)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val verifyCredentialsForInactiveUser = testM("should fail on credentials validation if user is not active") {
@@ -550,9 +541,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(UserIsNotActive(ExampleUserId)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val getUserData = testM("should get users data") {
@@ -565,10 +556,10 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(user)(isSome(equalTo(ExampleUser))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+    } yield assertTrue(user.get == ExampleUser) &&
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val getUserDataForNonExistingUser = testM("should get None if user not exists") {
@@ -582,9 +573,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(user)(isNone) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val getUserContact = testM("should get users contacts") {
@@ -601,10 +592,10 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(user)(isSome(equalTo((secondUser, Some(ExampleContact))))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+    } yield assertTrue(user.get == (secondUser, Some(ExampleContact))) &&
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val getPublicDataIfContactNotDefined = testM("should get only user public data if contact is not defined") {
@@ -621,10 +612,10 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(user)(isSome(equalTo((secondUser, None)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+    } yield assertTrue(user.get == (secondUser, None)) &&
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val getUserContactForNonExistingUser = testM("should get None if user not found") {
@@ -640,9 +631,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(user)(isNone) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val createContact = testM("should create contact") {
@@ -659,13 +650,13 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(result)(equalTo((ExampleContact, secondUser))) &&
+    } yield assertTrue(result == (ExampleContact, secondUser)) &&
       assert(finalUsersRepoState.contacts)(hasSameElements(Set(ExampleContact))) &&
-      assert(finalUsersRepoState.users)(equalTo(initUsersRepoState.users)) &&
-      assert(finalUsersRepoState.auth)(equalTo(initUsersRepoState.auth)) &&
-      assert(finalUsersRepoState.tokens)(equalTo(initUsersRepoState.tokens)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState.users == initUsersRepoState.users) &&
+      assertTrue(finalUsersRepoState.auth == initUsersRepoState.auth) &&
+      assertTrue(finalUsersRepoState.tokens == initUsersRepoState.tokens) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val createContactAliasAlreadyExists = testM("should not create contact when alias already exists") {
@@ -685,7 +676,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
         UsersService.createContactAs(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo)).either
       finalUsersRepoState <- usersRepo.get
     } yield assert(result)(isLeft(equalTo(ContactAliasAlreadyExists(ExampleUserId, "Teddy", ExampleFuuid1)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState))
+      assertTrue(finalUsersRepoState == initUsersRepoState)
   }
 
   private val createContactAlreadyExists = testM("should not create contact when already exists") {
@@ -705,7 +696,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
         UsersService.createContactAs(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo)).either
       finalUsersRepoState <- usersRepo.get
     } yield assert(result)(isLeft(equalTo(ContactAlreadyExists(ExampleUserId, ExampleContact.contactId)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState))
+      assertTrue(finalUsersRepoState == initUsersRepoState)
   }
 
   private val createContactUserNotFound = testM("should not create contact when user not found") {
@@ -723,7 +714,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
         UsersService.createContactAs(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo)).either
       finalUsersRepoState <- usersRepo.get
     } yield assert(result)(isLeft(equalTo(UserNotFound(ExampleContact.contactId)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState))
+      assertTrue(finalUsersRepoState == initUsersRepoState)
   }
 
   private val createContactAddSelf = testM("should not create contact adding self") {
@@ -743,7 +734,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
         UsersService.createContactAs(ExampleUserId, dto).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo)).either
       finalUsersRepoState <- usersRepo.get
     } yield assert(result)(isLeft(equalTo(ForbiddenSelfToContacts(ExampleUserId)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState))
+      assertTrue(finalUsersRepoState == initUsersRepoState)
   }
 
   private val listContacts = testM("should list contacts") {
@@ -774,18 +765,16 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       collectionsRepo <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
       result          <-
         UsersService.listContactsAs(ExampleUserId, 30, 0, None).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
-    } yield assert(result)(
-      equalTo(
-        PaginationEnvelope(
-          List(
-            (contact5, user7),
-            (contact2, user3),
-            (contact4, user5),
-            (contact1, user1),
-            (contact6, user8)
-          ),
-          5
-        )
+    } yield assertTrue(
+      result == PaginationEnvelope(
+        List(
+          (contact5, user7),
+          (contact2, user3),
+          (contact4, user5),
+          (contact1, user1),
+          (contact6, user8)
+        ),
+        5
       )
     )
   }
@@ -818,16 +807,14 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       collectionsRepo <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
       result          <-
         UsersService.listContactsAs(ExampleUserId, 3, 0, None).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
-    } yield assert(result)(
-      equalTo(
-        PaginationEnvelope(
-          List(
-            (contact5, user7),
-            (contact2, user3),
-            (contact4, user5)
-          ),
-          5
-        )
+    } yield assertTrue(
+      result == PaginationEnvelope(
+        List(
+          (contact5, user7),
+          (contact2, user3),
+          (contact4, user5)
+        ),
+        5
       )
     )
   }
@@ -860,15 +847,13 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       collectionsRepo <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
       result          <-
         UsersService.listContactsAs(ExampleUserId, 30, 3, None).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
-    } yield assert(result)(
-      equalTo(
-        PaginationEnvelope(
-          List(
-            (contact1, user1),
-            (contact6, user8)
-          ),
-          5
-        )
+    } yield assertTrue(
+      result == PaginationEnvelope(
+        List(
+          (contact1, user1),
+          (contact6, user8)
+        ),
+        5
       )
     )
   }
@@ -902,15 +887,13 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       result          <- UsersService
                            .listContactsAs(ExampleUserId, 30, 0, Some("eDd"))
                            .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
-    } yield assert(result)(
-      equalTo(
-        PaginationEnvelope(
-          List(
-            (contact5, user7),
-            (contact4, user5)
-          ),
-          5
-        )
+    } yield assertTrue(
+      result == PaginationEnvelope(
+        List(
+          (contact5, user7),
+          (contact4, user5)
+        ),
+        5
       )
     )
   }
@@ -933,13 +916,13 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(contact)(equalTo((ExampleContact.copy(alias = Some("newAlias")), user2))) &&
+    } yield assertTrue(contact == (ExampleContact.copy(alias = Some("newAlias")), user2)) &&
       assert(finalUsersRepoState.contacts)(hasSameElements(Set(ExampleContact.copy(alias = Some("newAlias"))))) &&
-      assert(finalUsersRepoState.users)(equalTo(usersRepoState.users)) &&
-      assert(finalUsersRepoState.auth)(equalTo(usersRepoState.auth)) &&
-      assert(finalUsersRepoState.tokens)(equalTo(usersRepoState.tokens)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState.users == usersRepoState.users) &&
+      assertTrue(finalUsersRepoState.auth == usersRepoState.auth) &&
+      assertTrue(finalUsersRepoState.tokens == usersRepoState.tokens) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updateContactNoUpdates = testM("should not update contact when no updates provided") {
@@ -964,9 +947,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(contact)(isLeft(equalTo(NoUpdates("contact", ExampleUserId, dto)))) &&
-      assert(finalUsersRepoState)(equalTo(usersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == usersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updateContactNotFound = testM("should not update contact if contact not found") {
@@ -989,9 +972,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(contact)(isLeft(equalTo(ContactNotFound(ExampleUserId, ExampleContact.contactId)))) &&
-      assert(finalUsersRepoState)(equalTo(usersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == usersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updateContactAliasExists = testM("should not update contact if alias is already in use") {
@@ -1014,9 +997,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(contact)(isLeft(equalTo(ContactAliasAlreadyExists(ExampleUser.id, "newAlias", ExampleFuuid1)))) &&
-      assert(finalUsersRepoState)(equalTo(usersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == usersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updateUserData = testM("should update user data") {
@@ -1031,12 +1014,12 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(user)(equalTo(ExampleUser.copy(nickName = "Other name"))) &&
-      assert(finalUsersRepoState.users)(equalTo(Set(ExampleUser.copy(nickName = "Other name")))) &&
-      assert(finalUsersRepoState.auth)(equalTo(initUsersRepoState.auth)) &&
-      assert(finalUsersRepoState.tokens)(equalTo(initUsersRepoState.tokens)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+    } yield assertTrue(user == ExampleUser.copy(nickName = "Other name")) &&
+      assertTrue(finalUsersRepoState.users == Set(ExampleUser.copy(nickName = "Other name"))) &&
+      assertTrue(finalUsersRepoState.auth == initUsersRepoState.auth) &&
+      assertTrue(finalUsersRepoState.tokens == initUsersRepoState.tokens) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updateUserDataWithNoUpdates = testM("should not update user data if no updates provided") {
@@ -1053,9 +1036,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(NoUpdates("user", ExampleUserId, dto)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updateUserDataWithNickNameConflict = testM("should not update user data on nickname conflict") {
@@ -1072,9 +1055,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(NickNameAlreadyRegistered(ExampleUserNickName)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updateUserDataWithMissingUser = testM("should not update user data when user not found") {
@@ -1091,9 +1074,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(UserNotFound(ExampleUserId)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updatePassword = testM("should update user password") {
@@ -1131,20 +1114,18 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(finalUsersRepoState.users)(equalTo(initUsersRepoState.users)) &&
+    } yield assertTrue(finalUsersRepoState.users == initUsersRepoState.users) &&
       assert(finalUsersRepoState.auth)(
         hasSameElements(Set(UserAuth(ExampleUserId, "bcrypt(new-secret-password)", confirmed = true, enabled = true)))
       ) &&
-      assert(finalUsersRepoState.tokens)(equalTo(initUsersRepoState.tokens)) &&
+      assertTrue(finalUsersRepoState.tokens == initUsersRepoState.tokens) &&
       assert(finalUsersRepoState.keyPairs)(
         hasSameElements(Set(KeyPair(ExampleFuuid4, ExampleUserId, KeyAlgorithm.Rsa, ExamplePublicKey, ExamplePrivateKey)))
       ) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(
-        equalTo(
-          initialCollectionsRepoState.copy(collectionKeys =
-            Set(EncryptionKey(ExampleCollectionId, ExampleUserId, "updated-key", ExampleEncryptionKeyVersion))
-          )
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(
+        finalCollectionsState == initialCollectionsRepoState.copy(collectionKeys =
+          Set(EncryptionKey(ExampleCollectionId, ExampleUserId, "updated-key", ExampleEncryptionKeyVersion))
         )
       )
   }
@@ -1168,9 +1149,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(EmailNotFound(ExampleUserEmailDigest)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updatePasswordWithInvalidCredentials = testM("should not update user password if current password is invalid") {
@@ -1193,9 +1174,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(InvalidPassword(ExampleUserEmailDigest)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updatePasswordWithInvalidEmail = testM("should not update user password if email address does not match") {
@@ -1224,9 +1205,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(EmailDigestDoesNotMatch(ExampleUserId, "digest(other@example.org)", ExampleUserEmailDigest)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updatePasswordWithTheSameValue = testM("should not update user password if new password is equal previous one") {
@@ -1249,9 +1230,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(PasswordsEqual(ExampleUserId)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updatePasswordForInactiveUser = testM("should not update password is user is inactive") {
@@ -1274,9 +1255,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(UserIsNotActive(ExampleUserId)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updatePasswordForNonExistingUser = testM("should not update password if user not exists") {
@@ -1295,9 +1276,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(UserNotFound(ExampleUserId)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updatePasswordWithMissingEncryptionKey = testM("should not update user password if some encryption keys are missing") {
@@ -1331,9 +1312,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(SomeEncryptionKeysMissingInUpdate(ExampleUserId, Set(ExampleFuuid1))))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(initCollectionsRepoState))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == initCollectionsRepoState)
   }
 
   private val updatePasswordWithNotOwnedCollectionKey =
@@ -1377,7 +1358,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
           equalTo(AuthorizationError(OperationNotPermitted(SetEncryptionKey(Subject(ExampleUserId), ExampleFuuid1, ExampleUserId))))
         )
       ) &&
-        assert(sentMessages)(isEmpty)
+        assertTrue(sentMessages.isEmpty)
     }
 
   private val updatePasswordWithInvalidKeyVersion =
@@ -1419,7 +1400,7 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       } yield assert(result)(
         isLeft(equalTo(EncryptionKeyVersionMismatch(ExampleCollectionId, ExampleFuuid1, ExampleEncryptionKeyVersion)))
       ) &&
-        assert(sentMessages)(isEmpty)
+        assertTrue(sentMessages.isEmpty)
     }
 
   private val passwordResetRequest = testM("should generate reset password token") {
@@ -1438,14 +1419,16 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
       expectedToken = TemporaryToken("000102030405060708090A0B0C0D0E0F1011121314151617", ExampleUserId, TokenType.PasswordReset)
-    } yield assert(token)(equalTo(expectedToken)) &&
-      assert(finalUsersRepoState.users)(equalTo(initUsersRepoState.users)) &&
-      assert(finalUsersRepoState.auth)(equalTo(initUsersRepoState.auth)) &&
+    } yield assertTrue(token == expectedToken) &&
+      assertTrue(finalUsersRepoState.users == initUsersRepoState.users) &&
+      assertTrue(finalUsersRepoState.auth == initUsersRepoState.auth) &&
       assert(finalUsersRepoState.tokens)(hasSameElements(Set(expectedToken))) &&
-      assert(sentMessages)(
-        equalTo(List(InternalMessage.PasswordResetRequested(ExampleUser, ExampleUserEmail, expectedToken.token, Some(Context.Empty))))
+      assertTrue(
+        sentMessages == List(
+          InternalMessage.PasswordResetRequested(ExampleUser, ExampleUserEmail, expectedToken.token, Some(Context.Empty))
+        )
       ) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val passwordResetRequestForNonExistingEmail = testM("should not generate reset password token if email not exists") {
@@ -1462,9 +1445,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(EmailNotFound(ExampleUserEmailDigest)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val passwordResetRequestForInactiveUser = testM("should not generate reset password token if user is inactive") {
@@ -1484,9 +1467,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(UserIsNotActive(ExampleUserId)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val passwordResetWithToken = testM("should reset password") {
@@ -1516,16 +1499,16 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(finalUsersRepoState.users)(equalTo(initUsersRepoState.users)) &&
+    } yield assertTrue(finalUsersRepoState.users == initUsersRepoState.users) &&
       assert(finalUsersRepoState.auth)(
         hasSameElements(Set(UserAuth(ExampleUserId, "bcrypt(new-secret-password)", confirmed = true, enabled = true)))
       ) &&
-      assert(finalUsersRepoState.tokens)(isEmpty) &&
+      assertTrue(finalUsersRepoState.tokens.isEmpty) &&
       assert(finalUsersRepoState.keyPairs)(
         hasSameElements(Set(KeyPair(ExampleFuuid4, ExampleUserId, KeyAlgorithm.Rsa, ExamplePublicKey, ExamplePrivateKey)))
       ) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(initCollectionsRepoState.copy(collectionKeys = Set(collectionKey1, collectionKey4))))
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == initCollectionsRepoState.copy(collectionKeys = Set(collectionKey1, collectionKey4)))
   }
 
   private val passwordResetWithTokenForInactiveUser = testM("should not reset password if user is not active") {
@@ -1550,11 +1533,11 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(UserIsNotActive(ExampleUserId)))) &&
-      assert(finalUsersRepoState.users)(equalTo(initUsersRepoState.users)) &&
-      assert(finalUsersRepoState.auth)(equalTo(initUsersRepoState.auth)) &&
-      assert(finalUsersRepoState.tokens)(equalTo(initUsersRepoState.tokens)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState.users == initUsersRepoState.users) &&
+      assertTrue(finalUsersRepoState.auth == initUsersRepoState.auth) &&
+      assertTrue(finalUsersRepoState.tokens == initUsersRepoState.tokens) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val passwordResetWithTokenForInvalidEmail = testM("should not reset password if email address does not match") {
@@ -1579,11 +1562,11 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(EmailDigestDoesNotMatch(ExampleUserId, "digest(other@example.org)", ExampleUserEmailDigest)))) &&
-      assert(finalUsersRepoState.users)(equalTo(initUsersRepoState.users)) &&
-      assert(finalUsersRepoState.auth)(equalTo(initUsersRepoState.auth)) &&
-      assert(finalUsersRepoState.tokens)(equalTo(initUsersRepoState.tokens)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState.users == initUsersRepoState.users) &&
+      assertTrue(finalUsersRepoState.auth == initUsersRepoState.auth) &&
+      assertTrue(finalUsersRepoState.tokens == initUsersRepoState.tokens) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val createApiKey = testM("should create new API key") {
@@ -1611,10 +1594,10 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(key)(equalTo(expectedKey)) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState.copy(apiKeys = initUsersRepoState.apiKeys + expectedKey))) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+    } yield assertTrue(key == expectedKey) &&
+      assertTrue(finalUsersRepoState == initUsersRepoState.copy(apiKeys = initUsersRepoState.apiKeys + expectedKey)) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val getApiKeys = testM("should get API key") {
@@ -1633,9 +1616,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(keys)(hasSameElements(List(ExampleApiKey))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val deleteApiKey = testM("should delete API key") {
@@ -1651,9 +1634,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(finalUsersRepoState)(equalTo(initUsersRepoState.copy(apiKeys = Set.empty))) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+    } yield assertTrue(finalUsersRepoState == initUsersRepoState.copy(apiKeys = Set.empty)) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val deleteNonExistingApiKey = testM("should not delete API key if key not found") {
@@ -1671,9 +1654,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(ApiKeyNotFound(ExampleFuuid1)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val deleteApiKeyOwnedByAnotherUser = testM("should not delete API key which belongs to another user") {
@@ -1691,9 +1674,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(ApiKeyBelongsToAnotherUser(ExampleApiKeyId, ExampleUserId, ExampleFuuid3)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updateApiKey = testM("should update API key") {
@@ -1713,10 +1696,10 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(result)(equalTo(expectedKey)) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState.copy(apiKeys = Set(expectedKey)))) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+    } yield assertTrue(result == expectedKey) &&
+      assertTrue(finalUsersRepoState == initUsersRepoState.copy(apiKeys = Set(expectedKey))) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updateApiKeyWithEmptyUpdatesSet = testM("should not update API key if nothing has changed") {
@@ -1736,9 +1719,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(NoUpdates("API key", ExampleFuuid1, dto)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updateNonExistingApiKey = testM("should not update API key if key not found") {
@@ -1758,9 +1741,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(ApiKeyNotFound(ExampleFuuid3)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val updateApiKeyOwnedByAnotherUser = testM("should not update API key owned by another user") {
@@ -1780,9 +1763,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isLeft(equalTo(ApiKeyBelongsToAnotherUser(ExampleApiKeyId, ExampleUserId, ExampleFuuid3)))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val getKeyPair = testM("should get keypair for user") {
@@ -1792,14 +1775,16 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
       usersRepo             <- Ref.make(initUsersRepoState)
       collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
-      result                <- UsersService.getKeyPairOf(ExampleUserId).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      result                <- UsersService
+                                 .getKeyPairOfUserAs(ExampleUserId, ExampleUserId)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(result)(isSome(equalTo(ExampleKeyPair))) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+    } yield assertTrue(result.get == ExampleKeyPair) &&
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
   private val getKeyPairIfNotExists = testM("should try to get non existing keypair") {
@@ -1809,14 +1794,36 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
       usersRepo             <- Ref.make(initUsersRepoState)
       collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
-      result                <- UsersService.getKeyPairOf(ExampleUserId).provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      result                <- UsersService
+                                 .getKeyPairOfUserAs(ExampleUserId, ExampleUserId)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
     } yield assert(result)(isNone) &&
-      assert(finalUsersRepoState)(equalTo(initUsersRepoState)) &&
-      assert(sentMessages)(isEmpty) &&
-      assert(finalCollectionsState)(equalTo(CollectionsRepoFake.CollectionsRepoState()))
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
+  }
+
+  private val getKeyPairOfAnotherUser = testM("should not allow to get keypair of another user") {
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(keyPairs = Set(ExampleKeyPair))
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(initUsersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result                <- UsersService
+                                 .getKeyPairOfUserAs(ExampleUserId, ExampleFuuid1)
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+                                 .either
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(result)(isLeft(equalTo(AuthorizationError(OperationNotPermitted(GetKeyPair(Subject(ExampleUserId), UserId(ExampleFuuid1))))))) &&
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
   }
 
 }

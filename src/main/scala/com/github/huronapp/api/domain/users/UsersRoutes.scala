@@ -277,7 +277,10 @@ object UsersRoutes {
               .toAuthenticatedRoutes(auth.asUser)(user =>
                 _ =>
                   usersService
-                    .getKeyPairOf(user.userId)
+                    .getKeyPairOfUserAs(user.userId, user.userId)
+                    .flatMapError(error =>
+                      logger.warn(show"Unable to get keypair: ${error.logMessage}").as(UserErrorsMapping.getKeyPairError(error))
+                    )
                     .someOrFail(ErrorResponse.NotFound("Key pair not found"))
                     .map(_.transformInto[KeyPairDto])
               )

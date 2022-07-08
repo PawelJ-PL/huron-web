@@ -372,6 +372,7 @@ object UsersEndpoints extends BaseEndpoint {
       .errorOut(
         oneOf[ErrorResponse](
           unauthorized,
+          forbidden,
           oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("Keypair not found for user"))
         )
       )

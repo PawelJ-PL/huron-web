@@ -51,6 +51,9 @@ object AuthorizationKernel {
               else
                 validateCollectionPermission(subject, collectionId, Set(CollectionPermission.ManageCollection), operation)
 
+            case operation @ GetKeyPair(subject, keyPairOwner)                       =>
+              ZIO.cond(subject.userId === keyPairOwner.id, (), OperationNotPermitted(operation))
+
             case operation @ SetEncryptionKey(subject, collectionId, userId)         =>
               db.transactionOrDie(
                 for {
