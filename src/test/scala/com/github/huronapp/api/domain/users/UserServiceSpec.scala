@@ -136,7 +136,9 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       updateApiKeyOwnedByAnotherUser,
       getKeyPair,
       getKeyPairIfNotExists,
-      getKeyPairOfAnotherUser
+      getKeyPairOfAnotherUser,
+      getPublicKey,
+      getPublicKeyNotFound
     )
 
   private val keyPairDto = KeyPairDto(KeyAlgorithm.Rsa, PublicKey(ExamplePublicKey), PrivateKey(ExamplePrivateKey))
@@ -1820,7 +1822,47 @@ object UserServiceSpec extends DefaultRunnableSpec with Users with Config with M
       finalUsersRepoState   <- usersRepo.get
       sentMessages          <- internalTopic.get
       finalCollectionsState <- collectionsRepo.get
-    } yield assert(result)(isLeft(equalTo(AuthorizationError(OperationNotPermitted(GetKeyPair(Subject(ExampleUserId), UserId(ExampleFuuid1))))))) &&
+    } yield assert(result)(
+      isLeft(equalTo(AuthorizationError(OperationNotPermitted(GetKeyPair(Subject(ExampleUserId), UserId(ExampleFuuid1))))))
+    ) &&
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
+  }
+
+  private val getPublicKey = testM("should get public key of user") {
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(keyPairs = Set(ExampleKeyPair))
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(initUsersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result                <- UsersService
+                                 .getPublicKeyOf(UserId(ExampleUserId))
+                                 .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assertTrue(result.get == (ExampleKeyPair.algorithm, ExampleKeyPair.publicKey)) &&
+      assertTrue(finalUsersRepoState == initUsersRepoState) &&
+      assertTrue(sentMessages.isEmpty) &&
+      assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())
+  }
+
+  private val getPublicKeyNotFound = testM("should not get public key if not found") {
+    val initUsersRepoState = UsersRepoFake.UsersRepoState(keyPairs = Set())
+
+    for {
+      internalTopic         <- Ref.make[List[InternalMessage]](List.empty)
+      usersRepo             <- Ref.make(initUsersRepoState)
+      collectionsRepo       <- Ref.make(CollectionsRepoFake.CollectionsRepoState())
+      result                <- UsersService
+        .getPublicKeyOf(UserId(ExampleUserId))
+        .provideLayer(createUsersService(usersRepo, internalTopic, collectionsRepo))
+      finalUsersRepoState   <- usersRepo.get
+      sentMessages          <- internalTopic.get
+      finalCollectionsState <- collectionsRepo.get
+    } yield assert(result)(isNone) &&
       assertTrue(finalUsersRepoState == initUsersRepoState) &&
       assertTrue(sentMessages.isEmpty) &&
       assertTrue(finalCollectionsState == CollectionsRepoFake.CollectionsRepoState())

@@ -14,6 +14,7 @@ import com.github.huronapp.api.domain.users.dto.{
   PasswordResetReq,
   PatchContactReq,
   PatchUserDataReq,
+  PublicKeyResp,
   PublicUserContactResp,
   PublicUserDataResp,
   UpdateApiKeyDataReq,
@@ -377,6 +378,19 @@ object UsersEndpoints extends BaseEndpoint {
         )
       )
 
+  val getPublicKeyEndpoint: Endpoint[AuthenticationInputs, FUUID, ErrorResponse, PublicKeyResp, Any] = usersEndpoint
+    .summary("Get user's public key")
+    .get
+    .securityIn(authRequestParts)
+    .in(path[FUUID]("userId") / "public-key")
+    .out(jsonBody[PublicKeyResp])
+    .errorOut(
+      oneOf[ErrorResponse](
+        unauthorized,
+        oneOfVariant(StatusCode.NotFound, jsonBody[ErrorResponse.NotFound].description("User or public key not found"))
+      )
+    )
+
   private val contactConflictExample =
     Example(Responses.contactConflict, Responses.contactConflict.reason, Responses.contactConflict.reason)
 
@@ -472,6 +486,7 @@ object UsersEndpoints extends BaseEndpoint {
       deleteApiKeyEndpoint,
       updateApiKeyEndpoint,
       userKeypairEndpoint,
+      getPublicKeyEndpoint,
       createContactEndpoint,
       listContactsEndpoint,
       deleteContactEndpoint,

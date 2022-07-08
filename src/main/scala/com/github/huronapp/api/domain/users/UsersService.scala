@@ -107,6 +107,8 @@ object UsersService {
 
     def getKeyPairOfUserAs(requestorId: FUUID, keyOwner: FUUID): ZIO[Any, GetKeyPairError, Option[KeyPair]]
 
+    def getPublicKeyOf(userId: UserId): ZIO[Any, Nothing, Option[(KeyAlgorithm, String)]]
+
   }
 
   val live: ZLayer[Crypto with UsersRepository with doobie.Database.Database with RandomUtils with Has[Logger[String]] with Has[
@@ -423,6 +425,9 @@ object UsersService {
                 _       <- authKernel.authorizeOperation(GetKeyPair(Subject(requestorId), UserId(keyOwner))).mapError(AuthorizationError)
                 keyPair <- usersRepo.getKeyPairFor(keyOwner).orDie
               } yield keyPair)
+
+            override def getPublicKeyOf(userId: UserId): ZIO[Any, Nothing, Option[(KeyAlgorithm, String)]] =
+              db.transactionOrDie(usersRepo.getKeyPairFor(userId.id).orDie.map(_.map(keyPair => (keyPair.algorithm, keyPair.publicKey))))
 
           }
       )
