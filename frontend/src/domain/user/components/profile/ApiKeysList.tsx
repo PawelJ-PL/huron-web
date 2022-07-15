@@ -15,7 +15,7 @@ import formatDistanceToNowStrict from "date-fns/formatDistanceToNowStrict"
 import format from "date-fns/format"
 import isPast from "date-fns/isPast"
 import { dateLocaleForLang } from "../../../../application/localization/utils"
-import { BsTrash } from "react-icons/bs"
+import { FaTrashAlt } from "react-icons/fa"
 import { AppState } from "../../../../application/store"
 import { Dispatch } from "redux"
 import { ApiKeyUpdateData } from "../../api/UsersApi"
@@ -310,7 +310,7 @@ const DeleteField: React.FC<{ keyId: string; disabled: boolean; onClick: () => v
     return (
         <IconButton
             aria-label={ariaLabel}
-            icon={<BsTrash />}
+            icon={<FaTrashAlt />}
             variant="ghost"
             color="red.400"
             onClick={onClick}

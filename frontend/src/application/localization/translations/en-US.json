@@ -281,5 +281,37 @@
         "create-collection-button": "Create collection",
         "updating-details-overlay-text": "Updating collection details",
         "updating-details-failed-toast-message": "error while updating collection details"
+    },
+    "collection-manage-page": {
+        "collection-not-found-placeholder": "Collection not found",
+        "loading-collection-data": "Loading collection data",
+        "collection-action-buttons": {
+            "remove-collection": "Remove collection",
+            "leave-collection": "Leave collection",
+            "invite-member": "Invite member"
+        },
+        "collection-delete-confirmation": "Are you sure you want to delete collection {{collectionName}}?",
+        "collection-not-empty-error": "Collection is not empty",
+        "user-already-member": "The user is already a member of the collection",
+        "set-permissions": "Set permissions for collection {{collectionName}}",
+        "unable-to-add-member-key-locked": "Cannot add a member because the encryption key is locked",
+        "leave-collection-confirmation": {
+            "title": "Are you sure you want to leave the {{collectionName}} collection?",
+            "content": "An invitation will be required to access it again."
+        },
+        "members": "Members",
+        "member-actions": {
+            "edit-permissions": "Edit permissions",
+            "remove-member": "Remove member"
+        },
+        "remove-member-confirmation": "Are you sure to remove a collection member?",
+        "go-to-collection": "Go to collection"
+    },
+    "collection-permission": {
+        "manage-collection": "Collection management",
+        "create-file": "Create file",
+        "modify-file": "Edit file",
+        "read-file": "Read file content",
+        "read-file-metadata": "Read file metadata"
     }
 }

@@ -1,9 +1,12 @@
 import { fetchAndDecryptKeyPairAction, localLogoutAction } from "./../../user/store/Actions"
 import {
     exampleEncryptedKeypair,
+    exampleHashedEmail,
     exampleMasterKey,
     examplePrivateKey,
     examplePublicKey,
+    exampleUserId,
+    exampleUserNickname,
 } from "./../../../testutils/constants/user"
 import { AppState } from "../../../application/store"
 import { runAsyncEpic, verifyEpic } from "../../../testutils/epicsUtils"
@@ -16,6 +19,7 @@ import {
     changeInvitationAcceptanceAction,
     createCollectionAction,
     fetchAndDecryptCollectionKeyAction,
+    listMyPermissionsToCollectionActions,
     removePreferredCollectionIdAction,
     setActiveCollectionAction,
 } from "./Actions"
@@ -197,5 +201,62 @@ describe("Collections epics", () => {
         expect(result).toStrictEqual(expectedAction)
         expect(cancelInvitationSpy).toHaveBeenCalledTimes(1)
         expect(cancelInvitationSpy).toHaveBeenCalledWith(exampleCollectionId)
+    })
+
+    it("should trigger fetching current users permissions", async () => {
+        const getPermissionsSpy = jest
+            .spyOn(CollectionsApi, "getMemberPermissions")
+            .mockResolvedValue(["CreateFile", "ReadFile"])
+        const state: AppState = {
+            users: {
+                userData: {
+                    status: "FINISHED",
+                    params: exampleUserId,
+                    data: {
+                        id: exampleUserId,
+                        nickName: exampleUserNickname,
+                        emailHash: exampleHashedEmail,
+                        language: "pl",
+                    },
+                },
+            },
+        } as unknown as AppState
+        const trigger = listMyPermissionsToCollectionActions.started(exampleCollectionId)
+
+        const result = await runAsyncEpic(trigger, collectionsEpics, state)
+        expect(result).toStrictEqual(
+            listMyPermissionsToCollectionActions.done({
+                params: exampleCollectionId,
+                result: ["CreateFile", "ReadFile"],
+            })
+        )
+        expect(getPermissionsSpy).toHaveBeenCalledTimes(1)
+        expect(getPermissionsSpy).toHaveBeenCalledWith(exampleCollectionId, exampleUserId)
+        getPermissionsSpy.mockRestore()
+    })
+
+    it("should return error if user not already fetched", async () => {
+        const getPermissionsSpy = jest
+            .spyOn(CollectionsApi, "getMemberPermissions")
+            .mockResolvedValue(["CreateFile", "ReadFile"])
+        const state = {
+            users: {
+                userData: {
+                    status: "PENDING",
+                    params: exampleUserId,
+                },
+            },
+        } as unknown as AppState
+        const trigger = listMyPermissionsToCollectionActions.started(exampleCollectionId)
+
+        const result = await runAsyncEpic(trigger, collectionsEpics, state)
+        expect(result).toStrictEqual(
+            listMyPermissionsToCollectionActions.failed({
+                params: exampleCollectionId,
+                error: new Error("User data not loaded yet"),
+            })
+        )
+        expect(getPermissionsSpy).not.toHaveBeenCalled()
+        getPermissionsSpy.mockRestore()
     })
 })

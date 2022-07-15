@@ -29,6 +29,7 @@ type Props = {
     isOpen: boolean
     onClose: () => void
     onSelect: (user: UserPublicData) => void
+    excludeContacts: boolean
 } & Pick<WithTranslation, "t"> &
     ReturnType<typeof mapStateToProps> &
     ReturnType<typeof mapDispatchToProps>
@@ -41,6 +42,7 @@ export const FindUserModal: React.FC<Props> = ({
     resetFindResult,
     matchingUsers,
     onSelect,
+    excludeContacts,
 }) => {
     const initialFocusRef = React.useRef<HTMLInputElement | null>(null)
 
@@ -54,7 +56,11 @@ export const FindUserModal: React.FC<Props> = ({
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const delayedFetchOrReset = useCallback(
-        debounce((value: string) => (value.trim().length >= 5 ? findUsers(value.trim()) : resetFindResult()), 500),
+        debounce(
+            (value: string) =>
+                value.trim().length >= 5 ? findUsers(value.trim(), excludeContacts) : resetFindResult(),
+            500
+        ),
         [findUsers, resetFindResult]
     )
 
@@ -110,8 +116,8 @@ const mapStateToProps = (state: AppState) => ({
 })
 
 const mapDispatchToProps = (dispatch: Dispatch) => ({
-    findUsers: (nickNameStart: string) =>
-        dispatch(findUsersAction.started({ nickNameStart, includeSelf: false, excludeContacts: true })),
+    findUsers: (nickNameStart: string, excludeContacts: boolean) =>
+        dispatch(findUsersAction.started({ nickNameStart, includeSelf: false, excludeContacts })),
     resetFindResult: () => dispatch(resetFindUsersResultAction()),
 })
 
